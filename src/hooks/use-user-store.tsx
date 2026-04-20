@@ -1,7 +1,16 @@
-
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useSession, signIn, signOut } from 'next-auth/react';
+import {
+  getUsers,
+  updateUser as updateUserAction,
+  registerUser,
+  type SerializedUser,
+} from '@/app/actions';
+
+// Legacy-compatible User type (role is lowercase for existing callers)
+export type UserRole = 'admin' | 'doctor' | 'patient';
 
 export type User = {
   id: string;
@@ -10,111 +19,138 @@ export type User = {
   avatar: string;
   specialty: string;
   medicalRecords?: string;
-  role: 'admin' | 'doctor' | 'patient';
+  role: UserRole;
   password?: string;
   patientIds?: string[];
+  fullName?: string | null;
+  region?: string | null;
+  age?: number | null;
+  phoneNumber?: string | null;
+  profilePhotoUrl?: string | null;
+  consentAcceptedAt?: string | null;
+  solvedCaseIds?: string[];
+  unsolvedCaseIds?: string[];
 };
 
-// In a real app, this would come from a database.
-const initialUsers: User[] = [
-  { id: 'admin-001', name: 'Admin', email: 'admin@simupatient.com', avatar: 'https://i.pravatar.cc/150?u=admin', specialty: 'System Administration', role: 'admin', password: 'password123' },
-  { id: 'doc-001', name: 'Dr. Evelyn Reed', email: 'e.reed@med.edu', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026704d', specialty: 'Cardiology', role: 'doctor', password: 'password123', patientIds: ['pat-001'] },
-  { id: 'doc-002', name: 'Dr. Kenji Tanaka', email: 'k.tanaka@med.edu', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026705d', specialty: 'Neurology', role: 'doctor', password: 'password123', patientIds: [] },
-  { id: 'doc-003', name: 'Dr. Aisha Khan', email: 'a.khan@med.edu', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026706d', specialty: 'Pediatrics', role: 'doctor', password: 'password123', patientIds: [] },
-  { id: 'pat-001', name: 'John Smith (Patient)', email: 'j.smith@email.com', avatar: 'https://i.pravatar.cc/150?u=a042581f4e29026707d', specialty: 'N/A', medicalRecords: 'Uploaded by patient: History of hypertension, hyperlipidemia, and a 30-pack-year smoking history.', role: 'patient', password: 'password123' },
-];
-
+function serializedToUser(s: SerializedUser): User {
+  return {
+    id: s.id,
+    name: s.name,
+    email: s.email,
+    avatar: s.avatar ?? '',
+    specialty: s.specialty ?? '',
+    medicalRecords: s.medicalRecords ?? undefined,
+    role: s.role.toLowerCase() as UserRole,
+    patientIds: s.patientIds,
+    fullName: s.fullName,
+    region: s.region,
+    age: s.age,
+    phoneNumber: s.phoneNumber,
+    profilePhotoUrl: s.profilePhotoUrl,
+    consentAcceptedAt: s.consentAcceptedAt,
+    solvedCaseIds: s.solvedCaseIds,
+    unsolvedCaseIds: s.unsolvedCaseIds,
+  };
+}
 
 type UserStore = {
   currentUser: User | null;
-  setCurrentUser: (userId: string) => void;
-  updateUser: (updatedUser: User) => void;
-  logout: () => void;
+  updateUser: (user: User) => Promise<void>;
+  logout: () => Promise<void>;
   allUsers: User[];
-  addUser: (user: User) => void;
+  addUser: (user: User & { password?: string }) => Promise<void>;
+  refreshUsers: () => Promise<void>;
   isInitialized: boolean;
 };
 
 const UserContext = createContext<UserStore | null>(null);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUserState] = useState<User | null>(null);
-  const [allUsers, setAllUsersState] = useState<User[]>([]);
-  const [isInitialized, setIsInitialized] = useState(false);
-  
-  // Initialize state from localStorage
-  useEffect(() => {
-    try {
-        const storedUsers = localStorage.getItem('allUsers');
-        let users;
-        if (storedUsers) {
-            users = JSON.parse(storedUsers);
-        } else {
-            // If nothing in storage, initialize with default data
-            users = initialUsers;
-            localStorage.setItem('allUsers', JSON.stringify(users));
-        }
-        setAllUsersState(users);
-        
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            const user: User = JSON.parse(storedUser);
-            // Ensure the user from localStorage exists in our canonical list
-            const fullUser = users.find((u:User) => u.id === user.id)
-            if (fullUser) {
-                 setCurrentUserState(fullUser);
-            }
-        }
-    } catch (error) {
-        console.error("Failed to initialize user state from localStorage", error);
-        setAllUsersState(initialUsers); // Reset on error
-    } finally {
-        setIsInitialized(true);
+  const { data: session, status } = useSession();
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [isUsersLoaded, setIsUsersLoaded] = useState(false);
+
+  const refreshUsers = useCallback(async () => {
+    const res = await getUsers();
+    if (res.success) {
+      setAllUsers(res.data.map(serializedToUser));
     }
+    setIsUsersLoaded(true);
   }, []);
 
-  // Persist allUsers to localStorage whenever it changes
   useEffect(() => {
-    if (isInitialized) {
-      localStorage.setItem('allUsers', JSON.stringify(allUsers));
+    if (status === 'authenticated') {
+      void refreshUsers();
+    } else if (status === 'unauthenticated') {
+      setAllUsers([]);
+      setIsUsersLoaded(true);
     }
-  }, [allUsers, isInitialized]);
+  }, [status, refreshUsers]);
 
+  const currentUser = useMemo<User | null>(() => {
+    if (!session?.user?.id) return null;
+    const found = allUsers.find((u) => u.id === session.user.id);
+    if (found) return found;
+    return {
+      id: session.user.id,
+      name: session.user.name ?? '',
+      email: session.user.email ?? '',
+      avatar: session.user.image ?? '',
+      specialty: '',
+      role: (session.user.role?.toLowerCase() as UserRole) ?? 'doctor',
+    };
+  }, [session, allUsers]);
 
-  const setCurrentUser = useCallback((userId: string) => {
-    const user = allUsers.find(u => u.id === userId);
-    if (user) {
-      setCurrentUserState(user);
-      localStorage.setItem('user', JSON.stringify(user));
-    } else {
-        console.error(`User with ID ${userId} not found.`);
-        logout();
-    }
-  }, [allUsers]);
-  
-  const addUser = (user: User) => {
-      setAllUsersState(prev => [...prev, user]);
-  }
+  const addUser = useCallback(
+    async (user: User & { password?: string }) => {
+      const res = await registerUser({
+        email: user.email,
+        password: user.password ?? 'changeme123',
+        name: user.name,
+        fullName: user.fullName ?? undefined,
+        region: user.region ?? undefined,
+        age: user.age ?? undefined,
+        specialty: user.specialty || undefined,
+        phoneNumber: user.phoneNumber ?? undefined,
+        role: user.role.toUpperCase() as 'ADMIN' | 'DOCTOR' | 'PATIENT',
+      });
+      if (!res.success) throw new Error(res.error);
+      await refreshUsers();
+    },
+    [refreshUsers]
+  );
 
-  const updateUser = (updatedUser: User) => {
-    setAllUsersState(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-    if (currentUser?.id === updatedUser.id) {
-        setCurrentUserState(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-    }
-  }
+  const updateUser = useCallback(
+    async (user: User) => {
+      const res = await updateUserAction({
+        id: user.id,
+        name: user.name,
+        fullName: user.fullName ?? null,
+        region: user.region ?? null,
+        age: user.age ?? null,
+        specialty: user.specialty || null,
+        phoneNumber: user.phoneNumber ?? null,
+        avatar: user.avatar || null,
+        profilePhotoUrl: user.profilePhotoUrl ?? null,
+        medicalRecords: user.medicalRecords ?? null,
+        patientIds: user.patientIds ?? undefined,
+      });
+      if (!res.success) throw new Error(res.error);
+      await refreshUsers();
+    },
+    [refreshUsers]
+  );
 
-  const logout = () => {
-    // Also clear active patient for the user that is logging out.
-    if(currentUser){
-        localStorage.removeItem(`activePatient_${currentUser.id}`);
-    }
-    setCurrentUserState(null);
-    localStorage.removeItem('user');
-  };
-  
+  const logout = useCallback(async () => {
+    await signOut({ redirect: false });
+  }, []);
+
+  const isInitialized = status !== 'loading' && (status === 'unauthenticated' || isUsersLoaded);
+
   return (
-    <UserContext.Provider value={{ currentUser, setCurrentUser, logout, allUsers, addUser, updateUser, isInitialized }}>
+    <UserContext.Provider
+      value={{ currentUser, updateUser, logout, allUsers, addUser, refreshUsers, isInitialized }}
+    >
       {children}
     </UserContext.Provider>
   );
@@ -126,4 +162,15 @@ export function useUserStore() {
     throw new Error('useUserStore must be used within a UserProvider');
   }
   return context;
+}
+
+export async function signInWithCredentials(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  const res = await signIn('credentials', {
+    email,
+    password,
+    redirect: false,
+  });
+  if (!res) return { ok: false, error: 'Ошибка сети.' };
+  if (res.error) return { ok: false, error: 'Неверные учётные данные.' };
+  return { ok: true };
 }

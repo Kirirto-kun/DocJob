@@ -2,7 +2,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { usePatientStore } from '@/hooks/use-patient-store.tsx';
+import { usePatientStore } from '@/hooks/use-patient-store';
 import { Button } from './ui/button';
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Stethoscope, User, Calendar, Activity } from 'lucide-react';

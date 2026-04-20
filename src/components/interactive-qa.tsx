@@ -52,7 +52,7 @@ export default function InteractiveQA({ patientHistory, currentVitals }: Interac
 
     setIsLoading(false);
 
-    if (response.success && response.data) {
+    if (response.success) {
       const assistantMessage: Message = { role: 'assistant', content: response.data.suggestedResponse };
       setMessages(prev => [...prev, assistantMessage]);
     } else {

@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import type { GeneratePersonalizedScenarioOutput } from '@/ai/flows/generate-personalized-scenario';
 import type { PatientDiagnosisOutput } from '@/ai/schemas/patient-diagnosis';
-import type { User } from '@/hooks/use-user-store.tsx';
+import type { User } from '@/hooks/use-user-store';
 import { handleDiagnosePatient } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,7 +38,7 @@ export default function DiagnosisReport({ doctor, patientRecords, scenario }: Di
     });
     setIsLoading(false);
 
-    if (result.success && result.data) {
+    if (result.success) {
       setDiagnosis(result.data);
       toast({
         title: 'Diagnosis Complete',

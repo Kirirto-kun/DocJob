@@ -17,8 +17,8 @@ import { handleGenerateScenario, handleSimulateComorbidities, handleFileUpload }
 import { Loader2, PlusCircle, BrainCircuit, HeartPulse, Baby, Upload, UserPlus, ListOrdered } from 'lucide-react';
 import type { GeneratePersonalizedScenarioOutput } from '@/ai/flows/generate-personalized-scenario';
 import UserSwitcher from './user-switcher';
-import { useUserStore } from '@/hooks/use-user-store.tsx';
-import { usePatientStore } from '@/hooks/use-patient-store.tsx';
+import { useUserStore } from '@/hooks/use-user-store';
+import { usePatientStore } from '@/hooks/use-patient-store';
 import { Separator } from './ui/separator';
 
 const scenarioSchema = z.object({
@@ -94,15 +94,22 @@ export default function ScenarioControls({ onScenarioGenerated }: ScenarioContro
     });
     setScenarioLoading(false);
 
-    if (result.success && result.data) {
+    if (result.success) {
       toast({ title: 'New Scenario Generated', description: `Scenario updated for ${activePatient.name}.` });
-      updatePatient({ ...activePatient, scenario: result.data });
+      updatePatient({
+        ...activePatient,
+        scenario: {
+          scenarioDescription: result.data.scenarioDescription,
+          learningObjectives: result.data.learningObjectives,
+          comorbidities: result.data.comorbidities ?? '',
+        },
+      });
       onScenarioGenerated(result.data);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.error });
     }
   };
-  
+
   const handleFileSelect = () => {
     fileInputRef.current?.click();
   };
@@ -118,7 +125,7 @@ export default function ScenarioControls({ onScenarioGenerated }: ScenarioContro
     const result = await handleFileUpload(formData);
     setIsUploading(false);
 
-    if (result.success && result.data) {
+    if (result.success) {
       toast({ title: 'File Uploaded', description: `${file.name} has been processed.` });
       const recordHeader = `--- UPLOADED BY PATIENT (${new Date().toLocaleDateString()}) ---\n`;
       const newRecords = recordHeader + result.data.recordContent;
@@ -134,7 +141,7 @@ export default function ScenarioControls({ onScenarioGenerated }: ScenarioContro
     const result = await handleSimulateComorbidities(data);
     setComorbidityLoading(false);
 
-    if (result.success && result.data) {
+    if (result.success) {
         setComorbidityResult({ present: result.data.presentComorbidities, reasoning: result.data.comorbiditiesReasoning});
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.error });

@@ -1,7 +1,7 @@
 
-import type { Patient } from "@/hooks/use-patient-store.tsx";
-import type { User } from "@/hooks/use-user-store.tsx";
-import { useUserStore } from "@/hooks/use-user-store.tsx";
+import type { Patient } from "@/hooks/use-patient-store";
+import type { User } from "@/hooks/use-user-store";
+import { useUserStore } from "@/hooks/use-user-store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { User as UserIcon, Calendar, Stethoscope, FileText, Activity } from "lucide-react";
 import DiagnosisReport from "./diagnosis-report";

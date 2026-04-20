@@ -11,8 +11,8 @@ import InteractiveQA from '@/components/interactive-qa';
 import ScenarioControls from '@/components/scenario-controls';
 import { Card, CardDescription, CardTitle, CardFooter, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useUserStore } from '@/hooks/use-user-store.tsx';
-import { usePatientStore } from '@/hooks/use-patient-store.tsx';
+import { useUserStore } from '@/hooks/use-user-store';
+import { usePatientStore } from '@/hooks/use-patient-store';
 import type { Vitals } from '@/components/vitals-monitor';
 
 export default function Home() {

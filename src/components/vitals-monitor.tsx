@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, memo } from 'react';
-import type { Patient } from '@/hooks/use-patient-store.tsx';
+import type { Patient } from '@/hooks/use-patient-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { HeartPulse, Gauge, Wind, Waves } from 'lucide-react';
 import { cn } from '@/lib/utils';
