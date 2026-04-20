@@ -13,7 +13,6 @@ import { generatePersonalizedScenario, GeneratePersonalizedScenarioInput } from 
 import { simulateComorbidities, SimulateComorbiditiesInput } from '@/ai/flows/simulate-comorbidities';
 import { diagnosePatient } from '@/ai/flows/patient-diagnosis-flow';
 import type { PatientDiagnosisInput } from '@/ai/schemas/patient-diagnosis';
-import { savePatientRecord } from '@/services/patient-record';
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -57,11 +56,14 @@ export async function handleSimulateComorbidities(input: SimulateComorbiditiesIn
   }
 }
 
+// Accepts a text-ish patient-report upload and returns its content to the
+// caller. No persistent storage yet — the record is echoed back and merged
+// into the user's `medicalRecords` field by the UI that called us.
 export async function handleFileUpload(formData: FormData) {
   try {
     const file = formData.get('file') as File;
     if (!file) return fail('Файл не выбран.');
-    const content = await savePatientRecord(file);
+    const content = await file.text();
     return ok({ recordContent: content });
   } catch (error) {
     console.error('Error handling file upload:', error);
