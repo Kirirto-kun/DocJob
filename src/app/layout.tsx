@@ -5,8 +5,8 @@ import { AppProviders } from '@/components/app-providers';
 import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
-  title: 'Medizo AI - Patient Simulator',
-  description: 'AI-powered patient simulator for advanced medical training.',
+  title: 'Medizo AI — Платформа учебных кейсов',
+  description: 'Обучающая платформа с клиническими кейсами, чат-ботом и разбором врачебных ситуаций.',
 };
 
 export default function RootLayout({

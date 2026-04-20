@@ -6,9 +6,8 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/dashboard-layout';
 import ScenarioControls from '@/components/scenario-controls';
 import { useUserStore } from '@/hooks/use-user-store';
-import { Loader2, UserPlus, PlusCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import PatientList from '@/components/patient-list';
 import { useToast } from '@/hooks/use-toast';
 
@@ -25,8 +24,8 @@ export default function ManagePatientsPage() {
         } else if (currentUser.role !== 'doctor') {
             toast({
                 variant: 'destructive',
-                title: 'Unauthorized',
-                description: 'You do not have permission to manage patients.',
+                title: 'Доступ запрещён',
+                description: 'У вас нет прав для управления кейсами.',
             });
             router.push('/');
         }
@@ -49,17 +48,13 @@ export default function ManagePatientsPage() {
     >
       <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6">
         <header className="flex items-center justify-between">
-          <h1 className="text-2xl md:text-3xl font-bold text-primary font-headline">Manage Patients</h1>
-           <Button onClick={() => router.push('/add-patient')}>
-             <PlusCircle className="mr-2 h-4 w-4" />
-            Add New Patient
-          </Button>
+          <h1 className="text-2xl md:text-3xl font-bold text-primary font-headline">Мои кейсы</h1>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle>Dr. {currentUser.name}'s Patient Roster</CardTitle>
-            <CardDescription>Select a patient to begin a simulation or manage their records.</CardDescription>
+            <CardTitle>Мои кейсы: {currentUser.name}</CardTitle>
+            <CardDescription>Выберите кейс для начала диалога или управления записями.</CardDescription>
           </CardHeader>
           <CardContent>
             <PatientList doctorId={currentUser.id} />
