@@ -6,6 +6,8 @@ import { Prisma, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser, requireUser, requireAdmin } from '@/lib/session';
+import { AuthzError, assertCanMutateCase } from '@/lib/authz';
+import { deleteImage, imageExists } from '@/lib/storage';
 import { analyzeStudentQuestion, AnalyzeStudentQuestionInput } from '@/ai/flows/analyze-student-question';
 import { generatePersonalizedScenario, GeneratePersonalizedScenarioInput } from '@/ai/flows/generate-personalized-scenario';
 import { simulateComorbidities, SimulateComorbiditiesInput } from '@/ai/flows/simulate-comorbidities';
@@ -231,6 +233,19 @@ const caseInputSchema = z.object({
 
 export type CaseInput = z.infer<typeof caseInputSchema>;
 
+// Verifies every requested filename was actually uploaded to UPLOAD_DIR.
+// Rejects unknown names rather than silently persisting broken references.
+async function verifyImageFilenames(
+  filenames: Array<{ filename: string; mimeType: string }> | undefined
+): Promise<{ ok: true } | { ok: false; missing: string[] }> {
+  if (!filenames || filenames.length === 0) return { ok: true };
+  const missing: string[] = [];
+  for (const img of filenames) {
+    if (!(await imageExists(img.filename))) missing.push(img.filename);
+  }
+  return missing.length === 0 ? { ok: true } : { ok: false, missing };
+}
+
 export async function createCase(input: CaseInput): Promise<ActionResult<SerializedCase>> {
   let author;
   try {
@@ -242,6 +257,9 @@ export async function createCase(input: CaseInput): Promise<ActionResult<Seriali
   const parsed = caseInputSchema.safeParse(input);
   if (!parsed.success) return fail('Проверьте правильность заполнения формы кейса.');
   const data = parsed.data;
+
+  const check = await verifyImageFilenames(data.imageFilenames);
+  if (!check.ok) return fail(`Изображения не найдены на сервере: ${check.missing.join(', ')}`);
 
   const created = await prisma.case.create({
     data: {
@@ -278,8 +296,9 @@ export async function createCase(input: CaseInput): Promise<ActionResult<Seriali
 const updateCaseSchema = caseInputSchema.partial().extend({ id: z.string() });
 
 export async function updateCase(input: z.infer<typeof updateCaseSchema>): Promise<ActionResult<SerializedCase>> {
+  let user;
   try {
-    await requireUser();
+    user = await requireUser();
   } catch {
     return fail('Требуется авторизация.');
   }
@@ -287,6 +306,23 @@ export async function updateCase(input: z.infer<typeof updateCaseSchema>): Promi
   const parsed = updateCaseSchema.safeParse(input);
   if (!parsed.success) return fail('Некорректные данные кейса.');
   const { id, imageFilenames, imageIds: _discard, ...rest } = parsed.data;
+
+  // Ownership: only the case's author or an admin can update.
+  const existing = await prisma.case.findUnique({
+    where: { id },
+    select: { authorId: true, images: { select: { filename: true } } },
+  });
+  if (!existing) return fail('Кейс не найден.');
+  try {
+    assertCanMutateCase(user, existing);
+  } catch (e) {
+    if (e instanceof AuthzError) return fail(e.message);
+    throw e;
+  }
+
+  // Verify any incoming image filenames exist on disk.
+  const check = await verifyImageFilenames(imageFilenames);
+  if (!check.ok) return fail(`Изображения не найдены на сервере: ${check.missing.join(', ')}`);
 
   const updated = await prisma.case.update({
     where: { id },
@@ -308,6 +344,17 @@ export async function updateCase(input: z.infer<typeof updateCaseSchema>): Promi
     include: { images: true },
   });
 
+  // If images were replaced, remove the old files from disk to keep
+  // UPLOAD_DIR from accumulating orphans.
+  if (imageFilenames) {
+    const kept = new Set(imageFilenames.map((i) => i.filename));
+    await Promise.all(
+      existing.images
+        .filter((i) => !kept.has(i.filename))
+        .map((i) => deleteImage(i.filename))
+    );
+  }
+
   revalidatePath('/');
   return ok(serializeCase(updated));
 }
@@ -318,7 +365,16 @@ export async function deleteCase(id: string): Promise<ActionResult<{ id: string 
   } catch {
     return fail('Удалять кейсы может только администратор.');
   }
+  // Load image filenames first — Case.delete cascades CaseImage rows, but
+  // the files on disk would otherwise linger.
+  const existing = await prisma.case.findUnique({
+    where: { id },
+    select: { images: { select: { filename: true } } },
+  });
   await prisma.case.delete({ where: { id } });
+  if (existing) {
+    await Promise.all(existing.images.map((i) => deleteImage(i.filename)));
+  }
   revalidatePath('/');
   return ok({ id });
 }

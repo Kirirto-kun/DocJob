@@ -47,6 +47,16 @@ export function getImageAbsolutePath(filename: string): string {
   return path.join(UPLOAD_DIR, sanitized);
 }
 
+export async function imageExists(filename: string): Promise<boolean> {
+  try {
+    const fullPath = getImageAbsolutePath(filename);
+    await fs.access(fullPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function readImage(filename: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
   try {
     const fullPath = getImageAbsolutePath(filename);
