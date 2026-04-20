@@ -67,6 +67,8 @@ export async function handleFileUpload(formData: FormData) {
 
 // ───────────────────────── Auth / users
 
+// Public self-registration. Role is hard-coded to DOCTOR — public callers
+// cannot escalate to ADMIN even by crafting a direct POST.
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
@@ -77,14 +79,12 @@ const registerSchema = z.object({
   specialty: z.string().optional(),
   phoneNumber: z.string().optional(),
   consentAccepted: z.boolean().optional(),
-  role: z.enum(['ADMIN', 'DOCTOR', 'PATIENT']).optional(),
 });
 
-export async function registerUser(input: z.infer<typeof registerSchema>): Promise<ActionResult<{ id: string }>> {
-  const parsed = registerSchema.safeParse(input);
-  if (!parsed.success) return fail('Проверьте правильность заполнения формы.');
-  const data = parsed.data;
-
+async function createUserInternal(
+  data: z.infer<typeof registerSchema>,
+  role: Role
+): Promise<ActionResult<{ id: string }>> {
   const existing = await prisma.user.findUnique({ where: { email: data.email.toLowerCase() } });
   if (existing) return fail('Пользователь с такой почтой уже существует.');
 
@@ -100,13 +100,38 @@ export async function registerUser(input: z.infer<typeof registerSchema>): Promi
       age: data.age,
       specialty: data.specialty,
       phoneNumber: data.phoneNumber,
-      role: (data.role as Role) ?? 'DOCTOR',
+      role,
       consentAcceptedAt: data.consentAccepted ? new Date() : null,
       avatar: `https://i.pravatar.cc/150?u=${encodeURIComponent(data.email.toLowerCase())}`,
     },
     select: { id: true },
   });
   return ok({ id: created.id });
+}
+
+export async function registerUser(input: z.infer<typeof registerSchema>): Promise<ActionResult<{ id: string }>> {
+  const parsed = registerSchema.safeParse(input);
+  if (!parsed.success) return fail('Проверьте правильность заполнения формы.');
+  return createUserInternal(parsed.data, 'DOCTOR');
+}
+
+// Admin-only: used by /add-doctor and any future admin-driven user provisioning.
+const createUserByAdminSchema = registerSchema.extend({
+  role: z.enum(['ADMIN', 'DOCTOR', 'PATIENT']).default('DOCTOR'),
+});
+
+export async function createUserByAdmin(
+  input: z.infer<typeof createUserByAdminSchema>
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    await requireAdmin();
+  } catch {
+    return fail('Создавать пользователей может только администратор.');
+  }
+  const parsed = createUserByAdminSchema.safeParse(input);
+  if (!parsed.success) return fail('Проверьте правильность заполнения формы.');
+  const { role, ...rest } = parsed.data;
+  return createUserInternal(rest, role);
 }
 
 const updateUserSchema = z.object({

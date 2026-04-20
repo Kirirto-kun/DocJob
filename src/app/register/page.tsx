@@ -117,7 +117,6 @@ export default function RegisterPage() {
         specialty: data.specialty,
         phoneNumber: data.phoneNumber,
         consentAccepted: data.consentAccepted,
-        role: 'DOCTOR',
       });
 
       if (!result.success) {

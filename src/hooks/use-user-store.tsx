@@ -5,7 +5,7 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 import {
   getUsers,
   updateUser as updateUserAction,
-  registerUser,
+  createUserByAdmin,
   type SerializedUser,
 } from '@/app/actions';
 
@@ -103,7 +103,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const addUser = useCallback(
     async (user: User & { password?: string }) => {
-      const res = await registerUser({
+      const res = await createUserByAdmin({
         email: user.email,
         password: user.password ?? 'changeme123',
         name: user.name,
