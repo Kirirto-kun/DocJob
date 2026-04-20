@@ -6,10 +6,13 @@ import { Prisma, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser, requireUser, requireAdmin } from '@/lib/session';
+import { AuthzError, assertCanMutateCase } from '@/lib/authz';
+import { deleteImage, imageExists } from '@/lib/storage';
 import { analyzeStudentQuestion, AnalyzeStudentQuestionInput } from '@/ai/flows/analyze-student-question';
 import { generatePersonalizedScenario, GeneratePersonalizedScenarioInput } from '@/ai/flows/generate-personalized-scenario';
 import { simulateComorbidities, SimulateComorbiditiesInput } from '@/ai/flows/simulate-comorbidities';
-import { savePatientRecord } from '@/services/patient-record';
+import { diagnosePatient } from '@/ai/flows/patient-diagnosis-flow';
+import type { PatientDiagnosisInput } from '@/ai/schemas/patient-diagnosis';
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -53,11 +56,14 @@ export async function handleSimulateComorbidities(input: SimulateComorbiditiesIn
   }
 }
 
+// Accepts a text-ish patient-report upload and returns its content to the
+// caller. No persistent storage yet — the record is echoed back and merged
+// into the user's `medicalRecords` field by the UI that called us.
 export async function handleFileUpload(formData: FormData) {
   try {
     const file = formData.get('file') as File;
     if (!file) return fail('Файл не выбран.');
-    const content = await savePatientRecord(file);
+    const content = await file.text();
     return ok({ recordContent: content });
   } catch (error) {
     console.error('Error handling file upload:', error);
@@ -65,8 +71,20 @@ export async function handleFileUpload(formData: FormData) {
   }
 }
 
+export async function handleDiagnosePatient(input: PatientDiagnosisInput) {
+  try {
+    const result = await diagnosePatient(input);
+    return ok(result);
+  } catch (error) {
+    console.error('Error diagnosing patient:', error);
+    return fail('Не удалось получить разбор кейса от ИИ.');
+  }
+}
+
 // ───────────────────────── Auth / users
 
+// Public self-registration. Role is hard-coded to DOCTOR — public callers
+// cannot escalate to ADMIN even by crafting a direct POST.
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
@@ -77,14 +95,12 @@ const registerSchema = z.object({
   specialty: z.string().optional(),
   phoneNumber: z.string().optional(),
   consentAccepted: z.boolean().optional(),
-  role: z.enum(['ADMIN', 'DOCTOR', 'PATIENT']).optional(),
 });
 
-export async function registerUser(input: z.infer<typeof registerSchema>): Promise<ActionResult<{ id: string }>> {
-  const parsed = registerSchema.safeParse(input);
-  if (!parsed.success) return fail('Проверьте правильность заполнения формы.');
-  const data = parsed.data;
-
+async function createUserInternal(
+  data: z.infer<typeof registerSchema>,
+  role: Role
+): Promise<ActionResult<{ id: string }>> {
   const existing = await prisma.user.findUnique({ where: { email: data.email.toLowerCase() } });
   if (existing) return fail('Пользователь с такой почтой уже существует.');
 
@@ -100,13 +116,38 @@ export async function registerUser(input: z.infer<typeof registerSchema>): Promi
       age: data.age,
       specialty: data.specialty,
       phoneNumber: data.phoneNumber,
-      role: (data.role as Role) ?? 'DOCTOR',
+      role,
       consentAcceptedAt: data.consentAccepted ? new Date() : null,
       avatar: `https://i.pravatar.cc/150?u=${encodeURIComponent(data.email.toLowerCase())}`,
     },
     select: { id: true },
   });
   return ok({ id: created.id });
+}
+
+export async function registerUser(input: z.infer<typeof registerSchema>): Promise<ActionResult<{ id: string }>> {
+  const parsed = registerSchema.safeParse(input);
+  if (!parsed.success) return fail('Проверьте правильность заполнения формы.');
+  return createUserInternal(parsed.data, 'DOCTOR');
+}
+
+// Admin-only: used by /add-doctor and any future admin-driven user provisioning.
+const createUserByAdminSchema = registerSchema.extend({
+  role: z.enum(['ADMIN', 'DOCTOR', 'PATIENT']).default('DOCTOR'),
+});
+
+export async function createUserByAdmin(
+  input: z.infer<typeof createUserByAdminSchema>
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    await requireAdmin();
+  } catch {
+    return fail('Создавать пользователей может только администратор.');
+  }
+  const parsed = createUserByAdminSchema.safeParse(input);
+  if (!parsed.success) return fail('Проверьте правильность заполнения формы.');
+  const { role, ...rest } = parsed.data;
+  return createUserInternal(rest, role);
 }
 
 const updateUserSchema = z.object({
@@ -206,6 +247,19 @@ const caseInputSchema = z.object({
 
 export type CaseInput = z.infer<typeof caseInputSchema>;
 
+// Verifies every requested filename was actually uploaded to UPLOAD_DIR.
+// Rejects unknown names rather than silently persisting broken references.
+async function verifyImageFilenames(
+  filenames: Array<{ filename: string; mimeType: string }> | undefined
+): Promise<{ ok: true } | { ok: false; missing: string[] }> {
+  if (!filenames || filenames.length === 0) return { ok: true };
+  const missing: string[] = [];
+  for (const img of filenames) {
+    if (!(await imageExists(img.filename))) missing.push(img.filename);
+  }
+  return missing.length === 0 ? { ok: true } : { ok: false, missing };
+}
+
 export async function createCase(input: CaseInput): Promise<ActionResult<SerializedCase>> {
   let author;
   try {
@@ -217,6 +271,9 @@ export async function createCase(input: CaseInput): Promise<ActionResult<Seriali
   const parsed = caseInputSchema.safeParse(input);
   if (!parsed.success) return fail('Проверьте правильность заполнения формы кейса.');
   const data = parsed.data;
+
+  const check = await verifyImageFilenames(data.imageFilenames);
+  if (!check.ok) return fail(`Изображения не найдены на сервере: ${check.missing.join(', ')}`);
 
   const created = await prisma.case.create({
     data: {
@@ -253,8 +310,9 @@ export async function createCase(input: CaseInput): Promise<ActionResult<Seriali
 const updateCaseSchema = caseInputSchema.partial().extend({ id: z.string() });
 
 export async function updateCase(input: z.infer<typeof updateCaseSchema>): Promise<ActionResult<SerializedCase>> {
+  let user;
   try {
-    await requireUser();
+    user = await requireUser();
   } catch {
     return fail('Требуется авторизация.');
   }
@@ -262,6 +320,23 @@ export async function updateCase(input: z.infer<typeof updateCaseSchema>): Promi
   const parsed = updateCaseSchema.safeParse(input);
   if (!parsed.success) return fail('Некорректные данные кейса.');
   const { id, imageFilenames, imageIds: _discard, ...rest } = parsed.data;
+
+  // Ownership: only the case's author or an admin can update.
+  const existing = await prisma.case.findUnique({
+    where: { id },
+    select: { authorId: true, images: { select: { filename: true } } },
+  });
+  if (!existing) return fail('Кейс не найден.');
+  try {
+    assertCanMutateCase(user, existing);
+  } catch (e) {
+    if (e instanceof AuthzError) return fail(e.message);
+    throw e;
+  }
+
+  // Verify any incoming image filenames exist on disk.
+  const check = await verifyImageFilenames(imageFilenames);
+  if (!check.ok) return fail(`Изображения не найдены на сервере: ${check.missing.join(', ')}`);
 
   const updated = await prisma.case.update({
     where: { id },
@@ -283,6 +358,17 @@ export async function updateCase(input: z.infer<typeof updateCaseSchema>): Promi
     include: { images: true },
   });
 
+  // If images were replaced, remove the old files from disk to keep
+  // UPLOAD_DIR from accumulating orphans.
+  if (imageFilenames) {
+    const kept = new Set(imageFilenames.map((i) => i.filename));
+    await Promise.all(
+      existing.images
+        .filter((i) => !kept.has(i.filename))
+        .map((i) => deleteImage(i.filename))
+    );
+  }
+
   revalidatePath('/');
   return ok(serializeCase(updated));
 }
@@ -293,7 +379,16 @@ export async function deleteCase(id: string): Promise<ActionResult<{ id: string 
   } catch {
     return fail('Удалять кейсы может только администратор.');
   }
+  // Load image filenames first — Case.delete cascades CaseImage rows, but
+  // the files on disk would otherwise linger.
+  const existing = await prisma.case.findUnique({
+    where: { id },
+    select: { images: { select: { filename: true } } },
+  });
   await prisma.case.delete({ where: { id } });
+  if (existing) {
+    await Promise.all(existing.images.map((i) => deleteImage(i.filename)));
+  }
   revalidatePath('/');
   return ok({ id });
 }

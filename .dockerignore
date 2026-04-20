@@ -13,13 +13,6 @@ yarn-error.log*
 .idx
 .modified
 docs
-functions
-medizoai_codebase
-dataconnect
-firebase.json
-firestore.rules
-firestore.indexes.json
-apphosting.yaml
 storage/uploads
 README.md
 CLAUDE.md

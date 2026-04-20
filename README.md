@@ -1,82 +1,91 @@
-
 # Medizo AI 🩺🤖
 
-**AI-Powered Healthcare Assistant** – Intelligent symptom checker, personalized health insights, and medical Q&A.
+**Платформа учебных кейсов для врачей и студентов-медиков.** Администратор создаёт клинические кейсы (инциденты, санэпид, лучшие практики, менеджмент); врачи регистрируются, выбирают подгруппу и разбирают кейсы через AI-ассистента.
 
-Hackathon project → now open-source and ready for community contributions!
+Проект с хакатона, теперь — open-source. PR-ы приветствуются.
 
-[![Stars](https://img.shields.io/github/stars/usama7871/MEDIZO_AI_HACKATHON?style=social)](https://github.com/usama7871/MEDIZO_AI_HACKATHON/stargazers)
-[![Forks](https://img.shields.io/github/forks/usama7871/MEDIZO_AI_HACKATHON?style=social)](https://github.com/usama7871/MEDIZO_AI_HACKATHON/network/members)
-[![Live Demo](https://img.shields.io/badge/Vercel-Live_Demo-brightgreen)](https://medizo-ai-hackathon.vercel.app/)
-[![License](https://img.shields.io/github/license/usama7871/MEDIZO_AI_HACKATHON)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+## Стек
 
-> 🚀 **Hackathon Project** | Healthcare AI | AI Agents Ready | Next.js | TypeScript | Firebase | Vercel
+- **Next.js 15** App Router (React 18, TypeScript).
+- **Postgres 16** через Prisma 5.
+- **NextAuth v5** (Credentials + JWT-сессии, bcrypt).
+- **Genkit + Gemini 2.5 Flash** для AI-флоу.
+- **shadcn/ui + Tailwind** (тёмная тема форс).
+- **Docker Compose** для self-host деплоя на VPS.
 
-## 🌟 Live Demo
+## Локальный запуск
 
-👉 **Try it live:** [https://medizo-ai-hackathon.vercel.app/](https://medizo-ai-hackathon.vercel.app/)
-
-<!-- Add your screenshots/GIFs below for maximum engagement -->
-![Demo Screenshot 1](https://via.placeholder.com/1200x600?text=Medizo+AI+Home+Screen)
-![Demo Screenshot 2](https://via.placeholder.com/1200x600?text=Symptom+Checker+in+Action)
-
-## 🛠 Tech Stack
-
-- **Framework**: Next.js (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Backend/DB**: Firebase (Firestore + Authentication)
-- **Deployment**: Vercel
-- **AI Ready**: Structured for easy LangChain / OpenAI Agents SDK / Groq integration
-
-## 📦 Quick Start
+Требуется Docker Desktop и Node.js 20+.
 
 ```bash
-git clone https://github.com/usama7871/MEDIZO_AI_HACKATHON.git
+git clone https://github.com/Kirirto-kun/MEDIZO_AI_HACKATHON.git
 cd MEDIZO_AI_HACKATHON
 
+# 1. Зависимости
 npm install
 
-# Create .env.local (see .env.example if available)
-# Add Firebase config + any API keys
+# 2. Переменные окружения
+cp .env.example .env.local
+# (отредактируйте .env.local если порт 5433 занят — выставьте свой POSTGRES_HOST_PORT
+# и синхронно обновите DATABASE_URL)
 
+# 3. Postgres в контейнере
+docker compose --env-file .env.local up -d postgres
+
+# 4. Схема + сидданные
+npm run db:migrate   # создаст миграцию на пустой БД
+npm run db:seed      # admin@medizo.local / password123 + демо-кейсы + теги + новости
+
+# 5. Dev-сервер
 npm run dev
+# → http://localhost:3000
 ```
 
-Open http://localhost:3000
+Демо-учётки после сида:
+- **Админ**: `admin@medizo.local` / `password123` — создаёт кейсы.
+- **Врач**: `doctor@medizo.local` / `password123` — проходит кейсы.
 
-One-click deploy to Vercel supported.
+## Продакшн (self-host)
 
-## 🤝 Contributing
+```bash
+cp .env.example .env
+# отредактировать .env: сильный POSTGRES_PASSWORD,
+# NEXTAUTH_SECRET=$(openssl rand -base64 32), NEXTAUTH_URL=https://ваш-домен
 
-We welcome contributions to turn this into a powerful open-source healthcare AI tool!
+docker compose up -d --build
+# web-контейнер при старте сам прогонит prisma migrate deploy
+docker compose exec web npx tsx prisma/seed.ts   # одноразово для первоначальной БД
+```
 
-Ideas:
-- Integrate OpenAI / Groq for real AI responses
-- Add LangChain agents for multi-step reasoning
-- Build n8n workflows for reminders/appointments
-- Enhance UI/UX (mobile, accessibility)
-- Add tests, docs, localization
+За nginx/Caddy с TLS. Закройте 5432/5434 наружу, оставьте только 3000.
 
-1. Fork & ⭐ star the repo
-2. Create branch: `git checkout -b feat/your-feature`
-3. Commit & open PR
+**Сразу смените пароль сидового админа** или пересоздайте пользователя.
 
-`good first issue` labels coming soon!
+## Полезные npm-скрипты
 
-**Top Contributors**
+| Скрипт | Что делает |
+|---|---|
+| `npm run dev` | Dev-сервер с Turbopack |
+| `npm run build` | Production-build (включает `prisma generate`) |
+| `npm run start` | Production-сервер после build |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | Next.js ESLint |
+| `npm run db:migrate` | Создать/применить миграции локально |
+| `npm run db:deploy` | Применить миграции в проде |
+| `npm run db:seed` | Прогнать seed-скрипт |
+| `npm run db:studio` | GUI Prisma Studio (localhost:5555) |
+| `npm run docker:up` / `docker:down` | Управление compose |
 
-[![Contributors](https://contrib.rocks/image?repo=usama7871/MEDIZO_AI_HACKATHON)](https://github.com/usama7871/MEDIZO_AI_HACKATHON/graphs/contributors)
+## Архитектура (кратко)
 
-## 📄 License
+- `src/app/actions.ts` — единственный путь UI → (Prisma \| Genkit).
+- `src/hooks/use-user-store.tsx`, `use-patient-store.tsx`, `use-tag-store.tsx` — клиентские сторы поверх server-actions.
+- `src/lib/auth.ts` (Node) + `auth.config.ts` (edge) — расщепление для совместимости middleware.
+- `src/lib/storage.ts` — изображения кейсов на файловой системе (volume `uploads`).
+- `src/ai/flows/*` — Genkit-флоу (`analyze-student-question`, `patient-diagnosis-flow`, и др.).
 
-MIT License – free to use, modify, and contribute.
+Полная раскладка — в `CLAUDE.md`.
 
----
+## Лицензия
 
-**⭐ Star this repo to help it trend on GitHub!**  
-Let's build the future of open-source healthcare AI together.  
-#HealthcareAI #AIAgents #NextJS #TypeScript #Hackathon #OpenSource
-
+MIT.

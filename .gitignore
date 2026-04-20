@@ -43,10 +43,6 @@ next-env.d.ts
 .env.*.local
 !.env.example
 
-# firebase
-firebase-debug.log
-firestore-debug.log
-
 # prisma
 /src/generated/
 /prisma/*.db
