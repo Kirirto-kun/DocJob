@@ -32,7 +32,9 @@ The app runs as a **Dockerised Postgres + Next.js stack** self-hosted on a VPS. 
 - **Auth**: NextAuth v5 (Auth.js) with Credentials provider + JWT sessions + bcrypt password hashing. Split into `src/lib/auth.config.ts` (edge-compatible, used by `src/middleware.ts`) and `src/lib/auth.ts` (full config with Prisma + bcrypt, used by handlers/server code). The handler route is `src/app/api/auth/[...nextauth]/route.ts` → re-exports from `src/lib/auth-handlers.ts`.
 - **Route guard**: `src/middleware.ts` redirects unauthenticated traffic to `/login`. Public paths: `/login`, `/register`, `/api/auth/*`, `/api/images/*`.
 - **Server-side user helpers**: `src/lib/session.ts` — `getCurrentUser()`, `requireUser()`, `requireAdmin()` for use inside Server Actions / server components.
-- **Image storage**: filesystem under `UPLOAD_DIR` (mounted volume `uploads` in docker-compose). Upload endpoint `src/app/api/images/upload/route.ts` (admin-only); serve endpoint `src/app/api/images/[filename]/route.ts` streams from disk with path-traversal guard. Utilities in `src/lib/storage.ts`.
+- **Image storage**: filesystem under `UPLOAD_DIR` (mounted volume `uploads` in docker-compose). Upload endpoint `src/app/api/images/upload/route.ts` (admin-only, 10 MB cap); serve endpoint `src/app/api/images/[filename]/route.ts` streams from disk with path-traversal guard. Utilities in `src/lib/storage.ts` (`saveImage`, `readImage`, `imageExists`, `deleteImage`).
+- **Image serve authz — explicit decision**: `/api/images/[filename]` is **public by design** — the middleware lists it in `PUBLIC_PATHS`. UUID filenames give obscurity, not authorization. This is acceptable for case-illustration images (PDFs, X-rays of anonymised cases) but would be a leak if images ever hold patient-identifying data. **Revisit before shipping real patient records.** The fix would be: signed URLs (HMAC over `filename + expiry`) issued by `getCaseById` / `getActiveAttempt`, validated in the serve route.
+- **Case mutation policy**: `src/lib/authz.ts` exposes `canMutateCase(user, caseRecord)` / `assertCanMutateCase(user, caseRecord)` — author-or-admin gate used by `updateCase`. Reuse this for any future mutation (including chat-driven "reveal additional finding" that writes to a child row of Case).
 
 ### Client state
 
@@ -41,7 +43,6 @@ The app runs as a **Dockerised Postgres + Next.js stack** self-hosted on a VPS. 
 - `src/hooks/use-tag-store.tsx` — tag pool from `Tag` table with `addTag(label)` mutator.
 - Providers are nested in `src/components/app-providers.tsx`: `SessionProvider → UserProvider → PatientProvider → TagProvider`. Order matters (PatientProvider calls `useUserStore`, TagProvider calls both).
 - **Gate UI on `isInitialized`** before reading `currentUser`/`activePatient`. See `src/app/page.tsx` for the loader-then-role-branch pattern.
-- The `.ts` / `.tsx` duplicates under `src/hooks/` — the `.tsx` files are the source of truth; `.ts` variants are thin re-exports for backward-compat.
 
 ### Case taxonomy
 
