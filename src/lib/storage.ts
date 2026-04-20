@@ -1,0 +1,71 @@
+import { promises as fs } from 'fs';
+import path from 'path';
+import { randomUUID } from 'crypto';
+
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'storage', 'uploads');
+
+const ALLOWED_MIME = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+]);
+
+const EXT_BY_MIME: Record<string, string> = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'image/svg+xml': '.svg',
+};
+
+async function ensureDir() {
+  await fs.mkdir(UPLOAD_DIR, { recursive: true });
+}
+
+export async function saveImage(
+  buffer: Buffer,
+  mimeType: string
+): Promise<{ filename: string; mimeType: string; url: string }> {
+  if (!ALLOWED_MIME.has(mimeType)) {
+    throw new Error(`Unsupported mime type: ${mimeType}`);
+  }
+  await ensureDir();
+  const ext = EXT_BY_MIME[mimeType];
+  const filename = `${randomUUID()}${ext}`;
+  const fullPath = path.join(UPLOAD_DIR, filename);
+  await fs.writeFile(fullPath, buffer);
+  return { filename, mimeType, url: `/api/images/${filename}` };
+}
+
+export function getImageAbsolutePath(filename: string): string {
+  const sanitized = path.basename(filename);
+  if (sanitized !== filename) {
+    throw new Error('Invalid filename');
+  }
+  return path.join(UPLOAD_DIR, sanitized);
+}
+
+export async function readImage(filename: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+  try {
+    const fullPath = getImageAbsolutePath(filename);
+    const buffer = await fs.readFile(fullPath);
+    const ext = path.extname(filename).toLowerCase();
+    const mimeType =
+      Object.entries(EXT_BY_MIME).find(([, e]) => e === ext)?.[0] ??
+      'application/octet-stream';
+    return { buffer, mimeType };
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteImage(filename: string): Promise<void> {
+  try {
+    const fullPath = getImageAbsolutePath(filename);
+    await fs.unlink(fullPath);
+  } catch {
+    // ignore
+  }
+}

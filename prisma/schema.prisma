@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  PATIENT
+}
+
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  passwordHash      String
+  role              Role     @default(DOCTOR)
+  name              String
+  fullName          String?
+  region            String?
+  age               Int?
+  specialty         String?
+  phoneNumber       String?
+  avatar            String?
+  profilePhotoUrl   String?
+  consentAcceptedAt DateTime?
+  solvedCaseIds     String[] @default([])
+  unsolvedCaseIds   String[] @default([])
+  medicalRecords    String?
+  patientIds        String[] @default([])
+  createdCases      Case[]   @relation("CaseAuthor")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([role])
+}
+
+model Case {
+  id                  String      @id @default(cuid())
+  authorId            String
+  author              User        @relation("CaseAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  name                String
+  age                 Int?
+  gender              String?
+  primaryCondition    String?
+  history             String?
+  scenarioDescription String?
+  learningObjectives  String[]    @default([])
+  comorbidities       String?
+  subgroup            String?
+  specialty           String?
+  tags                String[]    @default([])
+  images              CaseImage[]
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  @@index([subgroup])
+  @@index([authorId])
+}
+
+model CaseImage {
+  id       String @id @default(cuid())
+  caseId   String
+  case     Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  filename String
+  mimeType String
+  order    Int    @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  label String @unique
+}
+
+model NewsItem {
+  id        String   @id @default(cuid())
+  title     String
+  body      String   @db.Text
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+}

@@ -1,15 +1,18 @@
-
 'use client';
 
-import { UserProvider } from '@/hooks/use-user-store.tsx';
-import { PatientProvider } from '@/hooks/use-patient-store.tsx';
+import { SessionProvider } from 'next-auth/react';
+import { UserProvider } from '@/hooks/use-user-store';
+import { PatientProvider } from '@/hooks/use-patient-store';
+import { TagProvider } from '@/hooks/use-tag-store';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
-    <UserProvider>
-      <PatientProvider>
-        {children}
-      </PatientProvider>
-    </UserProvider>
+    <SessionProvider>
+      <UserProvider>
+        <PatientProvider>
+          <TagProvider>{children}</TagProvider>
+        </PatientProvider>
+      </UserProvider>
+    </SessionProvider>
   );
 }

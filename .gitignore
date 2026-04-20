@@ -38,8 +38,20 @@ yarn-error.log*
 next-env.d.ts
 
 .genkit/*
-.env*
+.env
+.env.local
+.env.*.local
+!.env.example
 
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# prisma
+/src/generated/
+/prisma/*.db
+/prisma/migrations/dev.db*
+
+# uploads
+/storage/uploads/*
+!/storage/uploads/.gitkeep

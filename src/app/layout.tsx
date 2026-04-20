@@ -2,11 +2,12 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AppProviders } from '@/components/app-providers';
+import { NoCopyRoot } from '@/components/no-copy-root';
 import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
-  title: 'Medizo AI - Patient Simulator',
-  description: 'AI-powered patient simulator for advanced medical training.',
+  title: 'Medizo AI — Платформа учебных кейсов',
+  description: 'Обучающая платформа с клиническими кейсами, чат-ботом и разбором врачебных ситуаций.',
 };
 
 export default function RootLayout({
@@ -23,10 +24,12 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <AppProviders>
-          {children}
-          <Toaster />
-        </AppProviders>
+        <NoCopyRoot>
+          <AppProviders>
+            {children}
+            <Toaster />
+          </AppProviders>
+        </NoCopyRoot>
       </body>
     </html>
   );

@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: medizo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-medizo_dev}
+      POSTGRES_DB: medizo
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medizo -d medizo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://medizo:${POSTGRES_PASSWORD:-medizo_dev}@postgres:5432/medizo?schema=public
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-me-in-production}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: "true"
+      UPLOAD_DIR: /app/storage/uploads
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads:/app/storage/uploads
+
+volumes:
+  postgres_data:
+  uploads:
