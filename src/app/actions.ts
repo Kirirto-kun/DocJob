@@ -9,8 +9,6 @@ import { getCurrentUser, requireUser, requireAdmin } from '@/lib/session';
 import { analyzeStudentQuestion, AnalyzeStudentQuestionInput } from '@/ai/flows/analyze-student-question';
 import { generatePersonalizedScenario, GeneratePersonalizedScenarioInput } from '@/ai/flows/generate-personalized-scenario';
 import { simulateComorbidities, SimulateComorbiditiesInput } from '@/ai/flows/simulate-comorbidities';
-import { diagnosePatient } from '@/ai/flows/patient-diagnosis-flow';
-import type { PatientDiagnosisInput } from '@/ai/schemas/patient-diagnosis';
 import { savePatientRecord } from '@/services/patient-record';
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
@@ -52,16 +50,6 @@ export async function handleSimulateComorbidities(input: SimulateComorbiditiesIn
   } catch (error) {
     console.error('Error simulating comorbidities:', error);
     return fail('Не удалось смоделировать сопутствующие состояния.');
-  }
-}
-
-export async function handleDiagnosePatient(input: PatientDiagnosisInput) {
-  try {
-    const result = await diagnosePatient(input);
-    return ok(result);
-  } catch (error) {
-    console.error('Error diagnosing patient:', error);
-    return fail('Не удалось получить диагноз.');
   }
 }
 

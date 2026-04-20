@@ -17,16 +17,14 @@ type Message = {
 
 type InteractiveQAProps = {
   patientHistory: string;
-  currentVitals: string;
 };
 
-export default function InteractiveQA({ patientHistory, currentVitals }: InteractiveQAProps) {
+export default function InteractiveQA({ patientHistory }: InteractiveQAProps) {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "Hello! I am the patient simulator. What would you like to ask about the patient's condition?" }
+    { role: 'assistant', content: 'Здравствуйте! Я симулятор пациента. Задайте вопрос о состоянии пациента.' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,7 +45,7 @@ export default function InteractiveQA({ patientHistory, currentVitals }: Interac
     const response = await handleAnalyzeQuestion({
       question: input,
       patientHistory,
-      currentVitals,
+      currentVitals: '',
     });
 
     setIsLoading(false);
@@ -56,7 +54,7 @@ export default function InteractiveQA({ patientHistory, currentVitals }: Interac
       const assistantMessage: Message = { role: 'assistant', content: response.data.suggestedResponse };
       setMessages(prev => [...prev, assistantMessage]);
     } else {
-      const errorMessage: Message = { role: 'assistant', content: response.error || 'Sorry, I encountered an error.' };
+      const errorMessage: Message = { role: 'assistant', content: response.error || 'Извините, произошла ошибка.' };
       setMessages(prev => [...prev, errorMessage]);
     }
   };
@@ -64,8 +62,8 @@ export default function InteractiveQA({ patientHistory, currentVitals }: Interac
   return (
     <Card className="h-full flex flex-col bg-card/90 backdrop-blur-sm border-border/50">
       <CardHeader>
-        <CardTitle>Interactive Q&A</CardTitle>
-        <CardDescription>Ask questions about the patient.</CardDescription>
+        <CardTitle>Диалог с пациентом</CardTitle>
+        <CardDescription>Задавайте вопросы о состоянии пациента.</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden">
         <ScrollArea className="h-full" viewportRef={viewportRef}>
@@ -81,7 +79,7 @@ export default function InteractiveQA({ patientHistory, currentVitals }: Interac
                             </Avatar>
                         </TooltipTrigger>
                         <TooltipContent side="right">
-                            <p>AI Assistant</p>
+                            <p>ИИ-ассистент</p>
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
@@ -98,7 +96,7 @@ export default function InteractiveQA({ patientHistory, currentVitals }: Interac
                             </Avatar>
                         </TooltipTrigger>
                         <TooltipContent side="left">
-                            <p>You</p>
+                            <p>Вы</p>
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
@@ -123,7 +121,7 @@ export default function InteractiveQA({ patientHistory, currentVitals }: Interac
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your question..."
+            placeholder="Введите ваш вопрос..."
             className="min-h-[40px] resize-none bg-background/80"
             onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -133,7 +131,7 @@ export default function InteractiveQA({ patientHistory, currentVitals }: Interac
             }}
             disabled={isLoading}
           />
-          <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+          <Button type="submit" size="icon" disabled={isLoading || !input.trim()} aria-label="Отправить">
             <Send className="h-4 w-4" />
           </Button>
         </form>
