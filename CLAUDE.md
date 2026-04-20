@@ -54,39 +54,27 @@ The app runs as a **Dockerised Postgres + Next.js stack** self-hosted on a VPS. 
 - Each action: Zod-validates input, guards via `requireUser` / `requireAdmin`, runs Prisma, returns `{ success: true, data } | { success: false, error }`. **When consuming, use `if (result.success)` to narrow — don't combine with `&& result.data` (TS won't narrow that pattern).**
 - Serialisation helpers convert Prisma rows → JSON-safe types exported as `SerializedUser` / `SerializedCase` / `SerializedCaseImage`.
 
-### AI layer (Genkit + Gemini) — unchanged
-
-- `src/ai/genkit.ts` — shared `ai` instance (`googleai/gemini-2.5-flash`).
-- `src/ai/flows/*.ts` — `'use server'`, Zod schemas via `z` from `genkit`, each flow registered by importing from `src/ai/dev.ts`. Add new flows there too.
-- `src/ai/schemas/patient-diagnosis.ts` — shared schemas for the multi-agent diagnosis flow.
-- `patient-diagnosis-flow.ts` is the reference for master-dispatcher + specialist-consult pattern.
-
-### Deployment
-
-`docker-compose.yml` has `postgres` (with `postgres_data` volume) and `web` (built from `Dockerfile` multi-stage; runs `prisma migrate deploy && npm start` on boot; `uploads` volume mounted). Set `POSTGRES_PASSWORD` / `NEXTAUTH_SECRET` / `NEXTAUTH_URL` via `.env` before `docker compose up -d`.
-
 ### AI layer (Genkit + Gemini)
 
-- `src/ai/genkit.ts` — single shared `ai` instance configured with `googleAI()` plugin and `googleai/gemini-2.5-flash`. Import `ai` from here in every flow.
-- `src/ai/flows/*.ts` — each flow is `'use server'`, defines Zod input/output schemas via `z` re-exported from `genkit`, and exports both a typed async wrapper and the `ai.defineFlow(...)` value. Input/output types are inferred with `z.infer` and re-exported.
-- `src/ai/schemas/patient-diagnosis.ts` — shared schemas are extracted here when multiple prompts in a flow reuse them. Follow this pattern when a flow grows beyond one prompt.
-- `src/ai/dev.ts` — imports every flow file so they register with the Genkit runtime; add new flows here or `genkit:dev` will not see them.
-- `src/app/actions.ts` — Next.js Server Actions are the **only** path from UI to Genkit. Each `handle*` action wraps a flow in a try/catch and returns `{ success, data } | { success, error }`. UI components call these actions, never flows directly.
-
-`patient-diagnosis-flow.ts` is the reference pattern for a multi-agent flow: a master dispatcher prompt returns a `specialistConsult` string, and the flow function switches on that string to invoke one of several specialist prompts created by the `createSpecialistPrompt` factory. New specialties should be added both to the factory call list and to the switch.
+- `src/ai/genkit.ts` — single shared `ai` instance (`googleai/gemini-2.5-flash`). Import `ai` from here in every flow.
+- `src/ai/flows/*.ts` — each flow is `'use server'`, defines Zod input/output schemas via `z` re-exported from `genkit`, and exports both a typed async wrapper and the `ai.defineFlow(...)` value.
+- `src/ai/schemas/patient-diagnosis.ts` — shared schemas extracted when multiple prompts in a flow reuse them.
+- `src/ai/dev.ts` — imports every flow file so they register with the Genkit runtime; **add new flows there or `genkit:dev` won't see them**.
+- `src/app/actions.ts` — Next.js Server Actions are the **only** path from UI to Genkit. Each `handle*` action wraps a flow in try/catch. `patient-diagnosis-flow.ts` is the reference for the master-dispatcher + specialist-consult pattern (`createSpecialistPrompt` factory + switch on `specialistConsult`); new specialties go into both the factory call list and the switch.
 
 ### App layer (Next.js App Router)
 
-- `src/app/layout.tsx` wraps the tree in `AppProviders` (`src/components/app-providers.tsx`), which nests `UserProvider` → `PatientProvider`. `PatientProvider` calls `useUserStore`, so the order matters.
-- `src/hooks/use-user-store.tsx` and `use-patient-store.tsx` are the canonical state stores. They hydrate from `localStorage` on mount, set `isInitialized` when done, and persist back on change. **Always gate UI on `isInitialized` before reading `currentUser` / `activePatient`** — otherwise the first render will see `null` and misroute (see `src/app/page.tsx` for the pattern: loader → role-based branches).
-- Roles are `'admin' | 'doctor' | 'patient'`. `src/app/page.tsx` renders a different dashboard per role; `add-doctor`, `add-patient`, `manage-patients`, `login` are separate route segments.
-- The duplicate `.ts`/`.tsx` pairs in `src/hooks/` (e.g. `use-user-store.ts` and `use-user-store.tsx`) — the `.tsx` files are the live ones imported throughout the app.
+- `src/app/layout.tsx` wraps the tree in `AppProviders` (`src/components/app-providers.tsx`), which nests `SessionProvider` → `UserProvider` → `PatientProvider` → `TagProvider`. Each inner provider calls the one above it, so the order matters.
+- Roles are Postgres enum `ADMIN | DOCTOR | PATIENT`. The client stores normalise role to lowercase (`'admin' | 'doctor' | 'patient'`) for legacy callers — don't rely on the enum shape outside `src/lib/auth*` and Prisma types.
+- Routes: `/login`, `/register`, `/select-subgroup`, `/cases/[subgroup]`, `/new-case` (admin), `/add-doctor` (admin), `/manage-patients` (doctor), `/profile`, `/support`, `/news`, `/contacts`. Middleware guards every non-public path.
+- **Gate UI on `isInitialized`** from the stores before reading `currentUser` / `activePatient`. See `src/app/page.tsx` for the loader-then-role-branch pattern.
 
 ### UI
 
 - shadcn/ui components live in `src/components/ui/` (config in `components.json`, aliases `@/components`, `@/components/ui`, `@/lib/utils`, `@/hooks`). Use `cn()` from `src/lib/utils.ts` for class merging. Icon library is `lucide-react`.
 - Tailwind is configured in `tailwind.config.ts` with the shadcn CSS-variable theme; global tokens are in `src/app/globals.css`. The app forces `className="dark"` on `<html>` — design for dark mode first.
+- `src/components/no-copy-root.tsx` blocks `onCopy`/`onCut`/`onContextMenu` site-wide except inside `input`/`textarea`/`[contenteditable]`. New pages shouldn't need changes for this to work.
 
-### Server-side file handling
+### Deployment
 
-`src/services/patient-record.ts` receives uploaded `File` objects from the `handleFileUpload` Server Action and currently just reads `.text()` and returns it — there is no persistent store. If a task requires real storage, this is the integration point.
+`docker-compose.yml` has `postgres` (with `postgres_data` volume) and `web` (built from `Dockerfile` multi-stage; runs `prisma migrate deploy && npm start` on boot; `uploads` volume mounted). Set `POSTGRES_PASSWORD` / `NEXTAUTH_SECRET` / `NEXTAUTH_URL` via `.env` before `docker compose up -d`. See README for the full local + prod recipe.
