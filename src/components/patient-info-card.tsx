@@ -1,10 +1,8 @@
-
 import type { Patient } from "@/hooks/use-patient-store";
 import type { User } from "@/hooks/use-user-store";
-import { useUserStore } from "@/hooks/use-user-store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { User as UserIcon, Calendar, Stethoscope, FileText, Activity } from "lucide-react";
-import DiagnosisReport from "./diagnosis-report";
+import AttachedMaterials from "./attached-materials";
 
 type PatientInfoCardProps = {
   patient: Patient;
@@ -12,15 +10,8 @@ type PatientInfoCardProps = {
 };
 
 export default function PatientInfoCard({ patient, doctor }: PatientInfoCardProps) {
-  const { allUsers } = useUserStore();
-  const patientUser = allUsers.find(u => u.id === patient.id);
-  
-  // Combine records from the patient's own uploaded records
-  const patientUploadedRecords = patientUser?.medicalRecords;
-
-
   return (
-    <Card className="bg-card/90 backdrop-blur-sm border-border/50">
+    <Card className="h-full flex flex-col bg-card/90 backdrop-blur-sm border-border/50">
       <CardHeader>
         <div className="flex flex-wrap justify-between items-start gap-4">
           <div>
@@ -33,7 +24,7 @@ export default function PatientInfoCard({ patient, doctor }: PatientInfoCardProp
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="flex-1 space-y-6">
         <div className="grid md:grid-cols-2 gap-6">
             <div className="flex items-start gap-4 p-4 rounded-lg bg-muted/50 border border-border/50">
                 <Stethoscope className="h-8 w-8 text-primary mt-1 flex-shrink-0" />
@@ -62,15 +53,8 @@ export default function PatientInfoCard({ patient, doctor }: PatientInfoCardProp
             </ul>
           </div>
         </div>
-        
-        {doctor.role !== 'patient' && (
-          <DiagnosisReport
-            doctor={doctor}
-            scenario={patient.scenario}
-            patientRecords={patientUploadedRecords}
-          />
-        )}
 
+        <AttachedMaterials patient={patient} />
       </CardContent>
     </Card>
   );
