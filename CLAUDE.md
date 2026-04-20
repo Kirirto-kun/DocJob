@@ -9,13 +9,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint` — Next.js ESLint
 - `npm run typecheck` — `tsc --noEmit`. **Run this explicitly.** `next.config.ts` sets `typescript.ignoreBuildErrors: true` and `eslint.ignoreDuringBuilds: true`, so `npm run build` will not surface type or lint errors on its own.
 - `npm run genkit:dev` — starts the Genkit dev UI against `src/ai/dev.ts` (which imports every flow so they register)
-- `npm run db:migrate` — `prisma migrate dev` — create/apply dev migrations against local Postgres
-- `npm run db:deploy` — `prisma migrate deploy` — apply migrations in prod (Docker entrypoint calls this)
-- `npm run db:seed` — seeds admin (`admin@medizo.local` / `password123`), a demo doctor, 2 cases, tags, news
+- `npm run db:migrate` — `prisma migrate dev` (wrapped in `dotenv-cli` so it reads `.env.local` then `.env`)
+- `npm run db:deploy` — `prisma migrate deploy` for prod. The Docker entrypoint runs this on container start.
+- `npm run db:seed` — seeds admin (`admin@medizo.local` / `password123`), demo doctor, 2 cases, tags, news
 - `npm run db:studio` — Prisma Studio GUI
 - `npm run docker:up` / `docker:down` — spin up Postgres + web via docker-compose
 
 `GOOGLE_API_KEY` (optional, for Genkit flows) + `DATABASE_URL` + `NEXTAUTH_SECRET` + `NEXTAUTH_URL` must be in `.env` / `.env.local`. See `.env.example`.
+
+**docker-compose tip**: docker-compose only reads `.env` (not `.env.local`) for its own variable substitution. For local dev, either duplicate `.env.local` → `.env`, or pass `--env-file .env.local` explicitly: `docker compose --env-file .env.local up -d postgres`. The `POSTGRES_HOST_PORT` var in docker-compose defaults to `5433` to avoid the common clash with a host-installed Postgres on 5432. If 5433 is also busy on your machine, bump to 5434/etc and update `DATABASE_URL` to match.
 
 Path alias: `@/*` → `src/*`.
 
