@@ -1,5 +1,3 @@
-"use server";
-
 import { z } from "zod";
 import { runChat, type ChatMessage } from "@/ai/runChat";
 import {

@@ -1,53 +1,27 @@
 'use client';
 
-import '@blocknote/core/fonts/inter.css';
-import '@blocknote/mantine/style.css';
-
-import { useMemo } from 'react';
-import type { PartialBlock } from '@blocknote/core';
-import { ru } from '@blocknote/core/locales';
-import { useCreateBlockNote } from '@blocknote/react';
-import { BlockNoteView } from '@blocknote/mantine';
-
+import dynamic from 'next/dynamic';
 import type { CaseBody } from '@/lib/case-schema';
-import { cn } from '@/lib/utils';
 
 export type CaseBodyViewerProps = {
   body: CaseBody;
   className?: string;
 };
 
-function toInitialContent(body: CaseBody): PartialBlock[] | undefined {
-  const blocks = body?.blocks;
-  return Array.isArray(blocks) && blocks.length > 0 ? (blocks as PartialBlock[]) : undefined;
-}
-
-export function CaseBodyViewer({ body, className }: CaseBodyViewerProps) {
-  const initialContent = useMemo(() => toInitialContent(body), [body]);
-
-  const editor = useCreateBlockNote({
-    initialContent,
-    dictionary: ru,
-  });
-
-  if (!initialContent) {
-    return (
-      <div
-        className={cn(
-          'rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 p-6 text-sm text-muted-foreground',
-          className,
-        )}
-      >
-        Тело кейса пока не заполнено.
+const CaseBodyViewerInner = dynamic(
+  () => import('./case-body-viewer-inner').then((m) => m.CaseBodyViewerInner),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 p-6 text-sm text-muted-foreground">
+        Загрузка тела кейса…
       </div>
-    );
-  }
+    ),
+  },
+);
 
-  return (
-    <div className={cn('rounded-md bg-background text-foreground', className)}>
-      <BlockNoteView editor={editor} theme="dark" editable={false} />
-    </div>
-  );
+export function CaseBodyViewer(props: CaseBodyViewerProps) {
+  return <CaseBodyViewerInner {...props} />;
 }
 
 export default CaseBodyViewer;
