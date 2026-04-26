@@ -1,24 +1,51 @@
 'use client';
 
+import '@blocknote/core/fonts/inter.css';
+import '@blocknote/mantine/style.css';
+
+import { useMemo } from 'react';
+import type { PartialBlock } from '@blocknote/core';
+import { ru } from '@blocknote/core/locales';
+import { useCreateBlockNote } from '@blocknote/react';
+import { BlockNoteView } from '@blocknote/mantine';
+
 import type { CaseBody } from '@/lib/case-schema';
+import { cn } from '@/lib/utils';
 
 export type CaseBodyViewerProps = {
   body: CaseBody;
   className?: string;
 };
 
-// STUB — заменяется в Волне 2 (Unit U1) на read-only BlockNote рендер.
+function toInitialContent(body: CaseBody): PartialBlock[] | undefined {
+  const blocks = body?.blocks;
+  return Array.isArray(blocks) && blocks.length > 0 ? (blocks as PartialBlock[]) : undefined;
+}
+
 export function CaseBodyViewer({ body, className }: CaseBodyViewerProps) {
-  const blocks = Array.isArray(body?.blocks) ? body.blocks : [];
+  const initialContent = useMemo(() => toInitialContent(body), [body]);
+
+  const editor = useCreateBlockNote({
+    initialContent,
+    dictionary: ru,
+  });
+
+  if (!initialContent) {
+    return (
+      <div
+        className={cn(
+          'rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 p-6 text-sm text-muted-foreground',
+          className,
+        )}
+      >
+        Тело кейса пока не заполнено.
+      </div>
+    );
+  }
+
   return (
-    <div className={className ?? 'prose prose-invert max-w-none text-sm'}>
-      {blocks.length === 0 ? (
-        <p className="text-muted-foreground">[TODO U1] Тело кейса будет отрендерено BlockNote.</p>
-      ) : (
-        <pre className="whitespace-pre-wrap rounded bg-muted/40 p-3 text-xs">
-          {JSON.stringify(blocks, null, 2)}
-        </pre>
-      )}
+    <div className={cn('rounded-md bg-background text-foreground', className)}>
+      <BlockNoteView editor={editor} theme="dark" editable={false} />
     </div>
   );
 }
