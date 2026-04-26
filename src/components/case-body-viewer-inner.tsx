@@ -44,7 +44,12 @@ export function CaseBodyViewerInner({ body, className }: CaseBodyViewerInnerProp
   }
 
   return (
-    <div className={cn('rounded-md bg-background text-foreground', className)}>
+    <div
+      className={cn(
+        'case-body-prose rounded-md border border-border/40 bg-background/40 px-4 py-2 text-foreground',
+        className,
+      )}
+    >
       <BlockNoteView editor={editor} theme="dark" editable={false} />
     </div>
   );
