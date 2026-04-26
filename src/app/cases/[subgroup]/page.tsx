@@ -34,7 +34,7 @@ export default function CasesBySubgroupPage({
 }) {
   const { subgroup: subgroupSlug } = use(params);
   const router = useRouter();
-  const { patients, setActivePatient, isInitialized } = usePatientStore();
+  const { patients, isInitialized } = usePatientStore();
   const [specialtyFilter, setSpecialtyFilter] = useState<string>(ALL_SPECIALTIES);
 
   const subgroup = findSubgroup(subgroupSlug);
@@ -92,8 +92,7 @@ export default function CasesBySubgroupPage({
   }
 
   const handleOpen = (caseId: string) => {
-    setActivePatient(caseId);
-    router.push('/');
+    router.push(`/cases/${subgroupSlug}/${caseId}`);
   };
 
   return (
