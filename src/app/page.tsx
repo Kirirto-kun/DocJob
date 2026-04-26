@@ -41,33 +41,35 @@ export default function Home() {
     }
 
 
-    if (currentUser.role === 'doctor' && !activePatient) {
+    if (currentUser.role === 'doctor') {
+      const legacyCaseId = activePatient?.id;
+      const legacySubgroup = activePatient?.subgroup;
       return (
         <Card className="m-auto flex flex-col items-center justify-center p-12 text-center bg-card/80 animate-fade-in">
-            <ShieldAlert className="h-12 w-12 text-accent mb-4" />
-            <CardTitle className="text-2xl font-headline">
-                Нет активного кейса
-            </CardTitle>
-            <CardDescription className="mt-2 max-w-md">
-                Выберите кейс из списка ваших кейсов, чтобы начать диалог.
-            </CardDescription>
-            <CardFooter className="mt-6">
-                <Button onClick={() => router.push('/manage-patients')}>Мои кейсы</Button>
-            </CardFooter>
-          </Card>
-      )
-    }
-
-    if (activePatient && currentUser.role === 'doctor') {
-      return (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 h-full w-full animate-fade-in">
-          <div className="xl:col-span-1">
-            <PatientInfoCard patient={activePatient} doctor={currentUser} />
-          </div>
-          <div className="xl:col-span-1">
-            <InteractiveQA patientHistory={activePatient.history} />
-          </div>
-        </div>
+          <ShieldAlert className="h-12 w-12 text-accent mb-4" />
+          <CardTitle className="text-2xl font-headline">
+            Готовы начать?
+          </CardTitle>
+          <CardDescription className="mt-2 max-w-md">
+            Выберите подгруппу и переходите к нужному кейсу — обсуждение с ИИ-наставником будет прямо на странице кейса.
+          </CardDescription>
+          <CardFooter className="mt-6 flex flex-col gap-3">
+            <Button onClick={() => router.push('/select-subgroup')}>
+              Перейти к выбору подгруппы
+            </Button>
+            <Button variant="outline" onClick={() => router.push('/manage-patients')}>
+              Мои кейсы
+            </Button>
+            {legacyCaseId && legacySubgroup ? (
+              <Button
+                variant="ghost"
+                onClick={() => router.push(`/cases/${legacySubgroup}/${legacyCaseId}`)}
+              >
+                Продолжить кейс «{activePatient?.name}»
+              </Button>
+            ) : null}
+          </CardFooter>
+        </Card>
       );
     }
 
