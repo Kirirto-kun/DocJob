@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Award, Briefcase, HeartPulse, Loader2, ShieldCheck, type LucideIcon } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard-layout';
@@ -7,6 +8,7 @@ import ScenarioControls from '@/components/scenario-controls';
 import { Card, CardContent } from '@/components/ui/card';
 import { SUBGROUPS, type SubgroupSlug } from '@/lib/case-taxonomy';
 import { useUserStore } from '@/hooks/use-user-store';
+import { cn } from '@/lib/utils';
 
 const SUBGROUP_ICONS: Record<SubgroupSlug, LucideIcon> = {
   clinical: HeartPulse,
@@ -18,11 +20,19 @@ const SUBGROUP_ICONS: Record<SubgroupSlug, LucideIcon> = {
 export default function SelectSubgroupPage() {
   const router = useRouter();
   const { isInitialized } = useUserStore();
+  const [pendingSlug, setPendingSlug] = useState<SubgroupSlug | null>(null);
+  const [, startTransition] = useTransition();
+
+  const handleOpen = (slug: SubgroupSlug) => {
+    if (pendingSlug) return;
+    setPendingSlug(slug);
+    startTransition(() => router.push(`/cases/${slug}`));
+  };
 
   if (!isInitialized) {
     return (
       <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
-        <main className="flex-1 flex items-center justify-center p-4 md:p-6 lg:p-8">
+        <main className="flex h-full items-center justify-center p-4 md:p-6 lg:p-8">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </main>
       </DashboardLayout>
@@ -31,31 +41,51 @@ export default function SelectSubgroupPage() {
 
   return (
     <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
-      <main className="flex-1 p-4 md:p-6 lg:p-8 animate-fade-in">
-        <h1 className="text-3xl font-headline font-semibold mb-8 text-foreground/90">
+      <main className="h-full overflow-y-auto p-4 md:p-6 lg:p-8 animate-fade-in">
+        <h1 className="mb-2 font-headline text-2xl md:text-3xl font-semibold text-foreground/90">
           Выберите подгруппу кейсов
         </h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <p className="mb-8 max-w-prose text-sm text-muted-foreground">
+          Каждая подгруппа содержит свой набор специальностей и свой формат обсуждения с ИИ-наставником.
+        </p>
+        <div className="grid grid-cols-1 gap-6 pb-6 md:grid-cols-2">
           {SUBGROUPS.map((sg) => {
             const Icon = SUBGROUP_ICONS[sg.slug];
+            const isPending = pendingSlug === sg.slug;
+            const hasOtherPending = pendingSlug !== null && !isPending;
             return (
               <Card
                 key={sg.slug}
                 role="button"
                 tabIndex={0}
-                onClick={() => router.push(`/cases/${sg.slug}`)}
+                aria-busy={isPending}
+                onClick={() => handleOpen(sg.slug)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    router.push(`/cases/${sg.slug}`);
+                    handleOpen(sg.slug);
                   }
                 }}
-                className="cursor-pointer transition-all hover:border-primary/60 hover:shadow-primary/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className={cn(
+                  'group relative overflow-hidden cursor-pointer transition-all',
+                  'hover:border-primary/60 hover:shadow-lg hover:shadow-primary/10',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                  hasOtherPending && 'pointer-events-none opacity-60',
+                  isPending && 'border-primary',
+                )}
               >
-                <CardContent className="flex flex-col items-center justify-center text-center gap-4 p-10">
+                <CardContent className="flex flex-col items-center justify-center gap-4 p-10 text-center">
                   <Icon className="h-12 w-12 text-primary" />
-                  <span className="text-xl font-semibold font-headline">{sg.label}</span>
+                  <span className="font-headline text-xl font-semibold">{sg.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {sg.specialties.length} специальностей
+                  </span>
                 </CardContent>
+                {isPending ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+                    <Loader2 className="h-7 w-7 animate-spin text-primary" />
+                  </div>
+                ) : null}
               </Card>
             );
           })}

@@ -200,8 +200,18 @@ export function CaseChatView({ caseId, caseName, solution, className }: CaseChat
   const isDone = chat.phase === 'done';
 
   return (
-    <div className={className ?? 'flex h-full flex-col gap-4'}>
-      <Card className="flex h-full min-h-0 flex-col">
+    <div
+      className={cn(
+        className ?? 'flex h-full min-h-0 flex-col gap-3',
+        isDone && 'overflow-y-auto pr-1',
+      )}
+    >
+      <Card
+        className={cn(
+          'flex flex-col',
+          isDone ? 'shrink-0' : 'h-full min-h-0 flex-1',
+        )}
+      >
         <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border/40 pb-3">
           <div className="space-y-1">
             <CardTitle className="text-base">Чат-наставник по кейсу «{caseName}»</CardTitle>

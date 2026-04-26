@@ -1,14 +1,9 @@
 'use client';
 
-import { Download, ExternalLink, File as FileIcon, FileText, Image as ImageIcon } from 'lucide-react';
+import { Download, ExternalLink, File as FileIcon, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { CaseBodyViewer } from '@/components/case-body-viewer';
 import { subgroupLabel } from '@/lib/case-taxonomy';
 import { cn } from '@/lib/utils';
@@ -46,57 +41,73 @@ export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
   );
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader className="space-y-3">
-          <CardTitle className="text-2xl">{caseData.name}</CardTitle>
-          {headerMeta.length > 0 && (
-            <p className="text-sm text-muted-foreground">{headerMeta.join(' · ')}</p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            {caseData.specialty && (
-              <Badge variant="secondary">{caseData.specialty}</Badge>
-            )}
-            {caseData.subgroup && (
-              <Badge variant="outline">{subgroupLabel(caseData.subgroup)}</Badge>
-            )}
-            {caseData.tags.map((tag) => (
-              <Badge key={tag} variant="outline">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <CaseBodyViewer body={caseData.body} />
+    <div className="space-y-8 pb-6">
+      <header className="space-y-3">
+        <h1 className="font-headline text-2xl font-semibold leading-tight md:text-3xl">
+          {caseData.name}
+        </h1>
+        {headerMeta.length > 0 ? (
+          <p className="text-sm text-muted-foreground">{headerMeta.join(' · ')}</p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {caseData.specialty ? (
+            <Badge variant="secondary" className="text-[11px]">
+              {caseData.specialty}
+            </Badge>
+          ) : null}
+          {caseData.subgroup ? (
+            <Badge variant="outline" className="text-[11px]">
+              {subgroupLabel(caseData.subgroup)}
+            </Badge>
+          ) : null}
+          {caseData.tags.map((tag) => (
+            <Badge key={tag} variant="outline" className="text-[11px]">
+              {tag}
+            </Badge>
+          ))}
+        </div>
+      </header>
 
-          {caseData.taskQuestions.length > 0 && (
-            <section className="space-y-2">
-              <h3 className="text-base font-semibold">Задание</h3>
-              <ol className="list-decimal space-y-1 pl-5 text-sm">
-                {caseData.taskQuestions.map((question, index) => (
-                  <li key={index} className="leading-relaxed">
-                    {question}
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
-        </CardContent>
-      </Card>
+      <Separator />
 
-      {sortedAttachments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Файлы и материалы</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {sortedAttachments.map((a) => (
-              <AttachmentItem key={a.id} attachment={a} />
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Тело кейса
+        </h2>
+        <CaseBodyViewer body={caseData.body} />
+      </section>
+
+      {caseData.taskQuestions.length > 0 ? (
+        <>
+          <Separator />
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Задание студенту
+            </h2>
+            <ol className="list-decimal space-y-2 pl-5 text-[0.95rem] leading-relaxed">
+              {caseData.taskQuestions.map((question, index) => (
+                <li key={index}>{question}</li>
+              ))}
+            </ol>
+          </section>
+        </>
+      ) : null}
+
+      {sortedAttachments.length > 0 ? (
+        <>
+          <Separator />
+          <section className="space-y-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Файлы и материалы
+            </h2>
+            <div className="space-y-5">
+              {sortedAttachments.map((a) => (
+                <AttachmentItem key={a.id} attachment={a} />
+              ))}
+            </div>
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -104,17 +115,19 @@ export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
 function AttachmentItem({ attachment }: { attachment: SerializedCaseAttachment }) {
   const displayName = attachment.title?.trim() || attachment.originalName || attachment.filename;
   return (
-    <div className="space-y-2 rounded-md border border-border/40 bg-muted/20 p-3">
+    <div className="space-y-3 rounded-lg border border-border/50 bg-muted/15 p-4">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 space-y-1">
           <p className="font-medium leading-snug">{displayName}</p>
           {attachment.description ? (
-            <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
               {attachment.description}
             </p>
           ) : null}
-          <p className="mt-1 text-xs text-muted-foreground">
-            {(attachment.originalName ?? attachment.filename) + ' · ' + formatFileSize(attachment.size)}
+          <p className="text-xs text-muted-foreground">
+            {(attachment.originalName ?? attachment.filename) +
+              ' · ' +
+              formatFileSize(attachment.size)}
           </p>
         </div>
         <Button asChild size="sm" variant="outline">
@@ -153,12 +166,11 @@ function AttachmentBody({ attachment }: { attachment: SerializedCaseAttachment }
         <iframe
           src={attachment.url}
           title={attachment.title ?? attachment.originalName ?? attachment.filename}
-          className="h-[700px] w-full bg-white"
+          className="h-[640px] w-full bg-white"
         />
       </div>
     );
   }
-  // document / other — Card-row with icon
   const Icon = attachment.kind === 'document' ? FileText : FileIcon;
   return (
     <a
@@ -177,6 +189,4 @@ function AttachmentBody({ attachment }: { attachment: SerializedCaseAttachment }
   );
 }
 
-// Re-exported for legacy imports
-export { ImageIcon };
 export default CaseInfoPanel;

@@ -9,6 +9,7 @@ import {
   type SerializedCase,
   type SerializedCaseImage,
 } from '@/app/actions';
+import type { CaseBody } from '@/lib/case-schema';
 import { useUserStore } from './use-user-store';
 
 export type PatientScenario = {
@@ -37,6 +38,7 @@ export type Patient = {
   subgroup?: string | null;
   specialty?: string | null;
   tags?: string[];
+  body?: CaseBody;
   images?: PatientImage[];
   attachedImages?: PatientImage[]; // alias for backward compat
   createdAt?: string;
@@ -66,6 +68,7 @@ function serializedToPatient(c: SerializedCase): Patient {
     subgroup: c.subgroup,
     specialty: c.specialty,
     tags: c.tags,
+    body: c.body,
     images,
     attachedImages: images,
     createdAt: c.createdAt,
