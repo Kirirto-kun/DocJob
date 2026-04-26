@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getChatSession,
   handleCaseChat,
@@ -23,18 +23,19 @@ export type UseCaseChatResult = {
   reset: () => Promise<void>;
 };
 
-// STUB — заменяется в Волне 2 (Unit U2) на полноценный hook с оптимистичным
-// рендером, abort'ом, ретраями и т. п. Сейчас — рабочий минимум.
 export function useCaseChat(caseId: string): UseCaseChatResult {
   const [session, setSession] = useState<SerializedChatSession | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const inFlightRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setIsInitializing(true);
+      setError(null);
       const existing = await getChatSession(caseId);
       if (cancelled) return;
       if (existing.success && existing.data) {
@@ -61,13 +62,22 @@ export function useCaseChat(caseId: string): UseCaseChatResult {
     })();
     return () => {
       cancelled = true;
+      inFlightRef.current?.abort();
+      inFlightRef.current = null;
     };
   }, [caseId]);
 
   const send = useCallback(
     async (message: string, isFinal: boolean) => {
+      if (isLoading) return;
+
+      inFlightRef.current?.abort();
+      const controller = new AbortController();
+      inFlightRef.current = controller;
+
       setIsLoading(true);
       setError(null);
+
       const optimisticUser: ChatHistoryMessage = {
         role: 'user',
         content: message,
@@ -75,20 +85,41 @@ export function useCaseChat(caseId: string): UseCaseChatResult {
         isFinalAnswer: isFinal || undefined,
       };
       setSession((prev) =>
-        prev
-          ? { ...prev, messages: [...prev.messages, optimisticUser] }
-          : prev,
+        prev ? { ...prev, messages: [...prev.messages, optimisticUser] } : prev,
       );
-      const result = await handleCaseChat({
-        caseId,
-        userMessage: message,
-        submittingFinalAnswer: isFinal,
-      });
+
+      let result;
+      try {
+        result = await handleCaseChat({
+          caseId,
+          userMessage: message,
+          submittingFinalAnswer: isFinal,
+        });
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setSession((prev) =>
+          prev
+            ? { ...prev, messages: prev.messages.filter((m) => m !== optimisticUser) }
+            : prev,
+        );
+        setError(err instanceof Error ? err.message : 'Не удалось отправить сообщение.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (controller.signal.aborted) return;
+
       if (!result.success) {
+        setSession((prev) =>
+          prev
+            ? { ...prev, messages: prev.messages.filter((m) => m !== optimisticUser) }
+            : prev,
+        );
         setError(result.error);
         setIsLoading(false);
         return;
       }
+
       setSession((prev) => {
         if (!prev) return prev;
         return {
@@ -100,14 +131,22 @@ export function useCaseChat(caseId: string): UseCaseChatResult {
         };
       });
       setIsLoading(false);
+      if (inFlightRef.current === controller) inFlightRef.current = null;
     },
-    [caseId],
+    [caseId, isLoading],
   );
 
   const reset = useCallback(async () => {
+    inFlightRef.current?.abort();
+    const controller = new AbortController();
+    inFlightRef.current = controller;
+
     setIsLoading(true);
+    setError(null);
     await resetChatSession(caseId);
+    if (controller.signal.aborted) return;
     const intro = await startCaseChat(caseId);
+    if (controller.signal.aborted) return;
     if (intro.success) {
       setSession({
         id: 'pending',
@@ -122,6 +161,7 @@ export function useCaseChat(caseId: string): UseCaseChatResult {
       setError(intro.error);
     }
     setIsLoading(false);
+    if (inFlightRef.current === controller) inFlightRef.current = null;
   }, [caseId]);
 
   return {
