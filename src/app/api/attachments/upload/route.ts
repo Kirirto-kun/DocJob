@@ -19,6 +19,10 @@ export async function POST(req: Request) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
+    const titleRaw = formData.get('title');
+    const descriptionRaw = formData.get('description');
+    const title = typeof titleRaw === 'string' && titleRaw.trim() ? titleRaw.trim() : null;
+    const description = typeof descriptionRaw === 'string' && descriptionRaw.trim() ? descriptionRaw.trim() : null;
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const saved = await saveAttachment(buffer, file.type || 'application/octet-stream');
@@ -27,6 +31,8 @@ export async function POST(req: Request) {
       data: {
         filename: saved.filename,
         originalName: file.name,
+        title,
+        description,
         mimeType: saved.mimeType,
         size: saved.size,
         kind: saved.kind,
@@ -38,6 +44,8 @@ export async function POST(req: Request) {
       id: record.id,
       filename: saved.filename,
       originalName: file.name,
+      title: record.title,
+      description: record.description,
       mimeType: saved.mimeType,
       size: saved.size,
       kind: saved.kind,

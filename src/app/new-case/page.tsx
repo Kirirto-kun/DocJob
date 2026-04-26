@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 
 import DashboardLayout from '@/components/dashboard-layout';
 import { CaseEditor } from '@/components/case-editor';
+import { AttachmentsManager, type ManagedAttachment } from '@/components/attachments-manager';
 import { TagPicker } from '@/components/tag-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -105,8 +106,9 @@ export default function NewCasePage() {
   const [body, setBody] = useState<CaseBody>(EMPTY_BODY);
   const [taskQuestions, setTaskQuestions] = useState<string[]>(['']);
   const [solution, setSolution] = useState<CaseSolution | null>(null);
+  const [attachments, setAttachments] = useState<ManagedAttachment[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'body' | 'tasks' | 'solution'>('body');
+  const [activeTab, setActiveTab] = useState<'body' | 'files' | 'tasks' | 'solution'>('body');
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -215,6 +217,7 @@ export default function NewCasePage() {
         body,
         solution,
         taskQuestions: cleanedTasks,
+        attachmentIds: attachments.map((a) => a.id),
       });
       if (!result.success) {
         toast({ variant: 'destructive', title: 'Ошибка', description: result.error });
@@ -352,6 +355,7 @@ export default function NewCasePage() {
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
           <TabsList>
             <TabsTrigger value="body">Тело кейса</TabsTrigger>
+            <TabsTrigger value="files">Файлы</TabsTrigger>
             <TabsTrigger value="tasks">Задание</TabsTrigger>
             <TabsTrigger value="solution" disabled={!subgroup}>
               Правильный ответ
@@ -376,13 +380,36 @@ export default function NewCasePage() {
                   Импорт из markdown
                 </Button>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
+                <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
+                  <p className="font-medium text-foreground">Подсказки по редактору (как Word)</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                    <li>Выделите текст — появится панель: <strong>жирный</strong>, <em>курсив</em>, подчёркивание, цвет текста, выделение цветом, ссылки.</li>
+                    <li>Введите <code className="rounded bg-muted px-1 py-0.5">/</code> в начале строки — меню вставки: заголовки, списки, таблицы, изображения, файлы.</li>
+                    <li>Перетаскивайте картинки и PDF прямо в редактор — они загрузятся и встанут в текст.</li>
+                  </ul>
+                </div>
                 <CaseEditor initialBody={body} onChange={setBody} />
                 {!mode && (
                   <p className="mt-2 text-xs text-muted-foreground">
                     Импорт из markdown доступен после выбора подгруппы.
                   </p>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="files" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Файлы и материалы</CardTitle>
+                <CardDescription>
+                  Прикрепите любые файлы — картинки, PDF, документы. Студент увидит их прямо на странице кейса целиком.
+                  Каждому файлу можно дать название и краткое описание.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AttachmentsManager attachments={attachments} onChange={setAttachments} />
               </CardContent>
             </Card>
           </TabsContent>

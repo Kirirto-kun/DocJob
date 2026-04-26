@@ -99,9 +99,12 @@ model CaseAttachment {
   uploaderId String?
   filename  String
   originalName String?
+  title     String?
+  description String?
   mimeType  String
   size      Int
   kind      String
+  order     Int      @default(0)
   createdAt DateTime @default(now())
 
   @@index([caseId])

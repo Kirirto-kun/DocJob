@@ -129,6 +129,15 @@ export async function saveAttachment(
   };
 }
 
+export async function deleteAttachmentFile(filename: string): Promise<void> {
+  try {
+    const fullPath = getImageAbsolutePath(filename);
+    await fs.unlink(fullPath);
+  } catch {
+    // ignore — file may already be gone
+  }
+}
+
 export async function readAttachment(
   filename: string,
 ): Promise<{ buffer: Buffer; mimeType: string } | null> {

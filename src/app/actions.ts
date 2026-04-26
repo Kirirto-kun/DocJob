@@ -10,6 +10,7 @@ import { analyzeStudentQuestion, AnalyzeStudentQuestionInput } from '@/ai/flows/
 import { generatePersonalizedScenario, GeneratePersonalizedScenarioInput } from '@/ai/flows/generate-personalized-scenario';
 import { simulateComorbidities, SimulateComorbiditiesInput } from '@/ai/flows/simulate-comorbidities';
 import { savePatientRecord } from '@/services/patient-record';
+import { deleteAttachmentFile } from '@/lib/storage';
 import {
   runCaseChat,
   runIntroMessage,
@@ -710,6 +711,65 @@ export async function getCaseSolution(
   return ok({ solution: parsed?.success ? parsed.data : null, available: true });
 }
 
+// ───────────────────────── Case attachments (admin)
+
+const updateAttachmentSchema = z.object({
+  id: z.string(),
+  title: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  order: z.number().int().optional(),
+});
+
+export async function updateCaseAttachment(
+  input: z.infer<typeof updateAttachmentSchema>,
+): Promise<ActionResult<SerializedCaseAttachment>> {
+  try {
+    await requireAdmin();
+  } catch {
+    return fail('Редактировать вложения может только администратор.');
+  }
+  const parsed = updateAttachmentSchema.safeParse(input);
+  if (!parsed.success) return fail('Некорректные данные вложения.');
+
+  const data: Prisma.CaseAttachmentUpdateInput = {};
+  if (parsed.data.title !== undefined) data.title = parsed.data.title?.trim() || null;
+  if (parsed.data.description !== undefined) data.description = parsed.data.description?.trim() || null;
+  if (parsed.data.order !== undefined) data.order = parsed.data.order;
+
+  const updated = await prisma.caseAttachment.update({
+    where: { id: parsed.data.id },
+    data,
+  });
+
+  return ok({
+    id: updated.id,
+    filename: updated.filename,
+    originalName: updated.originalName,
+    title: updated.title,
+    description: updated.description,
+    mimeType: updated.mimeType,
+    size: updated.size,
+    kind: updated.kind,
+    order: updated.order,
+    url: `/api/attachments/${updated.filename}`,
+    createdAt: updated.createdAt.toISOString(),
+  });
+}
+
+export async function deleteCaseAttachment(id: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    await requireAdmin();
+  } catch {
+    return fail('Удалять вложения может только администратор.');
+  }
+  const existing = await prisma.caseAttachment.findUnique({ where: { id } });
+  if (!existing) return fail('Вложение не найдено.');
+
+  await prisma.caseAttachment.delete({ where: { id } });
+  await deleteAttachmentFile(existing.filename);
+  return ok({ id });
+}
+
 // ───────────────────────── Markdown structuring (admin)
 
 export async function handleStructureCaseFromMarkdown(
@@ -883,9 +943,12 @@ export type SerializedCaseAttachment = {
   id: string;
   filename: string;
   originalName: string | null;
+  title: string | null;
+  description: string | null;
   mimeType: string;
   size: number;
   kind: string;
+  order: number;
   url: string;
   createdAt: string;
 };
@@ -971,9 +1034,12 @@ function serializeCase(c: PrismaCaseFull): SerializedCase {
       id: a.id,
       filename: a.filename,
       originalName: a.originalName,
+      title: a.title,
+      description: a.description,
       mimeType: a.mimeType,
       size: a.size,
       kind: a.kind,
+      order: a.order,
       url: `/api/attachments/${a.filename}`,
       createdAt: a.createdAt.toISOString(),
     })),
