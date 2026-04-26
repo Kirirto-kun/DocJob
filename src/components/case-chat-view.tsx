@@ -208,22 +208,17 @@ export function CaseChatView({ caseId, caseName, solution, className }: CaseChat
     >
       <Card
         className={cn(
-          'flex flex-col',
+          'flex flex-col overflow-hidden',
           isDone ? 'shrink-0' : 'h-full min-h-0 flex-1',
         )}
       >
-        <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border/40 pb-3">
-          <div className="space-y-1">
-            <CardTitle className="text-base">Чат-наставник по кейсу «{caseName}»</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Обсудите кейс, задайте вопросы, затем сформулируйте финальный ответ.
-            </p>
-          </div>
+        <CardHeader className="flex shrink-0 flex-row items-center justify-between gap-3 space-y-0 border-b border-border/40 px-4 py-2.5">
+          <CardTitle className="truncate text-sm font-semibold">Чат-наставник</CardTitle>
           <PhaseIndicator phase={chat.phase} />
         </CardHeader>
 
-        <CardContent className="flex flex-1 flex-col gap-3 overflow-hidden p-4">
-          <ScrollArea className="flex-1 pr-3">
+        <CardContent className="flex flex-1 min-h-0 flex-col overflow-hidden p-0">
+          <ScrollArea className="flex-1 min-h-0 px-4 py-3">
             {chat.isInitializing ? (
               <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -245,86 +240,91 @@ export function CaseChatView({ caseId, caseName, solution, className }: CaseChat
             )}
           </ScrollArea>
 
-          {chat.error ? (
-            <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <p>{chat.error}</p>
-            </div>
-          ) : null}
-
-          {!isDone && lastSuggested.length > 0 ? (
-            <SuggestedActionsChips
-              actions={lastSuggested}
-              onPick={(a) => onPickAction(a.label)}
-              disabled={chat.isLoading || chat.isInitializing}
-            />
-          ) : null}
-
-          {isDone ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={chat.reset}
-              disabled={chat.isLoading}
-              className="gap-2"
-            >
-              {chat.isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RotateCcw className="h-4 w-4" />
-              )}
-              Пройти кейс заново
-            </Button>
-          ) : (
-            <div className="flex items-end gap-2">
-              <Textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    void onSend();
-                  }
-                }}
-                rows={2}
-                placeholder="Сообщение наставнику…"
-                disabled={chat.isLoading || chat.isInitializing}
-                className="min-h-[44px] resize-none"
-              />
-              <div className="flex flex-col gap-2">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="secondary"
-                  onClick={onSend}
-                  disabled={!canSend}
-                  aria-label="Отправить"
-                >
-                  {chat.isLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </Button>
-                <DiagnosisSubmitDialog
-                  trigger={
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="default"
-                      className="whitespace-nowrap"
-                      disabled={chat.isLoading || chat.isInitializing}
-                    >
-                      <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                      Финальный ответ
-                    </Button>
-                  }
-                  disabled={chat.isLoading || chat.isInitializing}
-                  onSubmit={(answer) => chat.submitFinalAnswer(answer)}
-                />
+          <div className="shrink-0 space-y-2 border-t border-border/40 bg-background/40 px-3 py-3">
+            {chat.error ? (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>{chat.error}</p>
               </div>
-            </div>
-          )}
+            ) : null}
+
+            {!isDone && lastSuggested.length > 0 ? (
+              <SuggestedActionsChips
+                actions={lastSuggested}
+                onPick={(a) => onPickAction(a.label)}
+                disabled={chat.isLoading || chat.isInitializing}
+              />
+            ) : null}
+
+            {isDone ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={chat.reset}
+                disabled={chat.isLoading}
+                className="w-full gap-2"
+              >
+                {chat.isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4" />
+                )}
+                Пройти кейс заново
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-end gap-2 rounded-2xl border border-border/60 bg-background/80 px-2 py-1.5 shadow-sm focus-within:border-primary/60">
+                  <Textarea
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        void onSend();
+                      }
+                    }}
+                    rows={1}
+                    placeholder="Сообщение наставнику…"
+                    disabled={chat.isLoading || chat.isInitializing}
+                    className="min-h-[40px] max-h-40 flex-1 resize-none border-0 bg-transparent px-1 py-1.5 text-sm shadow-none focus-visible:ring-0"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    onClick={onSend}
+                    disabled={!canSend}
+                    aria-label="Отправить"
+                    className="h-9 w-9 shrink-0 rounded-full"
+                  >
+                    {chat.isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                  <span className="hidden sm:inline">Enter — отправить, Shift+Enter — перенос строки.</span>
+                  <DiagnosisSubmitDialog
+                    trigger={
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="ml-auto whitespace-nowrap"
+                        disabled={chat.isLoading || chat.isInitializing}
+                      >
+                        <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                        Финальный ответ
+                      </Button>
+                    }
+                    disabled={chat.isLoading || chat.isInitializing}
+                    onSubmit={(answer) => chat.submitFinalAnswer(answer)}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
       {isDone ? <SolutionPanel evaluation={chat.evaluation} solution={solution ?? null} /> : null}
