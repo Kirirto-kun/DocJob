@@ -13,6 +13,13 @@ enum Role {
   PATIENT
 }
 
+enum CaseMode {
+  CLINICAL_QUEST
+  SANEPID_INVESTIGATION
+  BEST_PRACTICE
+  MANAGEMENT
+}
+
 model User {
   id                String   @id @default(cuid())
   email             String   @unique
@@ -53,12 +60,19 @@ model Case {
   subgroup            String?
   specialty           String?
   tags                String[]    @default([])
+  mode                CaseMode    @default(CLINICAL_QUEST)
+  body                Json        @default("{\"blocks\":[]}")
+  solution            Json?
+  taskQuestions       String[]    @default([])
   images              CaseImage[]
+  attachments         CaseAttachment[]
+  chatSessions        ChatSession[]
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
   @@index([subgroup])
   @@index([authorId])
+  @@index([mode])
 }
 
 model CaseImage {
@@ -76,6 +90,40 @@ model CaseImage {
 model Tag {
   id    String @id @default(cuid())
   label String @unique
+}
+
+model CaseAttachment {
+  id        String   @id @default(cuid())
+  caseId    String?
+  case      Case?    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  uploaderId String?
+  filename  String
+  originalName String?
+  mimeType  String
+  size      Int
+  kind      String
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+  @@index([uploaderId])
+}
+
+model ChatSession {
+  id          String    @id @default(cuid())
+  userId      String
+  caseId      String
+  case        Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  phase       String    @default("discussing")
+  messages    Json      @default("[]")
+  finalAnswer String?
+  evaluation  Json?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, caseId])
+  @@index([userId])
+  @@index([caseId])
 }
 
 model NewsItem {

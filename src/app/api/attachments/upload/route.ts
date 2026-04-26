@@ -1,0 +1,50 @@
+import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/session';
+import { prisma } from '@/lib/prisma';
+import { saveAttachment } from '@/lib/storage';
+
+export const runtime = 'nodejs';
+
+export async function POST(req: Request) {
+  let admin;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const formData = await req.formData();
+    const file = formData.get('file');
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const saved = await saveAttachment(buffer, file.type || 'application/octet-stream');
+
+    const record = await prisma.caseAttachment.create({
+      data: {
+        filename: saved.filename,
+        originalName: file.name,
+        mimeType: saved.mimeType,
+        size: saved.size,
+        kind: saved.kind,
+        uploaderId: admin.id,
+      },
+    });
+
+    return NextResponse.json({
+      id: record.id,
+      filename: saved.filename,
+      originalName: file.name,
+      mimeType: saved.mimeType,
+      size: saved.size,
+      kind: saved.kind,
+      url: saved.url,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Upload failed';
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
+}
