@@ -1,0 +1,14 @@
+# Production overlay. Apply with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Locks down public ports so only Caddy/nginx on the host can reach the
+# Next.js container, and Postgres is not exposed at all.
+
+services:
+  postgres:
+    ports: !reset []
+
+  web:
+    ports:
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped

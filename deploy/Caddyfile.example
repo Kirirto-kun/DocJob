@@ -1,0 +1,25 @@
+# /etc/caddy/Caddyfile — example for MEDIZO behind Caddy.
+# Caddy will fetch and renew a Let's Encrypt cert automatically.
+# Make sure the DNS A/AAAA record for docjob.sanduai.kz points at this server.
+
+docjob.sanduai.kz {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:3000
+
+    # Allow large file uploads (matches the 25 MB cap in src/lib/storage.ts)
+    request_body {
+        max_size 30MB
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # NextAuth needs cookies; do not strip them.
+    }
+
+    log {
+        output file /var/log/caddy/docjob.sanduai.kz.log
+        format console
+    }
+}

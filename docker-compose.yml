@@ -30,6 +30,8 @@ services:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       AUTH_TRUST_HOST: "true"
       UPLOAD_DIR: /app/storage/uploads
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
     ports:
       - "3000:3000"
