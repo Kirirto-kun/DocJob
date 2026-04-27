@@ -2,6 +2,9 @@
 # Caddy will fetch and renew a Let's Encrypt cert automatically.
 # Make sure the DNS A/AAAA record for docjob.sanduai.kz points at this server.
 
+# If you set WEB_HOST_PORT in /opt/medizo/.env (because 3000 is busy),
+# change the upstream port below to match.
+
 docjob.sanduai.kz {
     encode zstd gzip
     reverse_proxy 127.0.0.1:3000
