@@ -6,7 +6,8 @@ import DashboardLayout from '@/components/dashboard-layout';
 import { useUserStore } from '@/hooks/use-user-store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, MapPin, Phone, Mail, Clock } from 'lucide-react';
+import Link from 'next/link';
+import { FileText, Loader2, MapPin, Phone, Mail, Clock, ShieldCheck } from 'lucide-react';
 
 export default function ContactsPage() {
   const { currentUser, isInitialized } = useUserStore();
@@ -39,7 +40,7 @@ export default function ContactsPage() {
 
         <Card className="max-w-2xl mx-auto">
           <CardHeader>
-            <CardTitle>ООО «Медизо АИ»</CardTitle>
+            <CardTitle>ООО «DocJob»</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-start gap-3">
@@ -62,8 +63,8 @@ export default function ContactsPage() {
               <Mail className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-sm text-muted-foreground">Email</p>
-                <a href="mailto:info@medizo.local" className="hover:underline">
-                  info@medizo.local
+                <a href="mailto:info@docjob.local" className="hover:underline">
+                  info@docjob.local
                 </a>
               </div>
             </div>
@@ -78,6 +79,38 @@ export default function ContactsPage() {
             <p className="text-sm text-muted-foreground">
               Если у вас есть предложения по улучшению платформы, напишите нам через раздел Техподдержка.
             </p>
+          </CardContent>
+        </Card>
+
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle className="text-base">Юридическая информация</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Link
+              href="/legal/terms"
+              className="flex items-start gap-3 rounded-md border border-border/50 bg-muted/15 px-4 py-3 transition-colors hover:border-primary/40"
+            >
+              <FileText className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">Пользовательское соглашение</p>
+                <p className="text-xs text-muted-foreground">
+                  Условия использования сервиса DocJob (публичная оферта).
+                </p>
+              </div>
+            </Link>
+            <Link
+              href="/legal/privacy"
+              className="flex items-start gap-3 rounded-md border border-border/50 bg-muted/15 px-4 py-3 transition-colors hover:border-primary/40"
+            >
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">Политика конфиденциальности</p>
+                <p className="text-xs text-muted-foreground">
+                  Порядок сбора, обработки и хранения персональных данных.
+                </p>
+              </div>
+            </Link>
           </CardContent>
         </Card>
       </main>

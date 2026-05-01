@@ -57,7 +57,7 @@ export default function SupportPage() {
 
   const onSubmit: SubmitHandler<SupportFormValues> = (data) => {
     const body = `${data.message}\n\n---\nОтправитель: ${senderName}\nEmail: ${currentUser.email}\nТелефон: ${senderPhone}`;
-    const mailtoUrl = `mailto:support@medizo.local?subject=${encodeURIComponent(data.subject)}&body=${encodeURIComponent(body)}`;
+    const mailtoUrl = `mailto:support@docjob.local?subject=${encodeURIComponent(data.subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoUrl;
     toast({ title: 'Сообщение открыто в почтовом клиенте' });
   };

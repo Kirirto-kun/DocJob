@@ -1,22 +1,29 @@
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from '@/components/ui/toaster';
 import { AppProviders } from '@/components/app-providers';
 import { NoCopyRoot } from '@/components/no-copy-root';
-import { Analytics } from "@vercel/analytics/next"
 
-export const metadata: Metadata = {
-  title: 'Medizo AI — Платформа учебных кейсов',
-  description: 'Обучающая платформа с клиническими кейсами, чат-ботом и разбором врачебных ситуаций.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('common');
+  return {
+    title: t('appTitle'),
+    description: t('appTagline'),
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang={locale} className="dark" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -25,10 +32,12 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <NoCopyRoot>
-          <AppProviders>
-            {children}
-            <Toaster />
-          </AppProviders>
+          <NextIntlClientProvider locale={locale} messages={messages}>
+            <AppProviders>
+              {children}
+              <Toaster />
+            </AppProviders>
+          </NextIntlClientProvider>
         </NoCopyRoot>
       </body>
     </html>

@@ -11,7 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { MedizoAiLogo } from '@/components/icons';
+import { DocJobLogo } from '@/components/icons';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import { Loader2 } from 'lucide-react';
 import { signInWithCredentials } from '@/hooks/use-user-store';
 
@@ -42,7 +43,7 @@ function LoginForm() {
     setIsLoading(false);
 
     if (res.ok) {
-      toast({ title: 'Вход выполнен', description: 'Добро пожаловать в Medizo AI!' });
+      toast({ title: 'Вход выполнен', description: 'Добро пожаловать в DocJob!' });
       router.push(searchParams.get('callbackUrl') ?? '/');
       router.refresh();
     } else {
@@ -76,13 +77,16 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
+    <div className="relative flex items-center justify-center min-h-screen bg-background">
+      <div className="absolute right-4 top-4">
+        <LanguageSwitcher variant="outline" />
+      </div>
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <MedizoAiLogo className="h-16 w-16" />
+            <DocJobLogo className="h-16 w-16" />
           </div>
-          <CardTitle className="text-2xl font-headline">Вход в Medizo AI</CardTitle>
+          <CardTitle className="text-2xl font-headline">Вход в DocJob</CardTitle>
           <CardDescription>Введите email и пароль, чтобы продолжить</CardDescription>
         </CardHeader>
         <CardContent>
@@ -96,8 +100,17 @@ export default function LoginPage() {
             </Link>
           </div>
           <p className="text-xs text-center text-muted-foreground mt-4">
-            Для демо используйте admin@medizo.local / password123
+            Для демо используйте admin@docjob.local / password123
           </p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            <Link href="/legal/terms" className="hover:underline">
+              Пользовательское соглашение
+            </Link>
+            <span aria-hidden>·</span>
+            <Link href="/legal/privacy" className="hover:underline">
+              Политика конфиденциальности
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>

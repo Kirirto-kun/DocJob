@@ -1,0 +1,53 @@
+{
+  "common": {
+    "appTitle": "DocJob — Оқу кейстері платформасы",
+    "appTagline": "DocJob — ЖИ-тәлімгері бар клиникалық кейстер",
+    "language": {
+      "label": "Тіл",
+      "ru": "Русский",
+      "kk": "Қазақша"
+    },
+    "actions": {
+      "save": "Сақтау",
+      "cancel": "Бас тарту",
+      "continue": "Жалғастыру",
+      "delete": "Жою",
+      "upload": "Жүктеу",
+      "back": "Артқа",
+      "confirm": "Растау",
+      "close": "Жабу",
+      "submit": "Жіберу"
+    },
+    "state": {
+      "loading": "Жүктелуде…",
+      "empty": "Әзірге ештеңе жоқ",
+      "error": "Қате",
+      "success": "Дайын"
+    }
+  },
+  "nav": {},
+  "auth": {},
+  "landing": {},
+  "legal": {
+    "shell": {},
+    "privacy": {},
+    "terms": {}
+  },
+  "taxonomy": {},
+  "cases": {},
+  "case": {},
+  "admin": {
+    "newCase": {},
+    "banners": {}
+  },
+  "user": {
+    "profile": {},
+    "contacts": {},
+    "support": {},
+    "news": {},
+    "managePatients": {},
+    "addDoctor": {},
+    "addPatient": {}
+  },
+  "home": {}
+}

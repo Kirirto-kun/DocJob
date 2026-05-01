@@ -106,7 +106,7 @@ export default function Home() {
                 Добро пожаловать, Администратор
             </CardTitle>
             <CardDescription className="mt-2">
-                У вас административный доступ к платформе Medizo AI.
+                У вас административный доступ к платформе DocJob.
             </CardDescription>
             <CardContent className="mt-6 text-left">
                 <p className="text-lg">Состояние системы:</p>

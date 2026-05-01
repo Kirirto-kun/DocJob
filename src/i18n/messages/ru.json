@@ -1,0 +1,53 @@
+{
+  "common": {
+    "appTitle": "DocJob — Платформа учебных кейсов",
+    "appTagline": "DocJob — клинические кейсы с ИИ-наставником",
+    "language": {
+      "label": "Язык",
+      "ru": "Русский",
+      "kk": "Қазақша"
+    },
+    "actions": {
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "continue": "Продолжить",
+      "delete": "Удалить",
+      "upload": "Загрузить",
+      "back": "Назад",
+      "confirm": "Подтвердить",
+      "close": "Закрыть",
+      "submit": "Отправить"
+    },
+    "state": {
+      "loading": "Загрузка…",
+      "empty": "Пока ничего нет",
+      "error": "Ошибка",
+      "success": "Готово"
+    }
+  },
+  "nav": {},
+  "auth": {},
+  "landing": {},
+  "legal": {
+    "shell": {},
+    "privacy": {},
+    "terms": {}
+  },
+  "taxonomy": {},
+  "cases": {},
+  "case": {},
+  "admin": {
+    "newCase": {},
+    "banners": {}
+  },
+  "user": {
+    "profile": {},
+    "contacts": {},
+    "support": {},
+    "news": {},
+    "managePatients": {},
+    "addDoctor": {},
+    "addPatient": {}
+  },
+  "home": {}
+}

@@ -26,7 +26,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { MedizoAiLogo } from '@/components/icons';
+import { DocJobLogo } from '@/components/icons';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import { registerUser } from '@/app/actions';
 import { signInWithCredentials } from '@/hooks/use-user-store';
 import { SUBGROUPS } from '@/lib/case-taxonomy';
@@ -149,13 +150,16 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4">
+    <div className="relative flex items-center justify-center min-h-screen bg-background p-4">
+      <div className="absolute right-4 top-4">
+        <LanguageSwitcher variant="outline" />
+      </div>
       <Card className="w-full max-w-lg">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <MedizoAiLogo className="h-16 w-16" />
+            <DocJobLogo className="h-16 w-16" />
           </div>
-          <CardTitle className="text-2xl font-headline">Регистрация в Medizo AI</CardTitle>
+          <CardTitle className="text-2xl font-headline">Регистрация в DocJob</CardTitle>
           <CardDescription>Заполните данные, чтобы создать аккаунт</CardDescription>
         </CardHeader>
         <CardContent>
@@ -253,8 +257,25 @@ export default function RegisterPage() {
                 htmlFor="consentAccepted"
                 className="text-sm font-normal leading-snug text-muted-foreground"
               >
-                Я ознакомлен с Пользовательским соглашением, документом об использовании
-                персональных данных и договором публичной оферты
+                Я ознакомлен с{' '}
+                <Link
+                  href="/legal/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline-offset-2 hover:underline"
+                >
+                  Пользовательским соглашением
+                </Link>
+                ,{' '}
+                <Link
+                  href="/legal/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline-offset-2 hover:underline"
+                >
+                  Политикой конфиденциальности
+                </Link>{' '}
+                и договором публичной оферты
               </Label>
             </div>
             {errors.consentAccepted && (

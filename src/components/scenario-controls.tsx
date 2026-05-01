@@ -28,6 +28,7 @@ import {
   Phone,
   FilePlus2,
   LayoutGrid,
+  Megaphone,
 } from 'lucide-react';
 import type { GeneratePersonalizedScenarioOutput } from '@/ai/flows/generate-personalized-scenario';
 import UserSwitcher from './user-switcher';
@@ -242,6 +243,12 @@ export default function ScenarioControls({ onScenarioGenerated }: ScenarioContro
                 <Button variant="outline" className={navButtonClass} onClick={() => router.push('/new-case')}>
                     <FilePlus2 className="mr-2" />
                     <span className="group-data-[collapsible=icon]:hidden">Создать кейс</span>
+                </Button>
+            </div>
+            <div className={navWrapperClass}>
+                <Button variant="outline" className={navButtonClass} onClick={() => router.push('/admin/banners')}>
+                    <Megaphone className="mr-2" />
+                    <span className="group-data-[collapsible=icon]:hidden">Баннерная реклама</span>
                 </Button>
             </div>
             <Separator className="my-2 bg-sidebar-border/50" />
