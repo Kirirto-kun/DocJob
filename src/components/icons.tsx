@@ -1,7 +1,7 @@
 
 import type { SVGProps } from 'react';
 
-export const MedizoAiLogo = (props: SVGProps<SVGSVGElement>) => (
+export const DocJobLogo = (props: SVGProps<SVGSVGElement>) => (
     <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 256 256"
@@ -72,3 +72,5 @@ export const MedizoAiLogo = (props: SVGProps<SVGSVGElement>) => (
 
     </svg>
 );
+
+export const MedizoAiLogo = DocJobLogo;

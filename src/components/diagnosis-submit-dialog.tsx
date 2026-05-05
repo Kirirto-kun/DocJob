@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -30,10 +31,11 @@ export function DiagnosisSubmitDialog({
   trigger,
   onSubmit,
   disabled,
-  title = 'Финальный ответ',
-  description = 'Сформулируйте итоговое решение по кейсу. После отправки ответ будет зафиксирован и оценён наставником.',
-  placeholder = 'Опишите диагноз / выводы, разберите ошибки и предложите корректный план действий…',
+  title,
+  description,
+  placeholder,
 }: DiagnosisSubmitDialogProps) {
+  const t = useTranslations('case.diagnosis');
   const [value, setValue] = useState('');
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -65,20 +67,20 @@ export function DiagnosisSubmitDialog({
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle>{title ?? t('title')}</DialogTitle>
+          <DialogDescription>{description ?? t('description')}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground">
             <div className="mb-2 flex items-center gap-2 font-medium text-foreground">
               <ListChecks className="h-4 w-4 text-primary" />
-              Структура ответа
+              {t('structureTitle')}
             </div>
             <ol className="list-decimal space-y-0.5 pl-5">
-              <li>Диагноз или ключевые выводы по кейсу.</li>
-              <li>Допущенные ошибки и их последствия.</li>
-              <li>Что бы вы сделали по-другому и почему.</li>
+              <li>{t('structureItem1')}</li>
+              <li>{t('structureItem2')}</li>
+              <li>{t('structureItem3')}</li>
             </ol>
           </div>
 
@@ -86,7 +88,7 @@ export function DiagnosisSubmitDialog({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             rows={7}
-            placeholder={placeholder}
+            placeholder={placeholder ?? t('placeholder')}
             disabled={busy}
             aria-invalid={tooShort || undefined}
             className={cn(tooShort && 'border-destructive/60 focus-visible:ring-destructive/40')}
@@ -100,19 +102,16 @@ export function DiagnosisSubmitDialog({
               )}
             >
               {trimmed.length === 0
-                ? `Минимум ${MIN_LENGTH} символов`
+                ? t('minLengthHint', { min: MIN_LENGTH })
                 : tooShort
-                  ? `Слишком коротко: ${trimmed.length} / ${MIN_LENGTH}`
-                  : `${trimmed.length} символов`}
+                  ? t('tooShort', { current: trimmed.length, min: MIN_LENGTH })
+                  : t('currentLength', { current: trimmed.length })}
             </span>
           </div>
 
           <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <p>
-              После отправки ответ нельзя изменить. Чтобы пройти кейс заново, потребуется сбросить
-              сессию.
-            </p>
+            <p>{t('warning')}</p>
           </div>
         </div>
 
@@ -123,18 +122,18 @@ export function DiagnosisSubmitDialog({
             onClick={() => handleOpenChange(false)}
             disabled={busy}
           >
-            Отмена
+            {t('cancel')}
           </Button>
           <Button type="button" onClick={handleSubmit} disabled={!canSubmit} className="gap-2">
             {busy ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Отправка…
+                {t('submitting')}
               </>
             ) : (
               <>
                 <Send className="h-4 w-4" />
-                Отправить ответ
+                {t('submit')}
               </>
             )}
           </Button>

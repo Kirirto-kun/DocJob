@@ -57,3 +57,7 @@ firestore-debug.log
 !/storage/uploads/.gitkeep
 # ultraplan/batch worktrees
 .claude/
+---
+# Reference material from external project (avicenna-portal-main)
+/landing/
+Снимок экрана*.png

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { CheckCircle2, Loader2, Upload, XCircle } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard-layout';
 import ScenarioControls from '@/components/scenario-controls';
@@ -12,16 +13,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore, type UserRole } from '@/hooks/use-user-store';
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  admin: 'Администратор',
-  doctor: 'Врач',
-  patient: 'Пациент',
-};
-
 export default function ProfilePage() {
   const { currentUser, isInitialized, updateUser } = useUserStore();
   const router = useRouter();
   const { toast } = useToast();
+  const t = useTranslations('user.profile');
+  const locale = useLocale();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -43,15 +40,24 @@ export default function ProfilePage() {
     );
   }
 
+  const ROLE_KEYS: Record<UserRole, 'admin' | 'doctor' | 'patient'> = {
+    admin: 'admin',
+    doctor: 'doctor',
+    patient: 'patient',
+  };
+  const roleLabel = t(`role.${ROLE_KEYS[currentUser.role]}`);
+  const fallback = t('fieldFallback');
+
   const avatarSrc = currentUser.profilePhotoUrl ?? currentUser.avatar ?? '';
   const fallbackChar = currentUser.name.trim().charAt(0).toUpperCase() || '?';
   const solvedCount = currentUser.solvedCaseIds?.length ?? 0;
   const unsolvedCount = currentUser.unsolvedCaseIds?.length ?? 0;
-  const roleLabel = ROLE_LABELS[currentUser.role];
 
   const consentText = currentUser.consentAcceptedAt
-    ? `Принято ${new Date(currentUser.consentAcceptedAt).toLocaleDateString('ru-RU')}`
-    : 'Не принято';
+    ? t('consentAccepted', {
+        date: new Date(currentUser.consentAcceptedAt).toLocaleDateString(locale === 'kk' ? 'kk-KZ' : 'ru-RU'),
+      })
+    : t('consentNotAccepted');
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -59,7 +65,6 @@ export default function ProfilePage() {
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    // Reset so the same file can be selected again later.
     e.target.value = '';
     if (!file) return;
 
@@ -75,28 +80,28 @@ export default function ProfilePage() {
       if (res.status === 401) {
         toast({
           variant: 'destructive',
-          title: 'Недостаточно прав',
-          description: 'Загрузка фото доступна только администраторам.',
+          title: t('toast.noRightsTitle'),
+          description: t('toast.noRightsDescription'),
         });
         return;
       }
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error ?? 'Не удалось загрузить фото');
+        throw new Error(data?.error ?? t('toast.uploadFailed'));
       }
 
       const result = (await res.json()) as { url: string };
       await updateUser({ ...currentUser, profilePhotoUrl: result.url });
       toast({
-        title: 'Фото обновлено',
-        description: 'Новое фото профиля успешно сохранено.',
+        title: t('toast.successTitle'),
+        description: t('toast.successDescription'),
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      const message = err instanceof Error ? err.message : t('toast.errorUnknown');
       toast({
         variant: 'destructive',
-        title: 'Ошибка загрузки',
+        title: t('toast.errorTitle'),
         description: message,
       });
     } finally {
@@ -111,14 +116,14 @@ export default function ProfilePage() {
       <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6">
         <header>
           <h1 className="text-2xl md:text-3xl font-bold text-primary font-headline">
-            Профиль
+            {t('title')}
           </h1>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="md:col-span-1">
             <CardHeader>
-              <CardTitle className="font-headline">Фото и идентификатор</CardTitle>
+              <CardTitle className="font-headline">{t('photoCardTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col items-center text-center space-y-4">
               <Avatar className="h-32 w-32">
@@ -145,7 +150,7 @@ export default function ProfilePage() {
                 ) : (
                   <Upload className="mr-2 h-4 w-4" />
                 )}
-                Загрузить новое фото
+                {t('uploadPhoto')}
               </Button>
 
               <div className="w-full space-y-1">
@@ -162,23 +167,23 @@ export default function ProfilePage() {
           <div className="md:col-span-2 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline">Личные данные</CardTitle>
+                <CardTitle className="font-headline">{t('personalData')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                  <ProfileField label="ФИО" value={currentUser.fullName ?? currentUser.name} />
-                  <ProfileField label="Регион" value={currentUser.region ?? '—'} />
+                  <ProfileField label={t('field.fullName')} value={currentUser.fullName ?? currentUser.name} />
+                  <ProfileField label={t('field.region')} value={currentUser.region ?? fallback} />
                   <ProfileField
-                    label="Возраст"
-                    value={currentUser.age != null ? String(currentUser.age) : '—'}
+                    label={t('field.age')}
+                    value={currentUser.age != null ? String(currentUser.age) : fallback}
                   />
                   <ProfileField
-                    label="Специальность"
-                    value={currentUser.specialty || '—'}
+                    label={t('field.specialty')}
+                    value={currentUser.specialty || fallback}
                   />
-                  <ProfileField label="Телефон" value={currentUser.phoneNumber ?? '—'} />
+                  <ProfileField label={t('field.phone')} value={currentUser.phoneNumber ?? fallback} />
                   <ProfileField
-                    label="Согласие на обработку данных"
+                    label={t('field.consent')}
                     value={consentText}
                   />
                 </dl>
@@ -187,18 +192,18 @@ export default function ProfilePage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="font-headline">Статистика</CardTitle>
+                <CardTitle className="font-headline">{t('stats.title')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <StatTile
                     icon={<CheckCircle2 className="h-8 w-8 text-emerald-500" />}
-                    label="Решённых кейсов"
+                    label={t('stats.solved')}
                     value={solvedCount}
                   />
                   <StatTile
                     icon={<XCircle className="h-8 w-8 text-rose-500" />}
-                    label="Нерешённых кейсов"
+                    label={t('stats.unsolved')}
                     value={unsolvedCount}
                   />
                 </div>

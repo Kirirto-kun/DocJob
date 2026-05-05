@@ -2,6 +2,7 @@
 
 import { use, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard-layout';
 import ScenarioControls from '@/components/scenario-controls';
@@ -35,6 +36,8 @@ export default function CasesBySubgroupPage({
 }) {
   const { subgroup: subgroupSlug } = use(params);
   const router = useRouter();
+  const t = useTranslations('cases');
+  const tTaxonomy = useTranslations('taxonomy.subgroup');
   const { patients, isInitialized } = usePatientStore();
   const [specialtyFilter, setSpecialtyFilter] = useState<string>(ALL_SPECIALTIES);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -78,12 +81,12 @@ export default function CasesBySubgroupPage({
         <main className="flex h-full items-center justify-center p-4 md:p-6">
           <Card className="max-w-md">
             <CardHeader>
-              <CardTitle>Подгруппа не найдена</CardTitle>
-              <CardDescription>Запрошенная подгруппа кейсов не существует.</CardDescription>
+              <CardTitle>{t('subgroupNotFoundTitle')}</CardTitle>
+              <CardDescription>{t('subgroupNotFoundDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
               <Button variant="outline" onClick={() => router.push('/select-subgroup')}>
-                Вернуться к выбору
+                {t('backToSelection')}
               </Button>
             </CardContent>
           </Card>
@@ -103,9 +106,9 @@ export default function CasesBySubgroupPage({
       <main className="h-full overflow-y-auto p-4 md:p-6 lg:p-8 animate-fade-in">
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-1">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Подгруппа</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('subgroupLabel')}</p>
             <h1 className="text-2xl md:text-3xl font-headline font-semibold text-foreground/90">
-              {subgroup.label}
+              {tTaxonomy(`${subgroup.slug}.label`)}
             </h1>
           </div>
 
@@ -113,10 +116,10 @@ export default function CasesBySubgroupPage({
             <div className="w-full max-w-xs">
               <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Специальность" />
+                  <SelectValue placeholder={t('specialtyPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_SPECIALTIES}>Все специальности</SelectItem>
+                  <SelectItem value={ALL_SPECIALTIES}>{t('allSpecialties')}</SelectItem>
                   {availableSpecialties.map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
@@ -130,7 +133,7 @@ export default function CasesBySubgroupPage({
           {visibleCases.length === 0 ? (
             <Card className="bg-muted/30">
               <CardContent className="p-8 text-center text-muted-foreground">
-                В этой подгруппе пока нет кейсов.
+                {t('noCases')}
               </CardContent>
             </Card>
           ) : (
@@ -139,7 +142,7 @@ export default function CasesBySubgroupPage({
                 const preview = caseBodyPreview(c.body ?? null, 140);
                 const isPending = pendingId === c.id;
                 const hasOtherPending = pendingId !== null && !isPending;
-                const ariaLabel = `Открыть кейс ${c.name}`;
+                const ariaLabel = t('ariaOpenCase', { name: c.name });
                 return (
                   <Card
                     key={c.id}
@@ -167,7 +170,7 @@ export default function CasesBySubgroupPage({
                         {c.name}
                       </CardTitle>
                       <CardDescription className="text-xs">
-                        {c.specialty ?? 'Без специальности'}
+                        {c.specialty ?? t('noSpecialty')}
                         {c.primaryCondition ? ` · ${c.primaryCondition}` : ''}
                       </CardDescription>
                     </CardHeader>
@@ -189,11 +192,11 @@ export default function CasesBySubgroupPage({
                       <div className="mt-auto flex items-center justify-between border-t border-border/40 pt-3 text-xs text-muted-foreground">
                         <span>
                           {c.attachedImages?.length || c.images?.length
-                            ? `${c.attachedImages?.length ?? c.images?.length} вложений`
-                            : 'Без вложений'}
+                            ? t('attachmentsCount', { count: c.attachedImages?.length ?? c.images?.length ?? 0 })
+                            : t('noAttachments')}
                         </span>
                         <span className="flex items-center gap-1 text-primary opacity-0 transition group-hover:opacity-100">
-                          Открыть
+                          {t('openCardCta')}
                           <ArrowRight className="h-3.5 w-3.5" />
                         </span>
                       </div>

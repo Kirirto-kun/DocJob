@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useTranslations } from 'next-intl';
 import { AlertCircle, Bot, CheckCircle2, Loader2, RotateCcw, Send, User } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -23,10 +24,10 @@ export type CaseChatViewProps = {
   className?: string;
 };
 
-const PHASES: { key: ChatPhase; label: string }[] = [
-  { key: 'discussing', label: 'Обсуждение' },
-  { key: 'diagnosis_submitted', label: 'Финальный ответ' },
-  { key: 'done', label: 'Разбор' },
+const PHASE_KEYS: { key: ChatPhase; tKey: 'discussing' | 'diagnosisSubmitted' | 'done' }[] = [
+  { key: 'discussing', tKey: 'discussing' },
+  { key: 'diagnosis_submitted', tKey: 'diagnosisSubmitted' },
+  { key: 'done', tKey: 'done' },
 ];
 
 const markdownComponents = {
@@ -61,10 +62,11 @@ const markdownComponents = {
 };
 
 function PhaseIndicator({ phase }: { phase: ChatPhase }) {
-  const activeIndex = PHASES.findIndex((p) => p.key === phase);
+  const t = useTranslations('case.chat.phase');
+  const activeIndex = PHASE_KEYS.findIndex((p) => p.key === phase);
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      {PHASES.map((p, idx) => {
+      {PHASE_KEYS.map((p, idx) => {
         const isActive = idx === activeIndex;
         const isDone = idx < activeIndex;
         return (
@@ -77,9 +79,9 @@ function PhaseIndicator({ phase }: { phase: ChatPhase }) {
                 !isActive && !isDone && 'border-border/60 bg-muted/30 text-muted-foreground',
               )}
             >
-              {p.label}
+              {t(p.tKey)}
             </span>
-            {idx < PHASES.length - 1 ? (
+            {idx < PHASE_KEYS.length - 1 ? (
               <span
                 className={cn(
                   'h-px w-4 transition-colors',
@@ -106,6 +108,7 @@ function TypingIndicator() {
 }
 
 function MessageBubble({ message }: { message: ChatHistoryMessage }) {
+  const t = useTranslations('case.chat');
   const isUser = message.role === 'user';
   return (
     <div className={cn('flex gap-2.5', isUser && 'flex-row-reverse')}>
@@ -142,7 +145,7 @@ function MessageBubble({ message }: { message: ChatHistoryMessage }) {
         {message.isFinalAnswer ? (
           <div className="mt-2 flex items-center gap-1 text-[10px] uppercase tracking-wide text-primary/80">
             <CheckCircle2 className="h-3 w-3" />
-            Финальный ответ
+            {t('finalAnswerBadge')}
           </div>
         ) : null}
       </div>
@@ -167,6 +170,7 @@ function PendingAssistantBubble() {
 
 export function CaseChatView({ caseId, caseName, solution, className }: CaseChatViewProps) {
   const chat = useCaseChat(caseId);
+  const t = useTranslations('case.chat');
   const [draft, setDraft] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -213,7 +217,7 @@ export function CaseChatView({ caseId, caseName, solution, className }: CaseChat
         )}
       >
         <CardHeader className="flex shrink-0 flex-row items-center justify-between gap-3 space-y-0 border-b border-border/40 px-4 py-2.5">
-          <CardTitle className="truncate text-sm font-semibold">Чат-наставник</CardTitle>
+          <CardTitle className="truncate text-sm font-semibold">{t('title')}</CardTitle>
           <PhaseIndicator phase={chat.phase} />
         </CardHeader>
 
@@ -222,12 +226,12 @@ export function CaseChatView({ caseId, caseName, solution, className }: CaseChat
             {chat.isInitializing ? (
               <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Готовим чат…
+                {t('preparing')}
               </div>
             ) : chat.messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-sm text-muted-foreground">
                 <Bot className="h-8 w-8 text-muted-foreground/60" />
-                <p>Наставник готов к диалогу. Задайте первый вопрос по кейсу.</p>
+                <p>{t('greeting')}</p>
               </div>
             ) : (
               <div className="space-y-4 pb-2">
@@ -269,7 +273,7 @@ export function CaseChatView({ caseId, caseName, solution, className }: CaseChat
                 ) : (
                   <RotateCcw className="h-4 w-4" />
                 )}
-                Пройти кейс заново
+                {t('replay')}
               </Button>
             ) : (
               <div className="space-y-2">
@@ -284,7 +288,7 @@ export function CaseChatView({ caseId, caseName, solution, className }: CaseChat
                       }
                     }}
                     rows={1}
-                    placeholder="Сообщение наставнику…"
+                    placeholder={t('placeholder')}
                     disabled={chat.isLoading || chat.isInitializing}
                     className="min-h-[40px] max-h-40 flex-1 resize-none border-0 bg-transparent px-1 py-1.5 text-sm shadow-none focus-visible:ring-0"
                   />
@@ -293,7 +297,7 @@ export function CaseChatView({ caseId, caseName, solution, className }: CaseChat
                     size="icon"
                     onClick={onSend}
                     disabled={!canSend}
-                    aria-label="Отправить"
+                    aria-label={t('send')}
                     className="h-9 w-9 shrink-0 rounded-full"
                   >
                     {chat.isLoading ? (
@@ -304,7 +308,7 @@ export function CaseChatView({ caseId, caseName, solution, className }: CaseChat
                   </Button>
                 </div>
                 <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                  <span className="hidden sm:inline">Enter — отправить, Shift+Enter — перенос строки.</span>
+                  <span className="hidden sm:inline">{t('enterHint')}</span>
                   <DiagnosisSubmitDialog
                     trigger={
                       <Button
@@ -315,7 +319,7 @@ export function CaseChatView({ caseId, caseName, solution, className }: CaseChat
                         disabled={chat.isLoading || chat.isInitializing}
                       >
                         <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                        Финальный ответ
+                        {t('finalAnswer')}
                       </Button>
                     }
                     disabled={chat.isLoading || chat.isInitializing}

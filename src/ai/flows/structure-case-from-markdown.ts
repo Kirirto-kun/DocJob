@@ -18,7 +18,7 @@ export type StructureCaseInput = z.infer<typeof structureCaseInputSchema>;
 
 const SYSTEM_PROMPT = (mode: CaseMode) =>
   [
-    "Ты разбираешь учебный медицинский/санэпид/менеджерский кейс из markdown в структурированный JSON для платформы MEDIZO.",
+    "Ты разбираешь учебный медицинский/санэпид/менеджерский кейс из markdown в структурированный JSON для платформы DocJob.",
     "Выходи строго по схеме structured_case_draft.",
     "",
     "ПРАВИЛА:",

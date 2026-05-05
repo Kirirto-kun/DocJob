@@ -10,6 +10,7 @@ import {
   type CaseSolution,
 } from '@/lib/case-schema';
 import type { SerializedCase } from '@/app/actions';
+import { readBannerManifest } from '@/lib/banners-server';
 import { CasePageClient } from './_components/case-page-client';
 
 type CasePageParams = {
@@ -84,8 +85,15 @@ export default async function CasePage({ params }: CasePageParams) {
     rawSolution: c.solution,
   });
 
+  const banners = await readBannerManifest();
+
   return (
-    <CasePageClient subgroup={subgroup} caseData={caseData} solution={solution} />
+    <CasePageClient
+      subgroup={subgroup}
+      caseData={caseData}
+      solution={solution}
+      banners={banners}
+    />
   );
 }
 

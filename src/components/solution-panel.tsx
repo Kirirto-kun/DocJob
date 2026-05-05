@@ -2,6 +2,7 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useTranslations } from 'next-intl';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -26,12 +27,6 @@ export type SolutionPanelProps = {
   evaluation: ChatEvaluation | null;
   solution: CaseSolution | null;
   className?: string;
-};
-
-const PREVENTABILITY_LABEL: Record<IncidentSolution['preventability'], string> = {
-  full: 'Полностью предотвратимо',
-  conditional: 'Условно предотвратимо',
-  none: 'Не предотвратимо',
 };
 
 const PREVENTABILITY_VARIANT: Record<
@@ -79,22 +74,23 @@ function ErrorBulletList({
   items: string[];
   variant: 'matched' | 'missed' | 'extra';
 }) {
+  const t = useTranslations('case.solution');
   if (!items.length) return null;
   const config = {
     matched: {
-      title: 'Совпало с эталоном',
+      title: t('matchedErrors'),
       Icon: CheckCircle2,
       tone: 'text-emerald-400',
       bg: 'bg-emerald-500/10 border-emerald-500/30',
     },
     missed: {
-      title: 'Пропущено',
+      title: t('missedErrors'),
       Icon: XCircle,
       tone: 'text-amber-400',
       bg: 'bg-amber-500/10 border-amber-500/30',
     },
     extra: {
-      title: 'Лишнее',
+      title: t('extraErrors'),
       Icon: AlertTriangle,
       tone: 'text-rose-400',
       bg: 'bg-rose-500/10 border-rose-500/30',
@@ -117,13 +113,14 @@ function ErrorBulletList({
 }
 
 function IncidentSolutionView({ solution }: { solution: IncidentSolution }) {
+  const t = useTranslations('case.solution');
   const preventabilityVariant = PREVENTABILITY_VARIANT[solution.preventability];
   return (
     <div className="space-y-4">
       <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
         <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
           <ClipboardCheck className="h-3.5 w-3.5" />
-          Диагноз / итог
+          {t('diagnosisLabel')}
         </div>
         <p className="text-sm leading-relaxed text-foreground">{solution.diagnosis}</p>
       </div>
@@ -132,7 +129,7 @@ function IncidentSolutionView({ solution }: { solution: IncidentSolution }) {
         <div>
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
             <AlertTriangle className="h-4 w-4 text-amber-400" />
-            Ключевые ошибки
+            {t('errorsLabel')}
           </div>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-foreground/90">
             {solution.errors.map((err, i) => (
@@ -145,16 +142,16 @@ function IncidentSolutionView({ solution }: { solution: IncidentSolution }) {
       <div>
         <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
           <ListOrdered className="h-4 w-4 text-primary" />
-          Корректный алгоритм
+          {t('algorithmLabel')}
         </div>
         <Markdown>{solution.correctAlgorithm}</Markdown>
       </div>
 
       <div className="flex items-center gap-2">
         <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-        <span className="text-xs text-muted-foreground">Предотвратимость:</span>
+        <span className="text-xs text-muted-foreground">{t('preventabilityLabel')}:</span>
         <Badge variant={preventabilityVariant}>
-          {PREVENTABILITY_LABEL[solution.preventability]}
+          {t(`preventability.${solution.preventability}`)}
         </Badge>
       </div>
     </div>
@@ -162,13 +159,14 @@ function IncidentSolutionView({ solution }: { solution: IncidentSolution }) {
 }
 
 function ReflectionSolutionView({ solution }: { solution: ReflectionSolution }) {
+  const t = useTranslations('case.solution');
   return (
     <div className="space-y-4">
       {solution.keyInsights.length > 0 ? (
         <div>
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
             <Lightbulb className="h-4 w-4 text-amber-400" />
-            Ключевые инсайты
+            {t('keyInsightsLabel')}
           </div>
           <ul className="list-disc space-y-1 pl-5 text-sm text-foreground/90">
             {solution.keyInsights.map((it, i) => (
@@ -182,7 +180,7 @@ function ReflectionSolutionView({ solution }: { solution: ReflectionSolution }) 
         <div>
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-            Верные решения
+            {t('correctDecisionsLabel')}
           </div>
           <ul className="list-disc space-y-1 pl-5 text-sm text-foreground/90">
             {solution.correctDecisions.map((it, i) => (
@@ -195,7 +193,7 @@ function ReflectionSolutionView({ solution }: { solution: ReflectionSolution }) 
       <div>
         <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
           <Sparkles className="h-4 w-4 text-primary" />
-          Что вынести из кейса
+          {t('lessonsLearnedLabel')}
         </div>
         <Markdown>{solution.lessonsLearned}</Markdown>
       </div>
@@ -209,6 +207,7 @@ function SolutionView({ solution }: { solution: CaseSolution }) {
 }
 
 export function SolutionPanel({ evaluation, solution, className }: SolutionPanelProps) {
+  const t = useTranslations('case.solution');
   if (!evaluation && !solution) return null;
 
   const correct = evaluation?.correct ?? false;
@@ -216,7 +215,7 @@ export function SolutionPanel({ evaluation, solution, className }: SolutionPanel
   return (
     <Card className={cn('overflow-hidden', className)}>
       <CardHeader>
-        <CardTitle className="text-base">Разбор кейса</CardTitle>
+        <CardTitle className="text-base">{t('title')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {evaluation ? (
@@ -234,7 +233,7 @@ export function SolutionPanel({ evaluation, solution, className }: SolutionPanel
               ) : (
                 <AlertTriangle className="h-4 w-4" />
               )}
-              {correct ? 'Правильно' : 'Есть замечания'}
+              {correct ? t('evaluationCorrect') : t('evaluationWithRemarks')}
             </div>
 
             {evaluation.feedback ? <Markdown>{evaluation.feedback}</Markdown> : null}
@@ -251,7 +250,7 @@ export function SolutionPanel({ evaluation, solution, className }: SolutionPanel
           <section className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
               <ClipboardCheck className="h-4 w-4" />
-              Эталонное решение
+              {t('referenceLabel')}
             </div>
             <SolutionView solution={solution} />
           </section>

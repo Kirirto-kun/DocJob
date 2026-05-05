@@ -1,6 +1,7 @@
 'use client';
 
 import { Download, ExternalLink, File as FileIcon, FileText } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -18,12 +19,15 @@ function formatFileSize(bytes: number): string {
   return `${bytes} Б`;
 }
 
-function genderLabel(gender: string | null): string | null {
-  if (!gender) return null;
-  const value = gender.trim().toLowerCase();
-  if (value === 'м' || value === 'male' || value === 'm') return 'Мужчина';
-  if (value === 'ж' || value === 'female' || value === 'f') return 'Женщина';
-  return gender;
+function useGenderLabel() {
+  const t = useTranslations('case.info');
+  return (gender: string | null): string | null => {
+    if (!gender) return null;
+    const value = gender.trim().toLowerCase();
+    if (value === 'м' || value === 'male' || value === 'm') return t('genderMale');
+    if (value === 'ж' || value === 'female' || value === 'f') return t('genderFemale');
+    return gender;
+  };
 }
 
 type CaseInfoPanelProps = {
@@ -31,8 +35,10 @@ type CaseInfoPanelProps = {
 };
 
 export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
+  const t = useTranslations('case.info');
+  const genderLabel = useGenderLabel();
   const headerMeta = [
-    caseData.age != null ? `${caseData.age} лет` : null,
+    caseData.age != null ? `${caseData.age} ${t('headerYears')}` : null,
     genderLabel(caseData.gender),
   ].filter(Boolean);
 
@@ -72,7 +78,7 @@ export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Тело кейса
+          {t('sectionBody')}
         </h2>
         <CaseBodyViewer body={caseData.body} />
       </section>
@@ -82,7 +88,7 @@ export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
           <Separator />
           <section className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Задание студенту
+              {t('sectionTask')}
             </h2>
             <ol className="list-decimal space-y-2 pl-5 text-[0.95rem] leading-relaxed">
               {caseData.taskQuestions.map((question, index) => (
@@ -98,7 +104,7 @@ export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
           <Separator />
           <section className="space-y-4">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Файлы и материалы
+              {t('sectionAttachments')}
             </h2>
             <div className="space-y-5">
               {sortedAttachments.map((a) => (
@@ -113,6 +119,7 @@ export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
 }
 
 function AttachmentItem({ attachment }: { attachment: SerializedCaseAttachment }) {
+  const t = useTranslations('case.info');
   const displayName = attachment.title?.trim() || attachment.originalName || attachment.filename;
   return (
     <div className="space-y-3 rounded-lg border border-border/50 bg-muted/15 p-4">
@@ -133,7 +140,7 @@ function AttachmentItem({ attachment }: { attachment: SerializedCaseAttachment }
         <Button asChild size="sm" variant="outline">
           <a href={attachment.url} target="_blank" rel="noreferrer">
             <Download className="mr-1 h-4 w-4" />
-            Скачать
+            {t('downloadAction')}
           </a>
         </Button>
       </div>
@@ -143,6 +150,7 @@ function AttachmentItem({ attachment }: { attachment: SerializedCaseAttachment }
 }
 
 function AttachmentBody({ attachment }: { attachment: SerializedCaseAttachment }) {
+  const t = useTranslations('case.info');
   if (attachment.kind === 'image') {
     return (
       <a
@@ -183,7 +191,7 @@ function AttachmentBody({ attachment }: { attachment: SerializedCaseAttachment }
       )}
     >
       <Icon className="h-6 w-6 text-muted-foreground" />
-      <span className="flex-1 text-sm">Открыть файл</span>
+      <span className="flex-1 text-sm">{t('openFileAction')}</span>
       <ExternalLink className="h-4 w-4 text-muted-foreground" />
     </a>
   );
