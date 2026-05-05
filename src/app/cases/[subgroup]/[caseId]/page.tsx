@@ -10,7 +10,7 @@ import {
   type CaseSolution,
 } from '@/lib/case-schema';
 import type { SerializedCase } from '@/app/actions';
-import { readBannerManifest } from '@/lib/banners';
+import { readBannerManifest } from '@/lib/banners-server';
 import { CasePageClient } from './_components/case-page-client';
 
 type CasePageParams = {

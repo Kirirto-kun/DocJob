@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/session';
 import { saveImage, deleteImage } from '@/lib/storage';
-import {
-  isValidSlot,
-  readBannerManifest,
-  setBanner,
-  type BannerSlot,
-} from '@/lib/banners';
+import { isValidSlot, type BannerSlot } from '@/lib/banners';
+import { readBannerManifest, setBanner } from '@/lib/banners-server';
 
 export const runtime = 'nodejs';
 
