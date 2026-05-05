@@ -25,7 +25,62 @@
       "success": "Дайын"
     }
   },
-  "nav": {},
+  "nav": {
+    "dashboardSubtitle": "DocJob — ЖИ-тәлімгері бар клиникалық кейстер",
+    "profile": "Профиль",
+    "support": "Техникалық қолдау",
+    "news": "Жаңалықтар",
+    "contacts": "Байланыстар",
+    "uploadReport": "Есеп жүктеу",
+    "addDoctor": "Дәрігер қосу",
+    "createCase": "Кейс жасау",
+    "bannerAds": "Баннерлік жарнама",
+    "myCases": "Менің кейстерім",
+    "subgroupCatalog": "Кейстер шағын топтары",
+    "managementGroup": "Басқару",
+    "managementGroupShort": "БАСҚАРУ",
+    "scenario": {
+      "tab": "Сценарий",
+      "cardTitle": "Сценарий жасау",
+      "cardDescription": "Белсенді пациент үшін кейс жасау.",
+      "activeCaseLabel": "Белсенді кейс",
+      "activeCaseEmpty": "Таңдалмаған",
+      "doctorLabel": "Емдеуші дәрігер",
+      "notesLabel": "Оқу жазбалары",
+      "submit": "Жаңа сценарий жасау",
+      "submitShort": "Жасау",
+      "errorActiveRequired": "Белсенді кейс таңдалмаған. Сценарий жасау үшін кейсті таңдаңыз.",
+      "errorTitle": "Қате",
+      "successTitle": "Жаңа сценарий жасалды",
+      "successDescriptionFor": "{name} үшін сценарий жаңартылды.",
+      "uploadSuccessTitle": "Файл жүктелді",
+      "uploadSuccessDescription": "{name} өңделді.",
+      "uploadErrorTitle": "Жүктеу қатесі"
+    },
+    "comorbidity": {
+      "tab": "Қосалқы жағдайлар",
+      "cardTitle": "Қосалқы жағдайлар",
+      "cardDescription": "Байланысты диагноздарды тексеру.",
+      "primaryLabel": "Негізгі жағдай",
+      "historyLabel": "Пациенттің анамнезі",
+      "submit": "Тексеру",
+      "submitShort": "Тексеру",
+      "resultPresent": "Нәтиже: Қосалқы жағдайлар табылды",
+      "resultAbsent": "Нәтиже: Қосалқы жағдайлар жоқ"
+    },
+    "userMenu": {
+      "loggedInAs": "Сіз {name} ретінде кірдіңіз",
+      "profile": "Профиль",
+      "logout": "Шығу",
+      "rolesAdmin": "Әкімші",
+      "rolesDoctor": "Дәрігер",
+      "rolesPatient": "Пациент"
+    },
+    "patient": {
+      "uploadReport": "Есеп жүктеу",
+      "recordsSaved": "Медициналық жазбалар сақталды."
+    }
+  },
   "auth": {
     "login": {
       "title": "DocJob жүйесіне кіру",
@@ -198,7 +253,15 @@
     }
   },
   "legal": {
-    "shell": {},
+    "shell": {
+      "back": "Басты бетке",
+      "lastUpdatedPrefix": "Редакция датасы",
+      "footer": {
+        "privacy": "Құпиялылық саясаты",
+        "terms": "Пайдаланушы келісімі",
+        "contacts": "Байланыстар"
+      }
+    },
     "privacy": {},
     "terms": {
       "metadata": {
@@ -365,7 +428,15 @@
       }
     }
   },
-  "taxonomy": {},
+  "taxonomy": {
+    "subgroup": {
+      "clinical": { "label": "Клиникалық инциденттер кейстері" },
+      "sanepid": { "label": "Санитарлық-эпидемиологиялық инциденттер кейстері" },
+      "best_practices": { "label": "Үздік тәжірибелер кейстері" },
+      "management": { "label": "Денсаулық сақтау менеджменті кейстері" },
+      "missing": "Шағын топсыз"
+    }
+  },
   "cases": {
     "subgroupLabel": "Шағын топ",
     "subgroupNotFoundTitle": "Шағын топ табылмады",
@@ -465,7 +536,58 @@
   },
   "admin": {
     "newCase": {},
-    "banners": {}
+    "banners": {
+      "title": "Баннерлік жарнама",
+      "subtitle": "Кейс бетіндегі екі жарнамалық орынға креативтерді жүктеңіз. Креативтер серверде сақталады және барлық кейс беттерінде барлық пайдаланушыларға бірден көрінеді.",
+      "accessDeniedTitle": "Қол жеткізу жоқ",
+      "accessDeniedDescription": "Жарнаманы тек әкімші басқара алады.",
+      "specs": {
+        "cardTitle": "Креативтерге қойылатын талаптар",
+        "cardDescription": "Баннерлер біркелкі көрінуі үшін екі слотта да бірдей өлшемдерді пайдаланыңыз.",
+        "aspectLabel": "Жақтары қатынасы",
+        "aspectHint": "ені : биіктігі",
+        "sizeLabel": "Ұсынылатын өлшем",
+        "sizeHint": "Retina үшін оңтайлы",
+        "formatsLabel": "Форматтар / өлшем",
+        "formatsValue": "PNG, JPG, WEBP, SVG",
+        "formatsHint": "әр файлға дейін 25 МБ"
+      },
+      "slots": {
+        "1": {
+          "title": "№1 слот — кейс мәтінінің үстінде",
+          "placement": "Кейс бетінің жоғарғы бөлігінде, тақырып пен сипаттамадан бұрын көрсетіледі."
+        },
+        "2": {
+          "title": "№2 слот — кейс мәтінінің астында",
+          "placement": "Кейс мәтінінен кейін, тапсырма мен материалдардан кейін көрсетіледі."
+        }
+      },
+      "card": {
+        "previewEmptyLabel": "Креатив жүктелмеген",
+        "previewEmptySize": "{width}×{height} px",
+        "linkLabel": "Өту сілтемесі (басқанда)",
+        "linkPlaceholder": "https://example.com",
+        "linkHint": "Баннер басылмайтындай үшін бос қалдырыңыз.",
+        "uploadButton": "Креатив жүктеу",
+        "replaceButton": "Креативті ауыстыру",
+        "saveLink": "Сілтемені сақтау",
+        "delete": "Жою",
+        "updatedAt": "Жаңартылды: {date}",
+        "alt": "№{slot} баннер"
+      },
+      "toast": {
+        "uploadedTitle": "№{slot} баннер жаңартылды",
+        "linkUpdated": "Сілтеме жаңартылды",
+        "cleared": "№{slot} слот тазартылды",
+        "errorTitle": "Қате",
+        "fetchFailed": "Баннерлерді жүктеу мүмкін болмады",
+        "uploadFailed": "Баннерді жүктеу мүмкін болмады",
+        "uploadFailedFallback": "Жүктеу қатесі",
+        "saveLinkFailed": "Сілтемені сақтау мүмкін болмады",
+        "deleteFailed": "Баннерді жою мүмкін болмады",
+        "errorFallback": "Қате"
+      }
+    }
   },
   "user": {
     "profile": {},

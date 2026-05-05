@@ -8,6 +8,7 @@ import {
 import { DocJobLogo } from "@/components/icons";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useMotionValue, useSpring, motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import React from "react";
 
 
@@ -17,6 +18,7 @@ type DashboardLayoutProps = {
 };
 
 export default function DashboardLayout({ children, sidebarContent }: DashboardLayoutProps) {
+    const t = useTranslations('nav');
     const mouseX = useMotionValue(0);
     const mouseY = useMotionValue(0);
 
@@ -68,7 +70,7 @@ export default function DashboardLayout({ children, sidebarContent }: DashboardL
           <header className="flex h-16 shrink-0 items-center gap-4 border-b bg-background/50 px-6 backdrop-blur-sm">
             <SidebarTrigger className="flex-shrink-0" />
             <h2 className="hidden font-headline text-xl font-semibold text-foreground/80 md:block">
-              DocJob — клинические кейсы с ИИ-наставником
+              {t('dashboardSubtitle')}
             </h2>
             <div className="ml-auto">
               <LanguageSwitcher />

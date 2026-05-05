@@ -21,6 +21,7 @@ const SUBGROUP_ICONS: Record<SubgroupSlug, LucideIcon> = {
 export default function SelectSubgroupPage() {
   const router = useRouter();
   const t = useTranslations('cases.subgroupPicker');
+  const tTaxonomy = useTranslations('taxonomy.subgroup');
   const { isInitialized } = useUserStore();
   const [pendingSlug, setPendingSlug] = useState<SubgroupSlug | null>(null);
   const [, startTransition] = useTransition();
@@ -78,7 +79,7 @@ export default function SelectSubgroupPage() {
               >
                 <CardContent className="flex flex-col items-center justify-center gap-4 p-10 text-center">
                   <Icon className="h-12 w-12 text-primary" />
-                  <span className="font-headline text-xl font-semibold">{sg.label}</span>
+                  <span className="font-headline text-xl font-semibold">{tTaxonomy(`${sg.slug}.label`)}</span>
                   <span className="text-xs text-muted-foreground">
                     {t('specialtiesCount', { count: sg.specialties.length })}
                   </span>

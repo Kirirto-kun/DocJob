@@ -37,6 +37,7 @@ export default function CasesBySubgroupPage({
   const { subgroup: subgroupSlug } = use(params);
   const router = useRouter();
   const t = useTranslations('cases');
+  const tTaxonomy = useTranslations('taxonomy.subgroup');
   const { patients, isInitialized } = usePatientStore();
   const [specialtyFilter, setSpecialtyFilter] = useState<string>(ALL_SPECIALTIES);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -107,7 +108,7 @@ export default function CasesBySubgroupPage({
           <div className="flex flex-col gap-1">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('subgroupLabel')}</p>
             <h1 className="text-2xl md:text-3xl font-headline font-semibold text-foreground/90">
-              {subgroup.label}
+              {tTaxonomy(`${subgroup.slug}.label`)}
             </h1>
           </div>
 

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -12,7 +13,8 @@ type LegalPageShellProps = {
   children: React.ReactNode;
 };
 
-export function LegalPageShell({ title, subtitle, lastUpdated, children }: LegalPageShellProps) {
+export async function LegalPageShell({ title, subtitle, lastUpdated, children }: LegalPageShellProps) {
+  const t = await getTranslations('legal.shell');
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-0 z-40 border-b border-border/40 bg-background/85 backdrop-blur-md">
@@ -26,7 +28,7 @@ export function LegalPageShell({ title, subtitle, lastUpdated, children }: Legal
             <Button asChild variant="ghost" size="sm">
               <Link href="/landing">
                 <ArrowLeft className="mr-1 h-4 w-4" />
-                На главную
+                {t('back')}
               </Link>
             </Button>
           </div>
@@ -41,7 +43,7 @@ export function LegalPageShell({ title, subtitle, lastUpdated, children }: Legal
           ) : null}
           {lastUpdated ? (
             <p className="text-xs uppercase tracking-wide text-muted-foreground/70">
-              Редакция от {lastUpdated}
+              {t('lastUpdatedPrefix')} {lastUpdated}
             </p>
           ) : null}
         </div>
@@ -62,13 +64,13 @@ export function LegalPageShell({ title, subtitle, lastUpdated, children }: Legal
           </div>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             <Link href="/legal/privacy" className="transition-colors hover:text-foreground">
-              Политика конфиденциальности
+              {t('footer.privacy')}
             </Link>
             <Link href="/legal/terms" className="transition-colors hover:text-foreground">
-              Пользовательское соглашение
+              {t('footer.terms')}
             </Link>
             <Link href="/landing#contacts" className="transition-colors hover:text-foreground">
-              Контакты
+              {t('footer.contacts')}
             </Link>
           </div>
         </div>

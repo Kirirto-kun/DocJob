@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, Megaphone, Trash2, UploadCloud } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard-layout';
 import { Button } from '@/components/ui/button';
@@ -19,23 +20,13 @@ import {
   type BannerSlot,
 } from '@/lib/banners';
 
-const SLOTS: { slot: BannerSlot; title: string; placement: string }[] = [
-  {
-    slot: 1,
-    title: 'Слот №1 — над телом кейса',
-    placement: 'Показывается в верхней части страницы кейса, перед заголовком и описанием.',
-  },
-  {
-    slot: 2,
-    title: 'Слот №2 — под телом кейса',
-    placement: 'Показывается под телом кейса, после задания и материалов.',
-  },
-];
+const SLOT_KEYS: BannerSlot[] = [1, 2];
 
 export default function AdminBannersPage() {
   const { currentUser, isInitialized } = useUserStore();
   const router = useRouter();
   const { toast } = useToast();
+  const t = useTranslations('admin.banners');
 
   const [manifest, setManifest] = useState<BannerManifest>({ '1': null, '2': null });
   const [loadingManifest, setLoadingManifest] = useState(true);
@@ -49,12 +40,12 @@ export default function AdminBannersPage() {
     if (currentUser.role !== 'admin') {
       toast({
         variant: 'destructive',
-        title: 'Нет доступа',
-        description: 'Управлять рекламой может только администратор.',
+        title: t('accessDeniedTitle'),
+        description: t('accessDeniedDescription'),
       });
       router.push('/');
     }
-  }, [currentUser, isInitialized, router, toast]);
+  }, [currentUser, isInitialized, router, toast, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +58,7 @@ export default function AdminBannersPage() {
         if (!cancelled) {
           toast({
             variant: 'destructive',
-            title: 'Не удалось загрузить баннеры',
+            title: t('toast.fetchFailed'),
           });
         }
       })
@@ -77,7 +68,7 @@ export default function AdminBannersPage() {
     return () => {
       cancelled = true;
     };
-  }, [toast]);
+  }, [toast, t]);
 
   if (!isInitialized || !currentUser || currentUser.role !== 'admin') {
     return (
@@ -96,45 +87,42 @@ export default function AdminBannersPage() {
           <div className="flex items-center gap-2">
             <Megaphone className="h-5 w-5 text-primary" />
             <h1 className="text-2xl md:text-3xl font-bold text-primary font-headline">
-              Баннерная реклама
+              {t('title')}
             </h1>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Загружайте креативы для двух рекламных мест на странице кейса. Креативы сохраняются на
-            сервере и сразу появляются на всех страницах кейсов для всех пользователей.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle>Требования к креативам</CardTitle>
-            <CardDescription>
-              Используйте одинаковые размеры для обоих слотов, чтобы баннеры выглядели единообразно.
-            </CardDescription>
+            <CardTitle>{t('specs.cardTitle')}</CardTitle>
+            <CardDescription>{t('specs.cardDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-3">
-            <SpecCell label="Соотношение сторон" value={BANNER_ASPECT_RATIO.replace(/\s/g, '')} hint="ширина : высота" />
             <SpecCell
-              label="Рекомендуемый размер"
-              value={`${BANNER_RECOMMENDED_WIDTH} × ${BANNER_RECOMMENDED_HEIGHT} px`}
-              hint="оптимально для Retina"
+              label={t('specs.aspectLabel')}
+              value={BANNER_ASPECT_RATIO.replace(/\s/g, '')}
+              hint={t('specs.aspectHint')}
             />
             <SpecCell
-              label="Форматы / размер"
-              value="PNG, JPG, WEBP, SVG"
-              hint="до 25 МБ на файл"
+              label={t('specs.sizeLabel')}
+              value={`${BANNER_RECOMMENDED_WIDTH} × ${BANNER_RECOMMENDED_HEIGHT} px`}
+              hint={t('specs.sizeHint')}
+            />
+            <SpecCell
+              label={t('specs.formatsLabel')}
+              value={t('specs.formatsValue')}
+              hint={t('specs.formatsHint')}
             />
           </CardContent>
         </Card>
 
         <div className="grid gap-6 md:grid-cols-2">
-          {SLOTS.map((s) => (
+          {SLOT_KEYS.map((slot) => (
             <BannerSlotCard
-              key={s.slot}
-              slot={s.slot}
-              title={s.title}
-              placement={s.placement}
-              info={manifest[String(s.slot) as '1' | '2']}
+              key={slot}
+              slot={slot}
+              info={manifest[String(slot) as '1' | '2']}
               loading={loadingManifest}
               onChange={(next) => setManifest(next)}
             />
@@ -157,18 +145,19 @@ function SpecCell({ label, value, hint }: { label: string; value: string; hint?:
 
 type BannerSlotCardProps = {
   slot: BannerSlot;
-  title: string;
-  placement: string;
   info: BannerInfo | null;
   loading: boolean;
   onChange: (next: BannerManifest) => void;
 };
 
-function BannerSlotCard({ slot, title, placement, info, loading, onChange }: BannerSlotCardProps) {
+function BannerSlotCard({ slot, info, loading, onChange }: BannerSlotCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [linkDraft, setLinkDraft] = useState(info?.linkUrl ?? '');
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
+  const t = useTranslations('admin.banners');
+  const locale = useLocale();
+  const slotKey = String(slot) as '1' | '2';
 
   useEffect(() => {
     setLinkDraft(info?.linkUrl ?? '');
@@ -183,14 +172,14 @@ function BannerSlotCard({ slot, title, placement, info, loading, onChange }: Ban
       if (linkDraft.trim()) fd.append('linkUrl', linkDraft.trim());
       const res = await fetch('/api/banners', { method: 'POST', body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? 'Ошибка загрузки');
+      if (!res.ok) throw new Error(data?.error ?? t('toast.uploadFailedFallback'));
       onChange(data.manifest as BannerManifest);
-      toast({ title: `Баннер №${slot} обновлён` });
+      toast({ title: t('toast.uploadedTitle', { slot }) });
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: 'Ошибка',
-        description: err instanceof Error ? err.message : 'Не удалось загрузить баннер',
+        title: t('toast.errorTitle'),
+        description: err instanceof Error ? err.message : t('toast.uploadFailed'),
       });
     } finally {
       setBusy(false);
@@ -208,14 +197,14 @@ function BannerSlotCard({ slot, title, placement, info, loading, onChange }: Ban
         body: JSON.stringify({ slot, linkUrl: linkDraft.trim() || null }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? 'Ошибка');
+      if (!res.ok) throw new Error(data?.error ?? t('toast.errorFallback'));
       onChange(data.manifest as BannerManifest);
-      toast({ title: 'Ссылка обновлена' });
+      toast({ title: t('toast.linkUpdated') });
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: 'Ошибка',
-        description: err instanceof Error ? err.message : 'Не удалось сохранить ссылку',
+        title: t('toast.errorTitle'),
+        description: err instanceof Error ? err.message : t('toast.saveLinkFailed'),
       });
     } finally {
       setBusy(false);
@@ -227,15 +216,15 @@ function BannerSlotCard({ slot, title, placement, info, loading, onChange }: Ban
     try {
       const res = await fetch(`/api/banners?slot=${slot}`, { method: 'DELETE' });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? 'Ошибка');
+      if (!res.ok) throw new Error(data?.error ?? t('toast.errorFallback'));
       onChange(data.manifest as BannerManifest);
       setLinkDraft('');
-      toast({ title: `Слот №${slot} очищен` });
+      toast({ title: t('toast.cleared', { slot }) });
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: 'Ошибка',
-        description: err instanceof Error ? err.message : 'Не удалось удалить баннер',
+        title: t('toast.errorTitle'),
+        description: err instanceof Error ? err.message : t('toast.deleteFailed'),
       });
     } finally {
       setBusy(false);
@@ -245,8 +234,8 @@ function BannerSlotCard({ slot, title, placement, info, loading, onChange }: Ban
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
-        <CardDescription>{placement}</CardDescription>
+        <CardTitle className="text-base">{t(`slots.${slotKey}.title`)}</CardTitle>
+        <CardDescription>{t(`slots.${slotKey}.placement`)}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div
@@ -259,31 +248,36 @@ function BannerSlotCard({ slot, title, placement, info, loading, onChange }: Ban
             </div>
           ) : info ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={info.url} alt={`Баннер №${slot}`} className="h-full w-full object-cover" />
+            <img
+              src={info.url}
+              alt={t('card.alt', { slot })}
+              className="h-full w-full object-cover"
+            />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
               <Megaphone className="h-5 w-5 opacity-70" />
-              <span>Креатив не загружен</span>
+              <span>{t('card.previewEmptyLabel')}</span>
               <span className="text-[10px] text-muted-foreground/70">
-                {BANNER_RECOMMENDED_WIDTH}×{BANNER_RECOMMENDED_HEIGHT} px
+                {t('card.previewEmptySize', {
+                  width: BANNER_RECOMMENDED_WIDTH,
+                  height: BANNER_RECOMMENDED_HEIGHT,
+                })}
               </span>
             </div>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor={`banner-link-${slot}`}>Ссылка перехода (по клику)</Label>
+          <Label htmlFor={`banner-link-${slot}`}>{t('card.linkLabel')}</Label>
           <Input
             id={`banner-link-${slot}`}
             type="url"
-            placeholder="https://example.com"
+            placeholder={t('card.linkPlaceholder')}
             value={linkDraft}
             onChange={(e) => setLinkDraft(e.target.value)}
             disabled={busy}
           />
-          <p className="text-[11px] text-muted-foreground">
-            Оставьте пустым, чтобы баннер не был кликабелен.
-          </p>
+          <p className="text-[11px] text-muted-foreground">{t('card.linkHint')}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -303,12 +297,12 @@ function BannerSlotCard({ slot, title, placement, info, loading, onChange }: Ban
             ) : (
               <UploadCloud className="mr-2 h-4 w-4" />
             )}
-            {info ? 'Заменить креатив' : 'Загрузить креатив'}
+            {info ? t('card.replaceButton') : t('card.uploadButton')}
           </Button>
           {info ? (
             <>
               <Button type="button" variant="outline" onClick={saveLink} disabled={busy}>
-                Сохранить ссылку
+                {t('card.saveLink')}
               </Button>
               <Button
                 type="button"
@@ -318,7 +312,7 @@ function BannerSlotCard({ slot, title, placement, info, loading, onChange }: Ban
                 disabled={busy}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Удалить
+                {t('card.delete')}
               </Button>
             </>
           ) : null}
@@ -326,7 +320,9 @@ function BannerSlotCard({ slot, title, placement, info, loading, onChange }: Ban
 
         {info ? (
           <p className="text-[11px] text-muted-foreground">
-            Обновлено: {new Date(info.updatedAt).toLocaleString('ru-RU')}
+            {t('card.updatedAt', {
+              date: new Date(info.updatedAt).toLocaleString(locale === 'kk' ? 'kk-KZ' : 'ru-RU'),
+            })}
           </p>
         ) : null}
       </CardContent>

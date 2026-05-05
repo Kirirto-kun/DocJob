@@ -25,7 +25,62 @@
       "success": "Готово"
     }
   },
-  "nav": {},
+  "nav": {
+    "dashboardSubtitle": "DocJob — клинические кейсы с ИИ-наставником",
+    "profile": "Профиль",
+    "support": "Техподдержка",
+    "news": "Новости",
+    "contacts": "Контакты",
+    "uploadReport": "Загрузить отчёт",
+    "addDoctor": "Добавить врача",
+    "createCase": "Создать кейс",
+    "bannerAds": "Баннерная реклама",
+    "myCases": "Мои кейсы",
+    "subgroupCatalog": "Подгруппы кейсов",
+    "managementGroup": "Управление",
+    "managementGroupShort": "УПРАВЛЕНИЕ",
+    "scenario": {
+      "tab": "Сценарий",
+      "cardTitle": "Сгенерировать сценарий",
+      "cardDescription": "Создать кейс для активного пациента.",
+      "activeCaseLabel": "Активный кейс",
+      "activeCaseEmpty": "Не выбран",
+      "doctorLabel": "Лечащий врач",
+      "notesLabel": "Заметки по обучению",
+      "submit": "Сгенерировать новый сценарий",
+      "submitShort": "Создать",
+      "errorActiveRequired": "Активный кейс не выбран. Пожалуйста, выберите кейс для генерации сценария.",
+      "errorTitle": "Ошибка",
+      "successTitle": "Новый сценарий создан",
+      "successDescriptionFor": "Сценарий обновлён для {name}.",
+      "uploadSuccessTitle": "Файл загружен",
+      "uploadSuccessDescription": "{name} обработан.",
+      "uploadErrorTitle": "Ошибка загрузки"
+    },
+    "comorbidity": {
+      "tab": "Сопутствующие состояния",
+      "cardTitle": "Сопутствующие состояния",
+      "cardDescription": "Проверить связанные диагнозы.",
+      "primaryLabel": "Основное состояние",
+      "historyLabel": "Анамнез пациента",
+      "submit": "Проверить",
+      "submitShort": "Проверить",
+      "resultPresent": "Результат: Найдены сопутствующие состояния",
+      "resultAbsent": "Результат: Сопутствующих состояний нет"
+    },
+    "userMenu": {
+      "loggedInAs": "Вы вошли как {name}",
+      "profile": "Профиль",
+      "logout": "Выйти",
+      "rolesAdmin": "Администратор",
+      "rolesDoctor": "Врач",
+      "rolesPatient": "Пациент"
+    },
+    "patient": {
+      "uploadReport": "Загрузить отчёт",
+      "recordsSaved": "Медицинские записи сохранены."
+    }
+  },
   "auth": {
     "login": {
       "title": "Вход в DocJob",
@@ -198,7 +253,15 @@
     }
   },
   "legal": {
-    "shell": {},
+    "shell": {
+      "back": "На главную",
+      "lastUpdatedPrefix": "Редакция от",
+      "footer": {
+        "privacy": "Политика конфиденциальности",
+        "terms": "Пользовательское соглашение",
+        "contacts": "Контакты"
+      }
+    },
     "privacy": {},
     "terms": {
       "metadata": {
@@ -365,7 +428,15 @@
       }
     }
   },
-  "taxonomy": {},
+  "taxonomy": {
+    "subgroup": {
+      "clinical": { "label": "Кейсы клинических инцидентов" },
+      "sanepid": { "label": "Кейсы санитарно-эпидемиологических инцидентов" },
+      "best_practices": { "label": "Кейсы лучших практик" },
+      "management": { "label": "Кейсы в менеджменте здравоохранения" },
+      "missing": "Без подгруппы"
+    }
+  },
   "cases": {
     "subgroupLabel": "Подгруппа",
     "subgroupNotFoundTitle": "Подгруппа не найдена",
@@ -465,7 +536,58 @@
   },
   "admin": {
     "newCase": {},
-    "banners": {}
+    "banners": {
+      "title": "Баннерная реклама",
+      "subtitle": "Загружайте креативы для двух рекламных мест на странице кейса. Креативы сохраняются на сервере и сразу появляются на всех страницах кейсов для всех пользователей.",
+      "accessDeniedTitle": "Нет доступа",
+      "accessDeniedDescription": "Управлять рекламой может только администратор.",
+      "specs": {
+        "cardTitle": "Требования к креативам",
+        "cardDescription": "Используйте одинаковые размеры для обоих слотов, чтобы баннеры выглядели единообразно.",
+        "aspectLabel": "Соотношение сторон",
+        "aspectHint": "ширина : высота",
+        "sizeLabel": "Рекомендуемый размер",
+        "sizeHint": "оптимально для Retina",
+        "formatsLabel": "Форматы / размер",
+        "formatsValue": "PNG, JPG, WEBP, SVG",
+        "formatsHint": "до 25 МБ на файл"
+      },
+      "slots": {
+        "1": {
+          "title": "Слот №1 — над телом кейса",
+          "placement": "Показывается в верхней части страницы кейса, перед заголовком и описанием."
+        },
+        "2": {
+          "title": "Слот №2 — под телом кейса",
+          "placement": "Показывается под телом кейса, после задания и материалов."
+        }
+      },
+      "card": {
+        "previewEmptyLabel": "Креатив не загружен",
+        "previewEmptySize": "{width}×{height} px",
+        "linkLabel": "Ссылка перехода (по клику)",
+        "linkPlaceholder": "https://example.com",
+        "linkHint": "Оставьте пустым, чтобы баннер не был кликабелен.",
+        "uploadButton": "Загрузить креатив",
+        "replaceButton": "Заменить креатив",
+        "saveLink": "Сохранить ссылку",
+        "delete": "Удалить",
+        "updatedAt": "Обновлено: {date}",
+        "alt": "Баннер №{slot}"
+      },
+      "toast": {
+        "uploadedTitle": "Баннер №{slot} обновлён",
+        "linkUpdated": "Ссылка обновлена",
+        "cleared": "Слот №{slot} очищен",
+        "errorTitle": "Ошибка",
+        "fetchFailed": "Не удалось загрузить баннеры",
+        "uploadFailed": "Не удалось загрузить баннер",
+        "uploadFailedFallback": "Ошибка загрузки",
+        "saveLinkFailed": "Не удалось сохранить ссылку",
+        "deleteFailed": "Не удалось удалить баннер",
+        "errorFallback": "Ошибка"
+      }
+    }
   },
   "user": {
     "profile": {},
