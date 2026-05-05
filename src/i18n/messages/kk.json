@@ -590,13 +590,113 @@
     }
   },
   "user": {
-    "profile": {},
-    "contacts": {},
-    "support": {},
+    "profile": {
+      "title": "Профиль",
+      "photoCardTitle": "Фото және идентификатор",
+      "uploadPhoto": "Жаңа фото жүктеу",
+      "personalData": "Жеке деректер",
+      "field": {
+        "fullName": "Аты-жөні",
+        "region": "Аймақ",
+        "age": "Жасы",
+        "specialty": "Мамандық",
+        "phone": "Телефон",
+        "consent": "Деректерді өңдеуге келісім"
+      },
+      "fieldFallback": "—",
+      "consentAccepted": "{date} күні қабылданды",
+      "consentNotAccepted": "Қабылданбаған",
+      "stats": {
+        "title": "Статистика",
+        "solved": "Шешілген кейстер",
+        "unsolved": "Шешілмеген кейстер"
+      },
+      "role": {
+        "admin": "Әкімші",
+        "doctor": "Дәрігер",
+        "patient": "Пациент"
+      },
+      "toast": {
+        "noRightsTitle": "Құқықтар жеткіліксіз",
+        "noRightsDescription": "Фото жүктеу тек әкімшілерге қолжетімді.",
+        "uploadFailed": "Фотоны жүктеу мүмкін болмады",
+        "successTitle": "Фото жаңартылды",
+        "successDescription": "Жаңа профиль фотосы сәтті сақталды.",
+        "errorTitle": "Жүктеу қатесі",
+        "errorUnknown": "Белгісіз қате"
+      }
+    },
+    "contacts": {
+      "title": "Байланыстар",
+      "orgTitle": "«DocJob» ЖШС",
+      "addressLabel": "Мекенжай",
+      "addressValue": "Мәскеу қ., Примерная к-сі, 1-үй, 101-кеңсе",
+      "phoneLabel": "Телефон",
+      "phoneValue": "+7 (495) 000-00-00",
+      "emailLabel": "Email",
+      "emailValue": "info@docjob.local",
+      "hoursLabel": "Жұмыс уақыты",
+      "hoursValue": "Дс–Жм 09:00–18:00 (МӘУ)",
+      "feedback": "Егер сізде платформаны жақсарту жөнінде ұсыныстар болса, бізге Техникалық қолдау бөлімі арқылы жазыңыз.",
+      "legalCardTitle": "Заңды ақпарат",
+      "legal": {
+        "termsTitle": "Пайдаланушы келісімі",
+        "termsDesc": "DocJob сервисін пайдалану шарттары (жария оферта).",
+        "privacyTitle": "Құпиялылық саясаты",
+        "privacyDesc": "Дербес деректерді жинау, өңдеу және сақтау тәртібі."
+      }
+    },
+    "support": {
+      "title": "Техникалық қолдау",
+      "cardTitle": "Хабарлама жіберу",
+      "cardDescription": "Біз сізбен көрсетілген байланыстар арқылы хабарласамыз.",
+      "subjectLabel": "Тақырып",
+      "messageLabel": "Хабарлама",
+      "errors": {
+        "subjectRequired": "Тақырыпты көрсетіңіз",
+        "messageMin": "Хабарламада кем дегенде 10 таңба болуы керек"
+      },
+      "infoTitle": "Сіздің байланыстарыңыз жіберіледі:",
+      "infoEmail": "Email: {email}",
+      "infoPhone": "Телефон: {phone}",
+      "infoName": "Аты-жөні: {name}",
+      "phoneFallback": "көрсетілмеген",
+      "submit": "Пошта клиентінде ашу",
+      "sentToast": "Хабарлама пошта клиентінде ашылды",
+      "mailSenderLabel": "Жіберуші",
+      "mailEmailLabel": "Email",
+      "mailPhoneLabel": "Телефон"
+    },
     "news": {},
     "managePatients": {},
     "addDoctor": {},
     "addPatient": {}
   },
-  "home": {}
+  "home": {
+    "doctor": {
+      "title": "Бастауға дайынсыз ба?",
+      "description": "Шағын топты таңдап, қажетті кейске өтіңіз — ЖИ-тәлімгерімен талқылау тікелей кейс бетінде болады.",
+      "selectSubgroup": "Шағын топ таңдауға өту",
+      "myCases": "Менің кейстерім",
+      "continueCase": "«{name}» кейсін жалғастыру"
+    },
+    "patient": {
+      "welcome": "Қош келдіңіз, {name}",
+      "description": "Осында өзіңіздің медициналық жазбаларыңызды басқара аласыз. Олар сіздің дәрігеріңізге симуляциялар үшін қолжетімді болады.",
+      "recordsTitle": "Сіздің медициналық жазбаларыңыз",
+      "recordsEmpty": "Сіз әлі медициналық жазбалар жүктеген жоқсыз. Файл қосу үшін бүйір тақтадағы «Есеп жүктеу» түймесін пайдаланыңыз."
+    },
+    "admin": {
+      "welcome": "Қош келдіңіз, Әкімші",
+      "description": "Сізде DocJob платформасына әкімшілік қол жеткізу бар.",
+      "systemState": "Жүйе күйі:",
+      "doctorCount": "{count} тіркелген дәрігер",
+      "patientCount": "{count} пациент профилі",
+      "addDoctor": "Дәрігер қосу"
+    },
+    "fallback": {
+      "welcome": "Қош келдіңіз, {name}",
+      "description": "Сіздің тақтаңыз дайын."
+    }
+  }
 }
