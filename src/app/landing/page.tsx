@@ -1,4 +1,6 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import {
   Activity,
   Brain,
@@ -11,6 +13,7 @@ import {
   Sparkles,
   Stethoscope,
   TrendingUp,
+  type LucideIcon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,62 +22,54 @@ import { Separator } from '@/components/ui/separator';
 import { DocJobLogo } from '@/components/icons';
 import { LanguageSwitcher } from '@/components/language-switcher';
 
-export const metadata = {
-  title: 'DocJob — Медицинское образование нового поколения',
-  description:
-    'Интеллектуальный тренажёр для практикующих специалистов, санэпид-направления и менеджеров здравоохранения. Реальные кейсы и ИИ-наставник.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('landing.metadata');
+  return {
+    title: t('title'),
+    description: t('description'),
+  };
+}
 
 const ECG_PATH =
   'M0,30 L30,30 L38,30 L42,10 L46,50 L50,20 L54,38 L58,30 L90,30 L98,30 L102,10 L106,50 L110,20 L114,38 L118,30 L150,30 L158,30 L162,10 L166,50 L170,20 L174,38 L178,30 L210,30 L218,30 L222,10 L226,50 L230,20 L234,38 L238,30 L270,30 L278,30 L282,10 L286,50 L290,20 L294,38 L298,30 L330,30 L338,30 L342,10 L346,50 L350,20 L354,38 L358,30 L400,30';
 
-const directions = [
-  {
-    icon: Stethoscope,
-    title: 'Кейсы клинических инцидентов',
-    description: 'Диагностический квест с разбором ошибок и эталонным алгоритмом.',
-  },
-  {
-    icon: ShieldAlert,
-    title: 'Кейсы санитарно-эпидемиологических инцидентов',
-    description: 'Расследование вспышек, противоэпидемические мероприятия, профилактика.',
-  },
-  {
-    icon: Sparkles,
-    title: 'Кейсы лучших практик',
-    description: 'Рефлексия по успешным сценариям: что сработало и почему.',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Кейсы в менеджменте здравоохранения',
-    description: 'Управленческие решения, организация процессов, KPI и качество помощи.',
-  },
-];
+type DirectionKey = 'clinical' | 'sanepid' | 'bestPractice' | 'management';
+type CapabilityKey = 'international' | 'ai' | 'allTime' | 'scaling';
 
-const capabilities = [
-  {
-    icon: Globe2,
-    title: 'Международный опыт',
-    desc: 'Реальные кейсы и датасеты из международной клинической и санэпид-практики.',
-  },
-  {
-    icon: Brain,
-    title: 'ИИ-наставник',
-    desc: 'Искусственный интеллект ведёт сократический диалог и закрепляет результат обучения.',
-  },
-  {
-    icon: Clock,
-    title: 'Круглосуточный доступ',
-    desc: 'Учитесь в любое удобное время — между сменами, дома, в дороге.',
-  },
-  {
-    icon: Activity,
-    title: 'Мы масштабируемся',
-    desc: 'База кейсов пополняется ежедневно — новые специальности, новые сценарии.',
-  },
-];
+const directionIcons: Record<DirectionKey, LucideIcon> = {
+  clinical: Stethoscope,
+  sanepid: ShieldAlert,
+  bestPractice: Sparkles,
+  management: TrendingUp,
+};
 
-export default function LandingPage() {
+const capabilityIcons: Record<CapabilityKey, LucideIcon> = {
+  international: Globe2,
+  ai: Brain,
+  allTime: Clock,
+  scaling: Activity,
+};
+
+const directionKeys: DirectionKey[] = ['clinical', 'sanepid', 'bestPractice', 'management'];
+const capabilityKeys: CapabilityKey[] = ['international', 'ai', 'allTime', 'scaling'];
+
+export default async function LandingPage() {
+  const t = await getTranslations('landing');
+
+  const directions = directionKeys.map((k) => ({
+    key: k,
+    icon: directionIcons[k],
+    title: t(`directions.${k}.title`),
+    description: t(`directions.${k}.description`),
+  }));
+
+  const capabilities = capabilityKeys.map((k) => ({
+    key: k,
+    icon: capabilityIcons[k],
+    title: t(`capabilities.${k}.title`),
+    description: t(`capabilities.${k}.description`),
+  }));
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
@@ -83,19 +78,19 @@ export default function LandingPage() {
             <DocJobLogo className="h-8 w-8 text-primary" />
             <span className="font-headline text-lg font-semibold text-primary">DocJob</span>
             <Badge variant="secondary" className="ml-1 hidden text-[10px] sm:inline-flex">
-              Beta
+              {t('nav.beta')}
             </Badge>
           </div>
 
           <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
             <a href="#capabilities" className="transition-colors hover:text-foreground">
-              Возможности
+              {t('nav.capabilities')}
             </a>
             <a href="#catalog" className="transition-colors hover:text-foreground">
-              Каталог
+              {t('nav.catalog')}
             </a>
             <a href="#contacts" className="transition-colors hover:text-foreground">
-              Контакты
+              {t('nav.contacts')}
             </a>
           </nav>
 
@@ -103,17 +98,17 @@ export default function LandingPage() {
             <LanguageSwitcher />
             <Link href="/login">
               <Button variant="ghost" size="sm" className="text-muted-foreground">
-                Войти
+                {t('nav.login')}
               </Button>
             </Link>
             <Link href="/register">
-              <Button size="sm">Начать обучение</Button>
+              <Button size="sm">{t('nav.register')}</Button>
             </Link>
           </div>
         </div>
       </header>
 
-      <HeroSection />
+      <HeroSection directions={directions} />
 
       <Separator className="opacity-30" />
 
@@ -121,13 +116,13 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl">
           <div className="mb-12 text-center">
             <Badge variant="outline" className="mb-3 border-primary/40 bg-primary/10 text-primary">
-              Возможности платформы
+              {t('capabilitiesSection.badge')}
             </Badge>
             <h2 className="font-headline text-3xl font-semibold tracking-tight md:text-4xl">
-              Создан врачами для врачей
+              {t('capabilitiesSection.title')}
             </h2>
             <p className="mt-3 text-base text-muted-foreground md:text-lg">
-              Каждая функция спроектирована с учётом потребностей практического здравоохранения
+              {t('capabilitiesSection.subtitle')}
             </p>
           </div>
 
@@ -136,7 +131,7 @@ export default function LandingPage() {
               const Icon = c.icon;
               return (
                 <Card
-                  key={c.title}
+                  key={c.key}
                   className="border-border/60 bg-card/60 p-6 transition-colors hover:border-primary/40"
                 >
                   <div className="flex items-start gap-4">
@@ -145,7 +140,7 @@ export default function LandingPage() {
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <h3 className="text-base font-semibold">{c.title}</h3>
-                      <p className="text-sm leading-relaxed text-muted-foreground">{c.desc}</p>
+                      <p className="text-sm leading-relaxed text-muted-foreground">{c.description}</p>
                     </div>
                   </div>
                 </Card>
@@ -161,13 +156,13 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl">
           <div className="mb-12 text-center">
             <Badge variant="outline" className="mb-3 border-accent/40 bg-accent/10 text-accent">
-              Специальности
+              {t('catalogSection.badge')}
             </Badge>
             <h2 className="font-headline text-3xl font-semibold tracking-tight md:text-4xl">
-              Каталог направлений
+              {t('catalogSection.title')}
             </h2>
             <p className="mt-3 text-base text-muted-foreground md:text-lg">
-              Четыре направления — четыре способа прокачать профессиональное мышление
+              {t('catalogSection.subtitle')}
             </p>
           </div>
 
@@ -176,7 +171,7 @@ export default function LandingPage() {
               const Icon = d.icon;
               return (
                 <Card
-                  key={d.title}
+                  key={d.key}
                   className="group flex aspect-square flex-col justify-between border-border/60 bg-card/60 p-6 transition-all hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10"
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
@@ -199,21 +194,19 @@ export default function LandingPage() {
 
       <section className="px-6 py-20">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
-          <h2 className="font-headline text-3xl font-semibold md:text-4xl">
-            Готовы к обучению нового уровня?
-          </h2>
+          <h2 className="font-headline text-3xl font-semibold md:text-4xl">{t('cta.title')}</h2>
           <p className="max-w-xl text-base text-muted-foreground md:text-lg">
-            Зарегистрируйтесь и получите доступ к реальным кейсам с ИИ-наставником прямо сейчас.
+            {t('cta.description')}
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row">
             <Link href="/register">
               <Button size="lg" className="h-12 px-8 text-base">
-                Создать аккаунт
+                {t('cta.primary')}
               </Button>
             </Link>
             <Link href="/login">
               <Button size="lg" variant="outline" className="h-12 px-8 text-base">
-                Войти
+                {t('cta.secondary')}
               </Button>
             </Link>
           </div>
@@ -226,10 +219,10 @@ export default function LandingPage() {
         <div className="mx-auto max-w-3xl">
           <div className="mb-10 text-center">
             <Badge variant="outline" className="mb-3 border-primary/40 bg-primary/10 text-primary">
-              Контакты
+              {t('contacts.badge')}
             </Badge>
             <h2 className="font-headline text-3xl font-semibold tracking-tight md:text-4xl">
-              Сервис DocJob
+              {t('contacts.title')}
             </h2>
           </div>
 
@@ -238,16 +231,18 @@ export default function LandingPage() {
               <div className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Адрес</p>
-                  <p className="mt-1 text-sm leading-relaxed">
-                    Город Астана, проспект Кабанбай батыра 6/1, БЦ «Каскад»
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {t('contacts.addressLabel')}
                   </p>
+                  <p className="mt-1 text-sm leading-relaxed">{t('contacts.addressValue')}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Mail className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Email</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {t('contacts.emailLabel')}
+                  </p>
                   <a
                     href="mailto:docjob@inbox.kz"
                     className="mt-1 block text-sm text-primary hover:underline"
@@ -270,19 +265,19 @@ export default function LandingPage() {
           </div>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             <a href="#capabilities" className="transition-colors hover:text-foreground">
-              Возможности
+              {t('footer.capabilities')}
             </a>
             <a href="#catalog" className="transition-colors hover:text-foreground">
-              Каталог
+              {t('footer.catalog')}
             </a>
             <a href="#contacts" className="transition-colors hover:text-foreground">
-              Контакты
+              {t('footer.contacts')}
             </a>
             <Link href="/legal/privacy" className="transition-colors hover:text-foreground">
-              Политика конфиденциальности
+              {t('footer.privacy')}
             </Link>
             <Link href="/legal/terms" className="transition-colors hover:text-foreground">
-              Пользовательское соглашение
+              {t('footer.terms')}
             </Link>
           </div>
         </div>
@@ -293,7 +288,15 @@ export default function LandingPage() {
   );
 }
 
-function HeroSection() {
+type Direction = {
+  key: DirectionKey;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+};
+
+async function HeroSection({ directions }: { directions: Direction[] }) {
+  const t = await getTranslations('landing.hero');
   return (
     <section className="relative flex min-h-[88vh] flex-col items-center justify-center overflow-hidden px-6 py-24 text-center">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -347,33 +350,30 @@ function HeroSection() {
           className="border-primary/40 bg-primary/10 px-4 py-1.5 text-xs uppercase tracking-wide text-primary"
         >
           <HeartPulse className="mr-2 h-3.5 w-3.5" />
-          Медицинское образование нового поколения
+          {t('badge')}
         </Badge>
 
         <h1 className="font-headline text-3xl font-semibold leading-tight tracking-tight md:text-5xl lg:text-[3.25rem]">
-          Тренируйте навыки{' '}
-          <span className="text-primary">клинического мышления</span>,{' '}
-          <span className="text-primary">санитарно-эпидемиологические</span>,{' '}
-          <span className="text-primary">менеджмента</span> и{' '}
-          <span className="text-primary">лучших практик</span>
-          <br className="hidden md:block" />
-          <span className="text-foreground/80"> на реальных кейсах</span>
+          {t.rich('headline', {
+            h: (chunks) => <span className="text-primary">{chunks}</span>,
+            tail: (chunks) => <span className="text-foreground/80">{chunks}</span>,
+            br: () => <br className="hidden md:block" />,
+          })}
         </h1>
 
         <p className="max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-          Интеллектуальный тренажёр для практикующих специалистов, специалистов
-          санитарно-эпидемиологического направления и менеджеров здравоохранения.
+          {t('subtitle')}
         </p>
 
         <div className="flex flex-col items-center gap-3 sm:flex-row">
           <Link href="/register">
             <Button size="lg" className="h-12 px-8 text-base shadow-lg shadow-primary/20">
-              Попробовать бесплатно
+              {t('ctaPrimary')}
             </Button>
           </Link>
           <Link href="/login">
             <Button size="lg" variant="outline" className="h-12 px-8 text-base">
-              Войти →
+              {t('ctaSecondary')}
             </Button>
           </Link>
         </div>
@@ -408,7 +408,7 @@ function HeroSection() {
               const Icon = d.icon;
               return (
                 <div
-                  key={d.title}
+                  key={d.key}
                   className="flex aspect-square flex-col justify-between rounded-xl border border-border/60 bg-card/60 p-4 text-left backdrop-blur-sm"
                   style={{
                     animation: `landingFloat ${6 + i * 0.4}s ease-in-out infinite`,

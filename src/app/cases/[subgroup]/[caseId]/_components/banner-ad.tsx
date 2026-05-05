@@ -1,6 +1,7 @@
 'use client';
 
 import { Megaphone } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import {
   BANNER_ASPECT_RATIO,
@@ -17,12 +18,13 @@ type BannerAdProps = {
 };
 
 export function BannerAd({ slot, info, className }: BannerAdProps) {
+  const t = useTranslations('case.banner');
   if (info) {
     const content = (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={info.url}
-        alt={`Реклама №${slot}`}
+        alt={t('alt', { slot })}
         className="h-full w-full object-cover"
         style={{ aspectRatio: BANNER_ASPECT_RATIO }}
       />
@@ -65,11 +67,14 @@ export function BannerAd({ slot, info, className }: BannerAdProps) {
     >
       <div className="flex items-center gap-2">
         <Megaphone className="h-4 w-4 opacity-70" aria-hidden />
-        <span>Место для баннерной рекламы №{slot}</span>
+        <span>{t('placeholderTitle', { slot })}</span>
       </div>
       <span className="text-[10px] normal-case tracking-normal text-muted-foreground/70">
-        Рекомендуемый размер: {BANNER_RECOMMENDED_WIDTH}×{BANNER_RECOMMENDED_HEIGHT} px
-        ({BANNER_ASPECT_RATIO.replace(/\s/g, '')})
+        {t('placeholderSize', {
+          width: BANNER_RECOMMENDED_WIDTH,
+          height: BANNER_RECOMMENDED_HEIGHT,
+          aspect: BANNER_ASPECT_RATIO.replace(/\s/g, ''),
+        })}
       </span>
     </div>
   );

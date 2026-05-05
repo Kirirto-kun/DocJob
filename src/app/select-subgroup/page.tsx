@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Award, Briefcase, HeartPulse, Loader2, ShieldCheck, type LucideIcon } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard-layout';
 import ScenarioControls from '@/components/scenario-controls';
@@ -19,6 +20,7 @@ const SUBGROUP_ICONS: Record<SubgroupSlug, LucideIcon> = {
 
 export default function SelectSubgroupPage() {
   const router = useRouter();
+  const t = useTranslations('cases.subgroupPicker');
   const { isInitialized } = useUserStore();
   const [pendingSlug, setPendingSlug] = useState<SubgroupSlug | null>(null);
   const [, startTransition] = useTransition();
@@ -43,10 +45,10 @@ export default function SelectSubgroupPage() {
     <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
       <main className="h-full overflow-y-auto p-4 md:p-6 lg:p-8 animate-fade-in">
         <h1 className="mb-2 font-headline text-2xl md:text-3xl font-semibold text-foreground/90">
-          Выберите подгруппу кейсов
+          {t('title')}
         </h1>
         <p className="mb-8 max-w-prose text-sm text-muted-foreground">
-          Каждая подгруппа содержит свой набор специальностей и свой формат обсуждения с ИИ-наставником.
+          {t('subtitle')}
         </p>
         <div className="grid grid-cols-1 gap-6 pb-6 md:grid-cols-2">
           {SUBGROUPS.map((sg) => {
@@ -78,7 +80,7 @@ export default function SelectSubgroupPage() {
                   <Icon className="h-12 w-12 text-primary" />
                   <span className="font-headline text-xl font-semibold">{sg.label}</span>
                   <span className="text-xs text-muted-foreground">
-                    {sg.specialties.length} специальностей
+                    {t('specialtiesCount', { count: sg.specialties.length })}
                   </span>
                 </CardContent>
                 {isPending ? (

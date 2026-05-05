@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CaseChatView } from '@/components/case-chat-view';
@@ -19,13 +20,14 @@ type CasePageClientProps = {
 };
 
 export function CasePageClient({ subgroup, caseData, solution, banners }: CasePageClientProps) {
+  const t = useTranslations('case.page');
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex shrink-0 items-center gap-3 border-b border-border/40 bg-background/40 px-4 py-2 backdrop-blur md:px-6">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link href={`/cases/${subgroup}`}>
             <ArrowLeft className="mr-1 h-4 w-4" />
-            Назад к списку
+            {t('back')}
           </Link>
         </Button>
         <span className="truncate text-sm text-muted-foreground">{caseData.name}</span>
@@ -54,8 +56,8 @@ export function CasePageClient({ subgroup, caseData, solution, banners }: CasePa
         className="flex h-full min-h-0 flex-1 flex-col p-4 lg:hidden"
       >
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="case">Кейс</TabsTrigger>
-          <TabsTrigger value="chat">Чат</TabsTrigger>
+          <TabsTrigger value="case">{t('tabCase')}</TabsTrigger>
+          <TabsTrigger value="chat">{t('tabChat')}</TabsTrigger>
         </TabsList>
         <TabsContent
           value="case"
