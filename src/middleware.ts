@@ -36,6 +36,13 @@ function ensureLocaleCookie(req: NextRequest, res: NextResponse): NextResponse {
 
 export default edgeAuth((req: NextRequest & { auth: unknown }) => {
   const { pathname } = req.nextUrl;
+
+  // Unauthenticated visitors hitting the bare domain see the landing page,
+  // not the login form. Authenticated users continue to the dashboard.
+  if (pathname === '/' && !req.auth) {
+    return ensureLocaleCookie(req, NextResponse.redirect(new URL('/landing', req.url)));
+  }
+
   if (isPublic(pathname)) {
     return ensureLocaleCookie(req, NextResponse.next());
   }

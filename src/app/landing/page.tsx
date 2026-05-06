@@ -409,20 +409,18 @@ async function HeroSection({ directions }: { directions: Direction[] }) {
               return (
                 <div
                   key={d.key}
-                  className="flex aspect-square flex-col justify-between rounded-xl border border-border/60 bg-card/60 p-4 text-left backdrop-blur-sm"
+                  className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 p-3 text-left backdrop-blur-sm"
                   style={{
                     animation: `landingFloat ${6 + i * 0.4}s ease-in-out infinite`,
                     animationDelay: `${i * 0.4}s`,
                   }}
                 >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-md border border-primary/30 bg-primary/10">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/10">
                     <Icon className="h-4 w-4 text-primary" />
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] font-semibold leading-tight text-foreground">
-                      {d.title}
-                    </p>
-                  </div>
+                  <p className="text-xs font-semibold leading-tight text-foreground">
+                    {d.title}
+                  </p>
                 </div>
               );
             })}

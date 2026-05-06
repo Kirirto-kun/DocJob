@@ -22,7 +22,7 @@ type CasePageClientProps = {
 export function CasePageClient({ subgroup, caseData, solution, banners }: CasePageClientProps) {
   const t = useTranslations('case.page');
   return (
-    <main className="flex h-full min-h-0 flex-col overflow-hidden">
+    <main className="fixed inset-0 flex flex-col overflow-hidden bg-background">
       <div className="flex shrink-0 items-center gap-3 border-b border-border/40 bg-background/40 px-4 py-2 backdrop-blur md:px-6">
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link href={`/cases/${subgroup}`}>
@@ -33,7 +33,7 @@ export function CasePageClient({ subgroup, caseData, solution, banners }: CasePa
         <span className="truncate text-sm text-muted-foreground">{caseData.name}</span>
       </div>
 
-      <div className="hidden h-full min-h-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] lg:gap-6 lg:p-6">
+      <div className="hidden min-h-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(420px,1fr)] lg:gap-6 lg:p-6">
         <div className="min-w-0 overflow-y-auto pr-2">
           <div className="space-y-6 pb-6">
             <BannerAd slot={1} info={banners['1']} />
@@ -41,7 +41,7 @@ export function CasePageClient({ subgroup, caseData, solution, banners }: CasePa
             <BannerAd slot={2} info={banners['2']} />
           </div>
         </div>
-        <aside className="flex h-full min-h-0 flex-col overflow-hidden">
+        <aside className="flex min-h-0 flex-col overflow-hidden">
           <CaseChatView
             caseId={caseData.id}
             caseName={caseData.name}
@@ -53,7 +53,7 @@ export function CasePageClient({ subgroup, caseData, solution, banners }: CasePa
 
       <Tabs
         defaultValue="case"
-        className="flex h-full min-h-0 flex-1 flex-col p-4 lg:hidden"
+        className="flex min-h-0 flex-1 flex-col p-4 lg:hidden"
       >
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="case">{t('tabCase')}</TabsTrigger>
