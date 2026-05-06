@@ -8,18 +8,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CaseChatView } from '@/components/case-chat-view';
 import type { CaseSolution } from '@/lib/case-schema';
 import type { SerializedCase } from '@/app/actions';
-import type { BannerManifest } from '@/lib/banners';
 import { CaseInfoPanel } from './case-info-panel';
-import { BannerAd } from './banner-ad';
 
 type CasePageClientProps = {
   subgroup: string;
   caseData: SerializedCase;
   solution: CaseSolution | null;
-  banners: BannerManifest;
 };
 
-export function CasePageClient({ subgroup, caseData, solution, banners }: CasePageClientProps) {
+export function CasePageClient({ subgroup, caseData, solution }: CasePageClientProps) {
   const t = useTranslations('case.page');
   return (
     <main className="fixed inset-0 flex flex-col overflow-hidden bg-background">
@@ -35,10 +32,8 @@ export function CasePageClient({ subgroup, caseData, solution, banners }: CasePa
 
       <div className="hidden min-h-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(420px,1fr)] lg:gap-6 lg:p-6">
         <div className="min-w-0 overflow-y-auto pr-2">
-          <div className="space-y-6 pb-6">
-            <BannerAd slot={1} info={banners['1']} />
+          <div className="pb-6">
             <CaseInfoPanel caseData={caseData} />
-            <BannerAd slot={2} info={banners['2']} />
           </div>
         </div>
         <aside className="flex min-h-0 flex-col overflow-hidden">
@@ -63,10 +58,8 @@ export function CasePageClient({ subgroup, caseData, solution, banners }: CasePa
           value="case"
           className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1 data-[state=inactive]:hidden"
         >
-          <div className="space-y-6 pb-6">
-            <BannerAd slot={1} info={banners['1']} />
+          <div className="pb-6">
             <CaseInfoPanel caseData={caseData} />
-            <BannerAd slot={2} info={banners['2']} />
           </div>
         </TabsContent>
         <TabsContent

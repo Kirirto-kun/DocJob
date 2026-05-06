@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, Megaphone, Trash2, UploadCloud } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard-layout';
+import ScenarioControls from '@/components/scenario-controls';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,9 +13,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
 import {
-  BANNER_ASPECT_RATIO,
-  BANNER_RECOMMENDED_HEIGHT,
-  BANNER_RECOMMENDED_WIDTH,
+  BANNER_SLOT_SPECS,
   type BannerInfo,
   type BannerManifest,
   type BannerSlot,
@@ -72,7 +71,7 @@ export default function AdminBannersPage() {
 
   if (!isInitialized || !currentUser || currentUser.role !== 'admin') {
     return (
-      <DashboardLayout sidebarContent={null}>
+      <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
         <div className="flex items-center justify-center min-h-screen">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -81,7 +80,7 @@ export default function AdminBannersPage() {
   }
 
   return (
-    <DashboardLayout sidebarContent={null}>
+    <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
       <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6">
         <header className="space-y-1">
           <div className="flex items-center gap-2">
@@ -98,22 +97,10 @@ export default function AdminBannersPage() {
             <CardTitle>{t('specs.cardTitle')}</CardTitle>
             <CardDescription>{t('specs.cardDescription')}</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-3">
-            <SpecCell
-              label={t('specs.aspectLabel')}
-              value={BANNER_ASPECT_RATIO.replace(/\s/g, '')}
-              hint={t('specs.aspectHint')}
-            />
-            <SpecCell
-              label={t('specs.sizeLabel')}
-              value={`${BANNER_RECOMMENDED_WIDTH} × ${BANNER_RECOMMENDED_HEIGHT} px`}
-              hint={t('specs.sizeHint')}
-            />
-            <SpecCell
-              label={t('specs.formatsLabel')}
-              value={t('specs.formatsValue')}
-              hint={t('specs.formatsHint')}
-            />
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              {t('specs.formatsValue')} · {t('specs.formatsHint')}
+            </p>
           </CardContent>
         </Card>
 
@@ -133,16 +120,6 @@ export default function AdminBannersPage() {
   );
 }
 
-function SpecCell({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="space-y-1 rounded-md border border-border/50 bg-muted/20 p-3">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold">{value}</p>
-      {hint ? <p className="text-[11px] text-muted-foreground">{hint}</p> : null}
-    </div>
-  );
-}
-
 type BannerSlotCardProps = {
   slot: BannerSlot;
   info: BannerInfo | null;
@@ -158,6 +135,7 @@ function BannerSlotCard({ slot, info, loading, onChange }: BannerSlotCardProps) 
   const t = useTranslations('admin.banners');
   const locale = useLocale();
   const slotKey = String(slot) as '1' | '2';
+  const spec = BANNER_SLOT_SPECS[slot];
 
   useEffect(() => {
     setLinkDraft(info?.linkUrl ?? '');
@@ -236,11 +214,15 @@ function BannerSlotCard({ slot, info, loading, onChange }: BannerSlotCardProps) 
       <CardHeader>
         <CardTitle className="text-base">{t(`slots.${slotKey}.title`)}</CardTitle>
         <CardDescription>{t(`slots.${slotKey}.placement`)}</CardDescription>
+        <p className="text-xs text-muted-foreground/80">
+          {t('card.recommendedSize')}: <span className="font-semibold text-foreground">{spec.width}×{spec.height} px</span>{' '}
+          ({spec.aspect.replace(/\s/g, '')})
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div
           className="overflow-hidden rounded-lg border border-border/40 bg-muted/20"
-          style={{ aspectRatio: BANNER_ASPECT_RATIO }}
+          style={{ aspectRatio: spec.aspect, maxWidth: spec.width <= 400 ? `${spec.width}px` : undefined }}
         >
           {loading ? (
             <div className="flex h-full w-full items-center justify-center">
@@ -259,8 +241,8 @@ function BannerSlotCard({ slot, info, loading, onChange }: BannerSlotCardProps) 
               <span>{t('card.previewEmptyLabel')}</span>
               <span className="text-[10px] text-muted-foreground/70">
                 {t('card.previewEmptySize', {
-                  width: BANNER_RECOMMENDED_WIDTH,
-                  height: BANNER_RECOMMENDED_HEIGHT,
+                  width: spec.width,
+                  height: spec.height,
                 })}
               </span>
             </div>

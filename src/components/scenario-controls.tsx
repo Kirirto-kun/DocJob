@@ -22,6 +22,7 @@ import {
 import UserSwitcher from './user-switcher';
 import { useUserStore } from '@/hooks/use-user-store';
 import { Separator } from './ui/separator';
+import { BannerAd } from './banner-ad';
 import { cn } from '@/lib/utils';
 
 type ScenarioControlsProps = {
@@ -204,6 +205,10 @@ export default function ScenarioControls(_props: ScenarioControlsProps) {
           )}
         </>
       )}
+
+      <div className="mt-auto p-3 group-data-[collapsible=icon]:hidden">
+        <BannerAd slot={2} />
+      </div>
     </div>
   );
 }
