@@ -21,7 +21,7 @@ export default function ManagePatientsPage() {
     if (isInitialized) {
         if (!currentUser) {
           router.push('/login');
-        } else if (currentUser.role !== 'doctor') {
+        } else if (currentUser.role !== 'doctor' && currentUser.role !== 'admin') {
             toast({
                 variant: 'destructive',
                 title: 'Доступ запрещён',
@@ -32,9 +32,9 @@ export default function ManagePatientsPage() {
     }
   }, [currentUser, router, isInitialized, toast]);
 
-  if (!isInitialized || !currentUser || currentUser.role !== 'doctor') {
+  if (!isInitialized || !currentUser || (currentUser.role !== 'doctor' && currentUser.role !== 'admin')) {
     return (
-      <DashboardLayout sidebarContent={null}>
+      <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
         <main className="flex h-screen w-full items-center justify-center">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </main>

@@ -56,7 +56,7 @@ export default function NewsPage() {
 
   if (!isInitialized || !currentUser) {
     return (
-      <DashboardLayout sidebarContent={null}>
+      <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
         <main className="flex h-screen w-full items-center justify-center">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </main>

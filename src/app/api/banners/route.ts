@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const saved = await saveImage(buffer, file.type);
 
     const manifest = await readBannerManifest();
-    const previous = manifest[String(slot) as '1' | '2'];
+    const previous = manifest[String(slot) as '1'];
     const updated = await setBanner(slot, {
       filename: saved.filename,
       url: saved.url,
@@ -73,7 +73,7 @@ export async function PATCH(req: Request) {
     const linkUrl = typeof body.linkUrl === 'string' && body.linkUrl.trim() ? body.linkUrl.trim() : null;
 
     const manifest = await readBannerManifest();
-    const current = manifest[String(slot) as '1' | '2'];
+    const current = manifest[String(slot) as '1'];
     if (!current) {
       return NextResponse.json({ error: 'Slot is empty' }, { status: 404 });
     }
@@ -100,7 +100,7 @@ export async function DELETE(req: Request) {
     }
     const slot = rawSlot as BannerSlot;
     const manifest = await readBannerManifest();
-    const current = manifest[String(slot) as '1' | '2'];
+    const current = manifest[String(slot) as '1'];
     const updated = await setBanner(slot, null);
     if (current?.filename) {
       await deleteImage(current.filename);

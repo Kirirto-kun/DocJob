@@ -4,11 +4,12 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import DashboardLayout from '@/components/dashboard-layout';
+import ScenarioControls from '@/components/scenario-controls';
 import { useUserStore } from '@/hooks/use-user-store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
-import { FileText, Loader2, MapPin, Phone, Mail, Clock, ShieldCheck } from 'lucide-react';
+import { FileText, Loader2, MapPin, Mail, ShieldCheck } from 'lucide-react';
 
 export default function ContactsPage() {
   const { currentUser, isInitialized } = useUserStore();
@@ -23,7 +24,7 @@ export default function ContactsPage() {
 
   if (!isInitialized || !currentUser) {
     return (
-      <DashboardLayout sidebarContent={null}>
+      <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
         <main className="flex h-screen w-full items-center justify-center">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </main>
@@ -32,7 +33,7 @@ export default function ContactsPage() {
   }
 
   return (
-    <DashboardLayout sidebarContent={null}>
+    <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
       <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6">
         <header>
           <h1 className="text-2xl md:text-3xl font-bold text-primary font-headline">
@@ -53,28 +54,12 @@ export default function ContactsPage() {
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <Phone className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm text-muted-foreground">{t('phoneLabel')}</p>
-                <a href="tel:+74950000000" className="hover:underline">
-                  {t('phoneValue')}
-                </a>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
               <Mail className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-sm text-muted-foreground">{t('emailLabel')}</p>
-                <a href="mailto:info@docjob.local" className="hover:underline">
+                <a href="mailto:docjob@inbox.kz" className="hover:underline">
                   {t('emailValue')}
                 </a>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <Clock className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm text-muted-foreground">{t('hoursLabel')}</p>
-                <p>{t('hoursValue')}</p>
               </div>
             </div>
             <Separator />

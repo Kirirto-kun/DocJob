@@ -19,7 +19,7 @@ import {
   type BannerSlot,
 } from '@/lib/banners';
 
-const SLOT_KEYS: BannerSlot[] = [1, 2];
+const SLOT_KEYS: BannerSlot[] = [1];
 
 export default function AdminBannersPage() {
   const { currentUser, isInitialized } = useUserStore();
@@ -27,7 +27,7 @@ export default function AdminBannersPage() {
   const { toast } = useToast();
   const t = useTranslations('admin.banners');
 
-  const [manifest, setManifest] = useState<BannerManifest>({ '1': null, '2': null });
+  const [manifest, setManifest] = useState<BannerManifest>({ '1': null });
   const [loadingManifest, setLoadingManifest] = useState(true);
 
   useEffect(() => {
@@ -109,7 +109,7 @@ export default function AdminBannersPage() {
             <BannerSlotCard
               key={slot}
               slot={slot}
-              info={manifest[String(slot) as '1' | '2']}
+              info={manifest[String(slot) as '1']}
               loading={loadingManifest}
               onChange={(next) => setManifest(next)}
             />
@@ -134,7 +134,7 @@ function BannerSlotCard({ slot, info, loading, onChange }: BannerSlotCardProps) 
   const { toast } = useToast();
   const t = useTranslations('admin.banners');
   const locale = useLocale();
-  const slotKey = String(slot) as '1' | '2';
+  const slotKey = String(slot) as '1';
   const spec = BANNER_SLOT_SPECS[slot];
 
   useEffect(() => {

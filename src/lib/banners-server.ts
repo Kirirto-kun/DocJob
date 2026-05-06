@@ -6,7 +6,7 @@ import type { BannerInfo, BannerManifest, BannerSlot } from './banners';
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'storage', 'uploads');
 const MANIFEST_PATH = path.join(UPLOAD_DIR, 'banners.json');
 
-const EMPTY_MANIFEST: BannerManifest = { '1': null, '2': null };
+const EMPTY_MANIFEST: BannerManifest = { '1': null };
 
 async function ensureDir(): Promise<void> {
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
@@ -18,7 +18,6 @@ export async function readBannerManifest(): Promise<BannerManifest> {
     const parsed = JSON.parse(raw) as Partial<BannerManifest>;
     return {
       '1': parsed['1'] ?? null,
-      '2': parsed['2'] ?? null,
     };
   } catch {
     return { ...EMPTY_MANIFEST };
@@ -35,7 +34,7 @@ export async function setBanner(
   info: BannerInfo | null,
 ): Promise<BannerManifest> {
   const manifest = await readBannerManifest();
-  manifest[String(slot) as '1' | '2'] = info;
+  manifest[String(slot) as '1'] = info;
   await writeBannerManifest(manifest);
   return manifest;
 }

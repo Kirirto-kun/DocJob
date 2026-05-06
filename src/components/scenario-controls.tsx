@@ -132,6 +132,26 @@ export default function ScenarioControls(_props: ScenarioControlsProps) {
             <Button
               variant="outline"
               className={navButtonClass}
+              onClick={() => router.push('/select-subgroup')}
+            >
+              <LayoutGrid className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('subgroupCatalog')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
+              onClick={() => router.push('/manage-patients')}
+            >
+              <ListOrdered className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('myCases')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
               onClick={() => router.push('/admin/banners')}
             >
               <Megaphone className="mr-2" />
@@ -207,7 +227,7 @@ export default function ScenarioControls(_props: ScenarioControlsProps) {
       )}
 
       <div className="mt-auto p-3 group-data-[collapsible=icon]:hidden">
-        <BannerAd slot={2} />
+        <BannerAd slot={1} />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
 import DashboardLayout from '@/components/dashboard-layout';
+import ScenarioControls from '@/components/scenario-controls';
 import { CaseEditor } from '@/components/case-editor';
 import { AttachmentsManager, type ManagedAttachment } from '@/components/attachments-manager';
 import { TagPicker } from '@/components/tag-picker';
@@ -235,7 +236,7 @@ export default function NewCasePage() {
 
   if (!isInitialized || !currentUser || currentUser.role !== 'admin') {
     return (
-      <DashboardLayout sidebarContent={null}>
+      <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
         <div className="flex items-center justify-center min-h-screen">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -244,7 +245,7 @@ export default function NewCasePage() {
   }
 
   return (
-    <DashboardLayout sidebarContent={null}>
+    <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
       <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6">
         <header className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold text-primary font-headline">Новый кейс</h1>

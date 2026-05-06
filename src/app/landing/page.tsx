@@ -21,6 +21,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { DocJobLogo } from '@/components/icons';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { CyclingWord } from '@/components/cycling-word';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('landing.metadata');
@@ -297,6 +298,9 @@ type Direction = {
 
 async function HeroSection({ directions }: { directions: Direction[] }) {
   const t = await getTranslations('landing.hero');
+  const cyclingWords = (t.raw('cyclingWords') as string[]) ?? [];
+  const headlinePrefix = t('headlinePrefix');
+  const headlineSuffix = t('headlineSuffix');
   return (
     <section className="relative flex min-h-[88vh] flex-col items-center justify-center overflow-hidden px-6 py-24 text-center">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -354,11 +358,9 @@ async function HeroSection({ directions }: { directions: Direction[] }) {
         </Badge>
 
         <h1 className="font-headline text-3xl font-semibold leading-tight tracking-tight md:text-5xl lg:text-[3.25rem]">
-          {t.rich('headline', {
-            h: (chunks) => <span className="text-primary">{chunks}</span>,
-            tail: (chunks) => <span className="text-foreground/80">{chunks}</span>,
-            br: () => <br className="hidden md:block" />,
-          })}
+          {headlinePrefix ? <span className="text-foreground/85">{headlinePrefix} </span> : null}
+          <CyclingWord words={cyclingWords} className="min-w-[12ch] text-left" />
+          <span className="text-foreground/85"> {headlineSuffix}</span>
         </h1>
 
         <p className="max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
