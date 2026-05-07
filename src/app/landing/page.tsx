@@ -199,15 +199,10 @@ export default async function LandingPage() {
           <p className="max-w-xl text-base text-muted-foreground md:text-lg">
             {t('cta.description')}
           </p>
-          <div className="flex flex-col items-center gap-3 sm:flex-row">
+          <div className="flex justify-center">
             <Link href="/register">
-              <Button size="lg" className="h-12 px-8 text-base">
+              <Button size="lg" className="h-12 px-10 text-base">
                 {t('cta.primary')}
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button size="lg" variant="outline" className="h-12 px-8 text-base">
-                {t('cta.secondary')}
               </Button>
             </Link>
           </div>
@@ -358,24 +353,23 @@ async function HeroSection({ directions }: { directions: Direction[] }) {
         </Badge>
 
         <h1 className="font-headline text-3xl font-semibold leading-tight tracking-tight md:text-5xl lg:text-[3.25rem]">
-          {headlinePrefix ? <span className="text-foreground/85">{headlinePrefix} </span> : null}
-          <CyclingWord words={cyclingWords} className="min-w-[12ch] text-left" />
-          <span className="text-foreground/85"> {headlineSuffix}</span>
+          {headlinePrefix ? (
+            <span className="block text-foreground/85">{headlinePrefix}</span>
+          ) : null}
+          <span className="block text-primary">
+            <CyclingWord words={cyclingWords} />
+          </span>
+          <span className="block text-foreground/85">{headlineSuffix}</span>
         </h1>
 
         <p className="max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
           {t('subtitle')}
         </p>
 
-        <div className="flex flex-col items-center gap-3 sm:flex-row">
+        <div className="flex justify-center">
           <Link href="/register">
-            <Button size="lg" className="h-12 px-8 text-base shadow-lg shadow-primary/20">
+            <Button size="lg" className="h-12 px-10 text-base shadow-lg shadow-primary/20">
               {t('ctaPrimary')}
-            </Button>
-          </Link>
-          <Link href="/login">
-            <Button size="lg" variant="outline" className="h-12 px-8 text-base">
-              {t('ctaSecondary')}
             </Button>
           </Link>
         </div>

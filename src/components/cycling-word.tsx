@@ -12,8 +12,8 @@ type CyclingWordProps = {
 
 export function CyclingWord({
   words,
-  intervalMs = 2400,
-  fadeMs = 320,
+  intervalMs = 2600,
+  fadeMs = 160,
   className,
 }: CyclingWordProps) {
   const [idx, setIdx] = useState(0);
@@ -34,13 +34,11 @@ export function CyclingWord({
 
   return (
     <span
-      className={cn(
-        'inline-block text-primary transition-all duration-300 ease-out',
-        className,
-      )}
+      className={cn('inline-block text-primary', className)}
       style={{
         opacity: fading ? 0 : 1,
-        transform: fading ? 'translateY(6px)' : 'translateY(0)',
+        transform: fading ? 'translateY(4px)' : 'translateY(0)',
+        transition: `opacity ${fadeMs}ms ease-out, transform ${fadeMs}ms ease-out`,
       }}
     >
       {words[idx]}
