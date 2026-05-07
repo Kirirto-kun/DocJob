@@ -139,7 +139,7 @@ export default function CasesBySubgroupPage({
           ) : (
             <div className="grid grid-cols-1 gap-4 pb-4 md:grid-cols-2 xl:grid-cols-3">
               {visibleCases.map((c) => {
-                const preview = caseBodyPreview(c.body ?? null, 140);
+                const preview = (c.teaser?.trim() || caseBodyPreview(c.body ?? null, 140));
                 const isPending = pendingId === c.id;
                 const hasOtherPending = pendingId !== null && !isPending;
                 const ariaLabel = t('ariaOpenCase', { name: c.name });

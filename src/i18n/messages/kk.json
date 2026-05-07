@@ -38,6 +38,8 @@
     "bannerAds": "Баннерлік жарнама",
     "myCases": "Менің кейстерім",
     "subgroupCatalog": "Кейстер шағын топтары",
+    "pendingApprovals": "Тіркелу өтінімдері",
+    "allCases": "Барлық кейстер",
     "managementGroup": "Басқару",
     "managementGroupShort": "БАСҚАРУ",
     "scenario": {
@@ -102,7 +104,13 @@
         "successTitle": "Кіру сәтті өтті",
         "successDescription": "DocJob-ға қош келдіңіз!",
         "failTitle": "Кіру қатесі",
-        "failDescription": "Email немесе құпия сөз қате."
+        "failDescription": "Email немесе құпия сөз қате.",
+        "pendingTitle": "Өтінім қарастырылуда",
+        "pendingDescription": "Аккаунтыңыз әлі әкімшімен бекітілмеген. Растауды күтіңіз."
+      },
+      "pendingBanner": {
+        "title": "Өтінім жіберілді",
+        "body": "Тіркелу өтті. Әкімші жақын арада өтінімді қарастырады — расталғаннан кейін осы email мен құпия сөзбен кіре аласыз."
       },
       "legal": {
         "terms": "Пайдаланушы келісімі",
@@ -143,7 +151,9 @@
         "errorTitle": "Тіркелу қатесі",
         "successTitle": "Тіркелу сәтті өтті",
         "signInFailedTitle": "Кіру мүмкін болмады",
-        "signInFailedDescription": "Қолмен кіріп көріңіз."
+        "signInFailedDescription": "Қолмен кіріп көріңіз.",
+        "pendingTitle": "Өтінім жіберілді",
+        "pendingDescription": "Әкімші жақын арада өтінімді қарастырады. Растаудан кейін кіру ашылады."
       },
       "regions": {
         "moscow": "Мәскеу",
@@ -544,6 +554,73 @@
   },
   "admin": {
     "newCase": {},
+    "pending": {
+      "title": "Тіркелу өтінімдері",
+      "subtitle": "Жүйеге тек бекітілген пайдаланушылар кіре алады. Деректерді тексеріп, лайықтыларды бекітіп, басқаларын қабылдамаңыз.",
+      "empty": "Қазір өтінімдер жоқ.",
+      "tableEmail": "Email",
+      "tableFullName": "Аты-жөні",
+      "tableSpecialty": "Мамандық",
+      "tableRegion": "Аймақ",
+      "tablePhone": "Телефон",
+      "tableCreatedAt": "Өтінім берілді",
+      "approveButton": "Бекіту",
+      "rejectButton": "Қабылдамау",
+      "approveConfirmTitle": "Өтінімді бекіту керек пе?",
+      "approveConfirmDescription": "Бекіткеннен кейін пайдаланушы өзінің email мен құпия сөзімен жүйеге кіре алады.",
+      "rejectConfirmTitle": "Өтінімді қабылдамау керек пе?",
+      "rejectConfirmDescription": "Пайдаланушы жазбасы жойылады. Бұл пайдаланушы кіре алмайды. Қажет болса — қайта тіркеле алады.",
+      "confirmYes": "Иә",
+      "confirmNo": "Бас тарту",
+      "toast": {
+        "approvedTitle": "Өтінім бекітілді",
+        "approvedDescription": "{name} енді кіре алады.",
+        "rejectedTitle": "Өтінім қабылданбады",
+        "rejectedDescription": "{name} жойылды.",
+        "errorTitle": "Қате",
+        "loadFailed": "Өтінімдерді жүктеу мүмкін болмады."
+      },
+      "accessDeniedTitle": "Қол жеткізу жоқ",
+      "accessDeniedDescription": "Өтінімдерді тек әкімші басқара алады."
+    },
+    "cases": {
+      "title": "Барлық кейстер",
+      "subtitle": "Барлық кейстер тізімі. Редакциялау мүмкіндігі бар.",
+      "empty": "Әзірге кейстер жоқ.",
+      "tableName": "Атауы",
+      "tableSubgroup": "Шағын топ",
+      "tableSpecialty": "Мамандық",
+      "tableMode": "Режим",
+      "tableUpdatedAt": "Жаңартылды",
+      "editButton": "Өңдеу",
+      "deleteButton": "Жою",
+      "openButton": "Ашу",
+      "deleteConfirmTitle": "Кейсті жою керек пе?",
+      "deleteConfirmDescription": "«{name}» кейсі мен онымен байланысты барлық деректер (қосымшалар, чат-сессиялар) қайтарымсыз жойылады.",
+      "confirmYes": "Жою",
+      "confirmNo": "Бас тарту",
+      "toast": {
+        "deletedTitle": "Кейс жойылды",
+        "deletedDescription": "«{name}» жойылды.",
+        "errorTitle": "Қате",
+        "loadFailed": "Кейстерді жүктеу мүмкін болмады.",
+        "deleteFailed": "Кейсті жою мүмкін болмады."
+      },
+      "accessDeniedTitle": "Қол жеткізу жоқ",
+      "accessDeniedDescription": "Кейстерді тек әкімші басқара алады."
+    },
+    "edit": {
+      "title": "Кейсті өңдеу",
+      "loading": "Кейс жүктелуде…",
+      "notFoundTitle": "Кейс табылмады",
+      "notFoundDescription": "Кейс жойылған немесе сізде оған қол жеткізу жоқ.",
+      "backToList": "Кейстер тізіміне",
+      "saveButton": "Өзгерістерді сақтау",
+      "savingButton": "Сақталуда…",
+      "savedTitle": "Кейс сақталды",
+      "errorTitle": "Қате",
+      "saveFailed": "Кейсті сақтау мүмкін болмады."
+    },
     "banners": {
       "title": "Баннерлік жарнама",
       "subtitle": "Екі жарнамалық орынға креативтерді жүктеңіз: сайт басындағы көлденең баннер және бүйір тақтадағы шаршы. Слоттардың өлшемі әртүрлі — әр слот картасының астында ұсынылған өлшемді қараңыз.",
@@ -665,7 +742,15 @@
       "sentToast": "Хабарлама пошта клиентінде ашылды",
       "mailSenderLabel": "Жіберуші",
       "mailEmailLabel": "Email",
-      "mailPhoneLabel": "Телефон"
+      "mailPhoneLabel": "Телефон",
+      "mailAttachmentsLabel": "Тіркелген файлдар",
+      "attachmentsLabel": "Тіркелген файлдар",
+      "attachmentsHint": "Әр файлға дейін 10 МБ. Хатқа сілтемелер ретінде енгізіледі.",
+      "attachButton": "Файлды тіркеу",
+      "attachmentUploaded": "Файл жүктелді",
+      "attachmentErrorTitle": "Жүктеу қатесі",
+      "attachmentErrorDescription": "Файлды жүктеу мүмкін болмады.",
+      "attachmentRemove": "Файлды жою"
     },
     "news": {},
     "managePatients": {},

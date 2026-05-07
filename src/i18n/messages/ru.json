@@ -38,6 +38,8 @@
     "bannerAds": "Баннерная реклама",
     "myCases": "Мои кейсы",
     "subgroupCatalog": "Подгруппы кейсов",
+    "pendingApprovals": "Заявки на регистрацию",
+    "allCases": "Все кейсы",
     "managementGroup": "Управление",
     "managementGroupShort": "УПРАВЛЕНИЕ",
     "scenario": {
@@ -102,7 +104,13 @@
         "successTitle": "Вход выполнен",
         "successDescription": "Добро пожаловать в DocJob!",
         "failTitle": "Ошибка входа",
-        "failDescription": "Неверный email или пароль."
+        "failDescription": "Неверный email или пароль.",
+        "pendingTitle": "Заявка на рассмотрении",
+        "pendingDescription": "Ваш аккаунт ещё не одобрен администратором. Пожалуйста, дождитесь подтверждения."
+      },
+      "pendingBanner": {
+        "title": "Заявка отправлена",
+        "body": "Регистрация прошла. Администратор скоро рассмотрит вашу заявку — после подтверждения вы сможете войти этим email и паролем."
       },
       "legal": {
         "terms": "Пользовательское соглашение",
@@ -143,7 +151,9 @@
         "errorTitle": "Ошибка регистрации",
         "successTitle": "Регистрация успешна",
         "signInFailedTitle": "Не удалось войти",
-        "signInFailedDescription": "Попробуйте войти вручную."
+        "signInFailedDescription": "Попробуйте войти вручную.",
+        "pendingTitle": "Заявка отправлена",
+        "pendingDescription": "Администратор скоро рассмотрит вашу заявку. Вход откроется после подтверждения."
       },
       "regions": {
         "moscow": "Москва",
@@ -544,6 +554,73 @@
   },
   "admin": {
     "newCase": {},
+    "pending": {
+      "title": "Заявки на регистрацию",
+      "subtitle": "Только одобренные пользователи могут войти в систему. Проверьте данные и одобрите подходящих, отклоните остальных.",
+      "empty": "Сейчас заявок нет.",
+      "tableEmail": "Email",
+      "tableFullName": "ФИО",
+      "tableSpecialty": "Специальность",
+      "tableRegion": "Регион",
+      "tablePhone": "Телефон",
+      "tableCreatedAt": "Заявка отправлена",
+      "approveButton": "Одобрить",
+      "rejectButton": "Отклонить",
+      "approveConfirmTitle": "Одобрить заявку?",
+      "approveConfirmDescription": "После одобрения пользователь сможет войти в систему по своему email и паролю.",
+      "rejectConfirmTitle": "Отклонить заявку?",
+      "rejectConfirmDescription": "Запись пользователя будет удалена. Этот пользователь не сможет войти. Если потребуется — он зарегистрируется заново.",
+      "confirmYes": "Да",
+      "confirmNo": "Отмена",
+      "toast": {
+        "approvedTitle": "Заявка одобрена",
+        "approvedDescription": "{name} теперь может войти.",
+        "rejectedTitle": "Заявка отклонена",
+        "rejectedDescription": "{name} удалён.",
+        "errorTitle": "Ошибка",
+        "loadFailed": "Не удалось загрузить заявки."
+      },
+      "accessDeniedTitle": "Нет доступа",
+      "accessDeniedDescription": "Управлять заявками может только администратор."
+    },
+    "cases": {
+      "title": "Все кейсы",
+      "subtitle": "Список всех кейсов с возможностью редактирования.",
+      "empty": "Кейсов пока нет.",
+      "tableName": "Название",
+      "tableSubgroup": "Подгруппа",
+      "tableSpecialty": "Специальность",
+      "tableMode": "Режим",
+      "tableUpdatedAt": "Обновлён",
+      "editButton": "Редактировать",
+      "deleteButton": "Удалить",
+      "openButton": "Открыть",
+      "deleteConfirmTitle": "Удалить кейс?",
+      "deleteConfirmDescription": "Кейс «{name}» и все связанные данные (вложения, чат-сессии) будут удалены безвозвратно.",
+      "confirmYes": "Удалить",
+      "confirmNo": "Отмена",
+      "toast": {
+        "deletedTitle": "Кейс удалён",
+        "deletedDescription": "«{name}» удалён.",
+        "errorTitle": "Ошибка",
+        "loadFailed": "Не удалось загрузить кейсы.",
+        "deleteFailed": "Не удалось удалить кейс."
+      },
+      "accessDeniedTitle": "Нет доступа",
+      "accessDeniedDescription": "Управлять кейсами может только администратор."
+    },
+    "edit": {
+      "title": "Редактировать кейс",
+      "loading": "Загрузка кейса…",
+      "notFoundTitle": "Кейс не найден",
+      "notFoundDescription": "Возможно кейс был удалён или у вас нет к нему доступа.",
+      "backToList": "К списку кейсов",
+      "saveButton": "Сохранить изменения",
+      "savingButton": "Сохранение…",
+      "savedTitle": "Кейс сохранён",
+      "errorTitle": "Ошибка",
+      "saveFailed": "Не удалось сохранить кейс."
+    },
     "banners": {
       "title": "Баннерная реклама",
       "subtitle": "Загружайте креативы для двух рекламных мест: горизонтальный баннер в шапке сайта и квадратный в боковой панели. Размеры у слотов разные — смотрите подсказку под названием каждого слота.",
@@ -665,7 +742,15 @@
       "sentToast": "Сообщение открыто в почтовом клиенте",
       "mailSenderLabel": "Отправитель",
       "mailEmailLabel": "Email",
-      "mailPhoneLabel": "Телефон"
+      "mailPhoneLabel": "Телефон",
+      "mailAttachmentsLabel": "Прикреплённые файлы",
+      "attachmentsLabel": "Прикреплённые файлы",
+      "attachmentsHint": "До 10 МБ на файл. Будут вставлены ссылками в письмо.",
+      "attachButton": "Прикрепить файл",
+      "attachmentUploaded": "Файл загружен",
+      "attachmentErrorTitle": "Ошибка загрузки",
+      "attachmentErrorDescription": "Не удалось загрузить файл.",
+      "attachmentRemove": "Удалить файл"
     },
     "news": {},
     "managePatients": {},

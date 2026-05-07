@@ -38,6 +38,7 @@ export type Patient = {
   subgroup?: string | null;
   specialty?: string | null;
   tags?: string[];
+  teaser?: string | null;
   body?: CaseBody;
   images?: PatientImage[];
   attachedImages?: PatientImage[]; // alias for backward compat
@@ -68,6 +69,7 @@ function serializedToPatient(c: SerializedCase): Patient {
     subgroup: c.subgroup,
     specialty: c.specialty,
     tags: c.tags,
+    teaser: c.teaser,
     body: c.body,
     images,
     attachedImages: images,

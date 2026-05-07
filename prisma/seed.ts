@@ -341,7 +341,7 @@ async function main() {
   const adminPassword = await bcrypt.hash('password123', 10);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@medizo.local' },
-    update: {},
+    update: { approvedAt: new Date() },
     create: {
       email: 'admin@medizo.local',
       name: 'Администратор',
@@ -350,6 +350,7 @@ async function main() {
       role: Role.ADMIN,
       specialty: 'Администрирование системы',
       avatar: 'https://i.pravatar.cc/150?u=admin',
+      approvedAt: new Date(),
     },
   });
   console.log(`[seed] admin: ${admin.email}`);
@@ -357,7 +358,7 @@ async function main() {
   const doctorPassword = await bcrypt.hash('password123', 10);
   const doctor = await prisma.user.upsert({
     where: { email: 'doctor@medizo.local' },
-    update: {},
+    update: { approvedAt: new Date() },
     create: {
       email: 'doctor@medizo.local',
       name: 'Доктор Иванов',
@@ -369,6 +370,7 @@ async function main() {
       passwordHash: doctorPassword,
       role: Role.DOCTOR,
       avatar: 'https://i.pravatar.cc/150?u=doctor-ivanov',
+      approvedAt: new Date(),
     },
   });
   console.log(`[seed] doctor: ${doctor.email}`);

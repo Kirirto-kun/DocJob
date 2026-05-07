@@ -18,6 +18,8 @@ import {
   FilePlus2,
   LayoutGrid,
   Megaphone,
+  UserCheck,
+  Files,
 } from 'lucide-react';
 import UserSwitcher from './user-switcher';
 import { useUserStore } from '@/hooks/use-user-store';
@@ -126,6 +128,26 @@ export default function ScenarioControls(_props: ScenarioControlsProps) {
             >
               <FilePlus2 className="mr-2" />
               <span className="group-data-[collapsible=icon]:hidden">{t('createCase')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
+              onClick={() => router.push('/admin/cases')}
+            >
+              <Files className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('allCases')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
+              onClick={() => router.push('/admin/pending')}
+            >
+              <UserCheck className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('pendingApprovals')}</span>
             </Button>
           </div>
           <div className={navWrapperClass}>

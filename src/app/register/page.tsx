@@ -30,7 +30,6 @@ import { useToast } from '@/hooks/use-toast';
 import { DocJobLogo } from '@/components/icons';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { registerUser } from '@/app/actions';
-import { signInWithCredentials } from '@/hooks/use-user-store';
 import { SUBGROUPS } from '@/lib/case-taxonomy';
 
 const REGION_KEYS = [
@@ -142,19 +141,13 @@ export default function RegisterPage() {
         return;
       }
 
-      const signIn = await signInWithCredentials(data.email, data.password);
-      if (!signIn.ok) {
-        toast({
-          variant: 'destructive',
-          title: t('toast.signInFailedTitle'),
-          description: signIn.error ?? t('toast.signInFailedDescription'),
-        });
-        router.push('/login');
-        return;
-      }
-
-      toast({ title: t('toast.successTitle') });
-      router.push('/select-subgroup');
+      // New users are created with approvedAt = null and need an
+      // administrator to approve before they can log in.
+      toast({
+        title: t('toast.pendingTitle'),
+        description: t('toast.pendingDescription'),
+      });
+      router.push('/login?pending=1');
       router.refresh();
     } finally {
       setIsLoading(false);

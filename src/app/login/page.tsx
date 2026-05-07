@@ -23,6 +23,7 @@ function LoginForm() {
   const { toast } = useToast();
   const t = useTranslations('auth.login');
   const [isLoading, setIsLoading] = useState(false);
+  const justRegistered = searchParams.get('pending') === '1';
 
   const loginSchema = z.object({
     email: z.string().email(t('errors.emailInvalid')),
@@ -48,16 +49,33 @@ function LoginForm() {
       router.push(searchParams.get('callbackUrl') ?? '/');
       router.refresh();
     } else {
+      // The auth gate throws "PendingApproval" when an account isn't approved
+      // yet. NextAuth surfaces this as a CredentialsSignin error string that
+      // contains the message we threw — match on it to show a friendlier note.
+      const errorText = res.error ?? '';
+      const isPending =
+        errorText.includes('PendingApproval') || errorText.includes('Pending');
       toast({
         variant: 'destructive',
-        title: t('toast.failTitle'),
-        description: res.error ?? t('toast.failDescription'),
+        title: isPending ? t('toast.pendingTitle') : t('toast.failTitle'),
+        description: isPending
+          ? t('toast.pendingDescription')
+          : (res.error ?? t('toast.failDescription')),
       });
     }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {justRegistered ? (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200">
+          <p className="font-medium">{t('pendingBanner.title')}</p>
+          <p className="mt-1 text-xs leading-relaxed text-amber-200/85">
+            {t('pendingBanner.body')}
+          </p>
+        </div>
+      ) : null}
+
       <div className="space-y-2">
         <Label htmlFor="email">{t('emailLabel')}</Label>
         <Input id="email" type="email" placeholder={t('emailPlaceholder')} {...register('email')} />

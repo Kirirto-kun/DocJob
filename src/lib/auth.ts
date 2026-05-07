@@ -28,6 +28,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
+        // Block sign-in until an admin has approved the account.
+        // Throwing a CredentialsSignin error with a descriptive message
+        // surfaces it to the login form.
+        if (!user.approvedAt) {
+          throw new Error('PendingApproval');
+        }
+
         return {
           id: user.id,
           email: user.email,

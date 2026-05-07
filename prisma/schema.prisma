@@ -34,6 +34,7 @@ model User {
   avatar            String?
   profilePhotoUrl   String?
   consentAcceptedAt DateTime?
+  approvedAt        DateTime?
   solvedCaseIds     String[] @default([])
   unsolvedCaseIds   String[] @default([])
   medicalRecords    String?
@@ -43,6 +44,7 @@ model User {
   updatedAt         DateTime @updatedAt
 
   @@index([role])
+  @@index([approvedAt])
 }
 
 model Case {
@@ -60,6 +62,7 @@ model Case {
   subgroup            String?
   specialty           String?
   tags                String[]    @default([])
+  teaser              String?
   mode                CaseMode    @default(CLINICAL_QUEST)
   body                Json        @default("{\"blocks\":[]}")
   solution            Json?

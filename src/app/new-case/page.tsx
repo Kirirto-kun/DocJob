@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -103,6 +104,7 @@ export default function NewCasePage() {
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [teaser, setTeaser] = useState('');
 
   const [body, setBody] = useState<CaseBody>(EMPTY_BODY);
   const [taskQuestions, setTaskQuestions] = useState<string[]>(['']);
@@ -214,6 +216,7 @@ export default function NewCasePage() {
         subgroup: subgroup.slug,
         specialty: specialty || null,
         tags,
+        teaser: teaser.trim() || null,
         mode,
         body,
         solution,
@@ -338,6 +341,20 @@ export default function NewCasePage() {
                 </div>
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label htmlFor="case-teaser">Тизер (краткий анонс)</Label>
+              <Textarea
+                id="case-teaser"
+                value={teaser}
+                onChange={(e) => setTeaser(e.target.value)}
+                rows={3}
+                placeholder="Короткое описание для карточки в каталоге кейсов. Если оставить пустым — будет показано начало тела кейса."
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Заменяет первые ~140 символов тела кейса на карточке в списке.
+              </p>
+            </div>
 
             <div className="space-y-2">
               <Label>Теги</Label>

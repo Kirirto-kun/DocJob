@@ -179,6 +179,52 @@ export async function getUsers(): Promise<ActionResult<SerializedUser[]>> {
   return ok(users.map(serializeUser));
 }
 
+// ───────────────────────── Registration approval (admin)
+
+export async function getPendingUsers(): Promise<ActionResult<SerializedUser[]>> {
+  try {
+    await requireAdmin();
+  } catch {
+    return fail('Только администратор может видеть заявки.');
+  }
+  const users = await prisma.user.findMany({
+    where: { approvedAt: null },
+    orderBy: { createdAt: 'asc' },
+  });
+  return ok(users.map(serializeUser));
+}
+
+export async function approveUser(userId: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    await requireAdmin();
+  } catch {
+    return fail('Только администратор может одобрять заявки.');
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return fail('Пользователь не найден.');
+  if (user.approvedAt) return fail('Пользователь уже одобрен.');
+  await prisma.user.update({
+    where: { id: userId },
+    data: { approvedAt: new Date() },
+  });
+  revalidatePath('/admin/pending');
+  return ok({ id: userId });
+}
+
+export async function rejectUser(userId: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    await requireAdmin();
+  } catch {
+    return fail('Только администратор может отклонять заявки.');
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return fail('Пользователь не найден.');
+  if (user.approvedAt) return fail('Нельзя отклонить уже одобренного пользователя.');
+  await prisma.user.delete({ where: { id: userId } });
+  revalidatePath('/admin/pending');
+  return ok({ id: userId });
+}
+
 export async function updateUserStatistics(
   caseId: string,
   result: 'solved' | 'unsolved'
@@ -228,6 +274,7 @@ const caseInputSchema = z.object({
   subgroup: z.string().optional().nullable(),
   specialty: z.string().optional().nullable(),
   tags: z.array(z.string()).optional(),
+  teaser: z.string().optional().nullable(),
   mode: caseModeEnumSchema.optional(),
   body: caseBodySchema.optional(),
   solution: caseSolutionSchema.nullable().optional(),
@@ -277,6 +324,7 @@ export async function createCase(input: CaseInput): Promise<ActionResult<Seriali
       subgroup: data.subgroup ?? null,
       specialty: data.specialty ?? null,
       tags: data.tags ?? [],
+      teaser: data.teaser ?? null,
       mode: mode as PrismaCaseMode,
       body: (data.body ?? EMPTY_BODY) as Prisma.InputJsonValue,
       solution: (data.solution ?? null) as Prisma.InputJsonValue | undefined,
@@ -925,10 +973,12 @@ export type SerializedUser = {
   avatar: string | null;
   profilePhotoUrl: string | null;
   consentAcceptedAt: string | null;
+  approvedAt: string | null;
   solvedCaseIds: string[];
   unsolvedCaseIds: string[];
   medicalRecords: string | null;
   patientIds: string[];
+  createdAt: string;
 };
 
 export type SerializedCaseImage = {
@@ -967,6 +1017,7 @@ export type SerializedCase = {
   subgroup: string | null;
   specialty: string | null;
   tags: string[];
+  teaser: string | null;
   mode: CaseMode;
   body: CaseBody;
   taskQuestions: string[];
@@ -994,10 +1045,12 @@ function serializeUser(u: NonNullable<PrismaUser>): SerializedUser {
     avatar: u.avatar,
     profilePhotoUrl: u.profilePhotoUrl,
     consentAcceptedAt: u.consentAcceptedAt ? u.consentAcceptedAt.toISOString() : null,
+    approvedAt: u.approvedAt ? u.approvedAt.toISOString() : null,
     solvedCaseIds: u.solvedCaseIds,
     unsolvedCaseIds: u.unsolvedCaseIds,
     medicalRecords: u.medicalRecords,
     patientIds: u.patientIds,
+    createdAt: u.createdAt.toISOString(),
   };
 }
 
@@ -1019,6 +1072,7 @@ function serializeCase(c: PrismaCaseFull): SerializedCase {
     subgroup: c.subgroup,
     specialty: c.specialty,
     tags: c.tags,
+    teaser: c.teaser,
     mode: c.mode as CaseMode,
     body,
     taskQuestions: c.taskQuestions,
