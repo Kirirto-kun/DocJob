@@ -45,7 +45,7 @@ export function BannerAd({ slot, className, showPlaceholder = true }: BannerAdPr
     let cancelled = false;
     loadManifest().then((m) => {
       if (cancelled) return;
-      setInfo(m[String(slot) as '1' | '2'] ?? null);
+      setInfo(m[String(slot) as '1'] ?? null);
     });
     return () => {
       cancelled = true;

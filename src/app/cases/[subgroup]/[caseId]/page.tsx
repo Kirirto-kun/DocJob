@@ -49,6 +49,7 @@ export default async function CasePage({ params }: CasePageParams) {
     subgroup: c.subgroup,
     specialty: c.specialty,
     tags: c.tags,
+    teaser: c.teaser,
     mode: c.mode as CaseMode,
     body,
     taskQuestions: c.taskQuestions,

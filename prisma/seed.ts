@@ -340,10 +340,10 @@ const demoCases: DemoCase[] = [
 async function main() {
   const adminPassword = await bcrypt.hash('password123', 10);
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@medizo.local' },
+    where: { email: 'admin@docjob.local' },
     update: { approvedAt: new Date() },
     create: {
-      email: 'admin@medizo.local',
+      email: 'admin@docjob.local',
       name: 'Администратор',
       fullName: 'Системный Администратор',
       passwordHash: adminPassword,
@@ -355,17 +355,25 @@ async function main() {
   });
   console.log(`[seed] admin: ${admin.email}`);
 
+  // Backward-compat: pre-rebrand databases used admin@medizo.local. If that
+  // record still exists, bump its approvedAt so the legacy admin can also
+  // sign in (one-time migration helper, harmless if absent).
+  await prisma.user.updateMany({
+    where: { email: 'admin@medizo.local' },
+    data: { approvedAt: new Date() },
+  });
+
   const doctorPassword = await bcrypt.hash('password123', 10);
   const doctor = await prisma.user.upsert({
-    where: { email: 'doctor@medizo.local' },
+    where: { email: 'doctor@docjob.local' },
     update: { approvedAt: new Date() },
     create: {
-      email: 'doctor@medizo.local',
+      email: 'doctor@docjob.local',
       name: 'Доктор Иванов',
       fullName: 'Иванов Иван Иванович',
-      region: 'Москва',
+      region: 'Астана',
       age: 42,
-      phoneNumber: '+7 (900) 000-00-00',
+      phoneNumber: '+7 (700) 000-00-00',
       specialty: 'Кардиология',
       passwordHash: doctorPassword,
       role: Role.DOCTOR,
@@ -374,6 +382,11 @@ async function main() {
     },
   });
   console.log(`[seed] doctor: ${doctor.email}`);
+
+  await prisma.user.updateMany({
+    where: { email: 'doctor@medizo.local' },
+    data: { approvedAt: new Date() },
+  });
 
   const existingCases = await prisma.case.count();
   if (existingCases === 0) {

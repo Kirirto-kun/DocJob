@@ -164,13 +164,30 @@ export function useUserStore() {
   return context;
 }
 
-export async function signInWithCredentials(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
+export async function signInWithCredentials(
+  email: string,
+  password: string,
+): Promise<{ ok: boolean; error?: string; reason?: 'pending' | 'invalid' | 'network' }> {
   const res = await signIn('credentials', {
     email,
     password,
     redirect: false,
   });
-  if (!res) return { ok: false, error: 'Ошибка сети.' };
-  if (res.error) return { ok: false, error: 'Неверные учётные данные.' };
+  if (!res) return { ok: false, error: 'Ошибка сети.', reason: 'network' };
+  if (res.error) {
+    // NextAuth surfaces "wrong creds" and "pending approval" with the same
+    // generic error code. Disambiguate by looking up the account directly.
+    try {
+      const { checkLoginIssue } = await import('@/app/actions');
+      const diag = await checkLoginIssue(email, password);
+      return {
+        ok: false,
+        error: diag.status === 'pending' ? 'PendingApproval' : 'Неверные учётные данные.',
+        reason: diag.status,
+      };
+    } catch {
+      return { ok: false, error: 'Неверные учётные данные.', reason: 'invalid' };
+    }
+  }
   return { ok: true };
 }

@@ -28,12 +28,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
-        // Block sign-in until an admin has approved the account.
-        // Throwing a CredentialsSignin error with a descriptive message
-        // surfaces it to the login form.
-        if (!user.approvedAt) {
-          throw new Error('PendingApproval');
-        }
+        // Block sign-in until an admin has approved the account. Returning
+        // null here looks like "wrong credentials" to NextAuth — the login
+        // form distinguishes the two cases by calling
+        // `checkLoginIssue(email, password)` on failure.
+        if (!user.approvedAt) return null;
 
         return {
           id: user.id,

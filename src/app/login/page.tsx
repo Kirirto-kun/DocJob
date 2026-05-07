@@ -49,12 +49,7 @@ function LoginForm() {
       router.push(searchParams.get('callbackUrl') ?? '/');
       router.refresh();
     } else {
-      // The auth gate throws "PendingApproval" when an account isn't approved
-      // yet. NextAuth surfaces this as a CredentialsSignin error string that
-      // contains the message we threw — match on it to show a friendlier note.
-      const errorText = res.error ?? '';
-      const isPending =
-        errorText.includes('PendingApproval') || errorText.includes('Pending');
+      const isPending = res.reason === 'pending';
       toast({
         variant: 'destructive',
         title: isPending ? t('toast.pendingTitle') : t('toast.failTitle'),

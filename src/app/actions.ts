@@ -211,6 +211,30 @@ export async function approveUser(userId: string): Promise<ActionResult<{ id: st
   return ok({ id: userId });
 }
 
+/**
+ * Diagnose why a sign-in failed without itself granting a session.
+ * Used by the login form when next-auth's signIn returned an error — the
+ * generic NextAuth response can't tell "wrong password" from "account
+ * still pending approval", so we look it up explicitly here.
+ *
+ * Returns:
+ *   - 'pending'   — credentials match but admin hasn't approved yet
+ *   - 'invalid'   — wrong email or password
+ */
+export async function checkLoginIssue(
+  email: string,
+  password: string,
+): Promise<{ status: 'pending' | 'invalid' }> {
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+  });
+  if (!user) return { status: 'invalid' };
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) return { status: 'invalid' };
+  if (!user.approvedAt) return { status: 'pending' };
+  return { status: 'invalid' };
+}
+
 export async function rejectUser(userId: string): Promise<ActionResult<{ id: string }>> {
   try {
     await requireAdmin();
