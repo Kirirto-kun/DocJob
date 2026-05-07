@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useMemo, useState, useTransition } from 'react';
+import { use, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ArrowRight, Loader2 } from 'lucide-react';
@@ -38,10 +38,20 @@ export default function CasesBySubgroupPage({
   const router = useRouter();
   const t = useTranslations('cases');
   const tTaxonomy = useTranslations('taxonomy.subgroup');
-  const { patients, isInitialized } = usePatientStore();
+  const { patients, isInitialized, refreshPatients } = usePatientStore();
   const [specialtyFilter, setSpecialtyFilter] = useState<string>(ALL_SPECIALTIES);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  // The patient store loads once on app start. If the admin creates a new
+  // case via /new-case the store stays stale, so the new card doesn't show
+  // up here until full reload. Force a fresh fetch every time this page
+  // mounts to keep the catalogue in sync.
+  useEffect(() => {
+    if (isInitialized) {
+      void refreshPatients();
+    }
+  }, [isInitialized, refreshPatients]);
 
   const subgroup = findSubgroup(subgroupSlug);
 
