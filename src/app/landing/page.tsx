@@ -95,15 +95,12 @@ export default async function LandingPage() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <LanguageSwitcher />
             <Link href="/login">
               <Button variant="ghost" size="sm" className="text-muted-foreground">
                 {t('nav.login')}
               </Button>
-            </Link>
-            <Link href="/register">
-              <Button size="sm">{t('nav.register')}</Button>
             </Link>
           </div>
         </div>
@@ -178,11 +175,13 @@ export default async function LandingPage() {
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
                     <Icon className="h-6 w-6 text-primary" />
                   </div>
-                  <div className="space-y-2">
-                    <h3 className="text-base font-semibold leading-tight transition-colors group-hover:text-primary">
+                  <div className="min-w-0 space-y-2">
+                    <h3 className="break-words text-[13px] font-semibold leading-tight transition-colors group-hover:text-primary sm:text-base">
                       {d.title}
                     </h3>
-                    <p className="text-xs leading-relaxed text-muted-foreground">{d.description}</p>
+                    <p className="break-words text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
+                      {d.description}
+                    </p>
                   </div>
                 </Card>
               );
@@ -352,7 +351,7 @@ async function HeroSection({ directions }: { directions: Direction[] }) {
           {t('badge')}
         </Badge>
 
-        <h1 className="font-headline text-3xl font-semibold leading-tight tracking-tight md:text-5xl lg:text-[3.25rem]">
+        <h1 className="break-words font-headline text-2xl font-semibold leading-tight tracking-tight sm:text-3xl md:text-5xl lg:text-[3.25rem]">
           {headlinePrefix ? (
             <span className="block text-foreground/85">{headlinePrefix}</span>
           ) : null}
@@ -362,7 +361,7 @@ async function HeroSection({ directions }: { directions: Direction[] }) {
           <span className="block text-foreground/85">{headlineSuffix}</span>
         </h1>
 
-        <p className="max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
+        <p className="max-w-2xl break-words text-base leading-relaxed text-muted-foreground md:text-lg">
           {t('subtitle')}
         </p>
 
@@ -405,7 +404,7 @@ async function HeroSection({ directions }: { directions: Direction[] }) {
               return (
                 <div
                   key={d.key}
-                  className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 p-3 text-left backdrop-blur-sm"
+                  className="flex min-w-0 items-center gap-3 rounded-xl border border-border/60 bg-card/60 p-3 text-left backdrop-blur-sm"
                   style={{
                     animation: `landingFloat ${6 + i * 0.4}s ease-in-out infinite`,
                     animationDelay: `${i * 0.4}s`,
@@ -414,7 +413,7 @@ async function HeroSection({ directions }: { directions: Direction[] }) {
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/10">
                     <Icon className="h-4 w-4 text-primary" />
                   </div>
-                  <p className="text-xs font-semibold leading-tight text-foreground">
+                  <p className="min-w-0 break-words text-xs font-semibold leading-tight text-foreground">
                     {d.title}
                   </p>
                 </div>
