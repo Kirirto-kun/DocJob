@@ -40,6 +40,7 @@
     "subgroupCatalog": "Кейстер шағын топтары",
     "pendingApprovals": "Тіркелу өтінімдері",
     "allCases": "Барлық кейстер",
+    "manageNews": "Жаңалықтарды басқару",
     "managementGroup": "Басқару",
     "managementGroupShort": "БАСҚАРУ",
     "scenario": {
@@ -668,6 +669,43 @@
         "deleteFailed": "Баннерді жою мүмкін болмады",
         "errorFallback": "Қате"
       }
+    },
+    "news": {
+      "title": "Жаңалықтарды басқару",
+      "subtitle": "Жоба жаңалықтарын құру, өңдеу және жою.",
+      "createButton": "Жаңалық құру",
+      "editButton": "Өңдеу",
+      "deleteButton": "Жою",
+      "deleteConfirmTitle": "Бұл жаңалықты жою керек пе?",
+      "deleteConfirmDescription": "Бұл әрекетті қайтару мүмкін емес.",
+      "confirmYes": "Жою",
+      "confirmNo": "Болдырмау",
+      "empty": "Жаңалықтар әлі жоқ.",
+      "createTitle": "Жаңа жаңалық",
+      "editTitle": "Жаңалықты өңдеу",
+      "backToList": "Жаңалықтар тізіміне",
+      "form": {
+        "titleLabel": "Тақырып",
+        "titlePlaceholder": "Қысқа тақырып (200 таңбаға дейін)",
+        "bodyLabel": "Мәтін",
+        "bodyPlaceholder": "Жаңалықтың толық мәтіні",
+        "dateLabel": "Күні",
+        "dateHint": "Көрсетілмесе ағымдағы уақыт қойылады.",
+        "submitCreate": "Жариялау",
+        "submitUpdate": "Өзгерістерді сақтау",
+        "cancel": "Болдырмау",
+        "saving": "Сақталуда…"
+      },
+      "toast": {
+        "createdTitle": "Жаңалық жарияланды",
+        "updatedTitle": "Өзгерістер сақталды",
+        "deletedTitle": "Жаңалық жойылды",
+        "errorTitle": "Қате",
+        "loadFailed": "Жаңалықтарды жүктеу мүмкін болмады.",
+        "loadItemFailed": "Жаңалықты жүктеу мүмкін болмады."
+      },
+      "accessDeniedTitle": "Кіруге тыйым салынған",
+      "accessDeniedDescription": "Жаңалықтарды тек әкімші басқара алады."
     }
   },
   "user": {

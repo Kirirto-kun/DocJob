@@ -40,6 +40,7 @@
     "subgroupCatalog": "Подгруппы кейсов",
     "pendingApprovals": "Заявки на регистрацию",
     "allCases": "Все кейсы",
+    "manageNews": "Управление новостями",
     "managementGroup": "Управление",
     "managementGroupShort": "УПРАВЛЕНИЕ",
     "scenario": {
@@ -668,6 +669,43 @@
         "deleteFailed": "Не удалось удалить баннер",
         "errorFallback": "Ошибка"
       }
+    },
+    "news": {
+      "title": "Управление новостями",
+      "subtitle": "Создавайте, редактируйте и удаляйте новости проекта.",
+      "createButton": "Создать новость",
+      "editButton": "Редактировать",
+      "deleteButton": "Удалить",
+      "deleteConfirmTitle": "Удалить эту новость?",
+      "deleteConfirmDescription": "Действие нельзя отменить.",
+      "confirmYes": "Удалить",
+      "confirmNo": "Отмена",
+      "empty": "Новостей пока нет.",
+      "createTitle": "Новая новость",
+      "editTitle": "Редактировать новость",
+      "backToList": "К списку новостей",
+      "form": {
+        "titleLabel": "Заголовок",
+        "titlePlaceholder": "Краткий заголовок (до 200 символов)",
+        "bodyLabel": "Текст",
+        "bodyPlaceholder": "Полный текст новости",
+        "dateLabel": "Дата",
+        "dateHint": "Если не указана — будет использовано текущее время.",
+        "submitCreate": "Опубликовать",
+        "submitUpdate": "Сохранить изменения",
+        "cancel": "Отмена",
+        "saving": "Сохранение…"
+      },
+      "toast": {
+        "createdTitle": "Новость опубликована",
+        "updatedTitle": "Изменения сохранены",
+        "deletedTitle": "Новость удалена",
+        "errorTitle": "Ошибка",
+        "loadFailed": "Не удалось загрузить новости.",
+        "loadItemFailed": "Не удалось загрузить новость."
+      },
+      "accessDeniedTitle": "Доступ запрещён",
+      "accessDeniedDescription": "Управлять новостями может только администратор."
     }
   },
   "user": {
