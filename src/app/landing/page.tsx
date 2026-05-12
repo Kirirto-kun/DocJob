@@ -164,22 +164,22 @@ export default async function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
             {directions.map((d) => {
               const Icon = d.icon;
               return (
                 <Card
                   key={d.key}
-                  className="group flex aspect-square flex-col justify-between border-border/60 bg-card/60 p-6 transition-all hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10"
+                  className="group flex aspect-square flex-col justify-between border-border/60 bg-card/60 p-3 transition-all hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 sm:p-6"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-primary/30 bg-primary/10">
-                    <Icon className="h-6 w-6 text-primary" />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 sm:h-12 sm:w-12">
+                    <Icon className="h-4 w-4 text-primary sm:h-6 sm:w-6" />
                   </div>
-                  <div className="min-w-0 space-y-2">
-                    <h3 className="break-words text-[13px] font-semibold leading-tight transition-colors group-hover:text-primary sm:text-base">
+                  <div className="min-w-0 space-y-1 sm:space-y-2">
+                    <h3 className="break-words text-[12px] font-semibold leading-tight transition-colors group-hover:text-primary sm:text-base">
                       {d.title}
                     </h3>
-                    <p className="break-words text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
+                    <p className="break-words text-[10px] leading-relaxed text-muted-foreground sm:text-xs">
                       {d.description}
                     </p>
                   </div>

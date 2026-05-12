@@ -9,10 +9,10 @@ export const DocJobLogo = ({ className, ...props }: DocJobLogoProps) => (
     <Image
         src="/logo_dj.jpg"
         alt="MEDIZO"
-        width={64}
-        height={64}
+        width={128}
+        height={128}
         priority
-        className={cn('object-contain', className)}
+        className={cn('rounded-full bg-white object-cover', className)}
         {...props}
     />
 );
