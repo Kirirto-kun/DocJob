@@ -480,6 +480,119 @@ export async function getCases(filters?: { subgroup?: string; specialty?: string
   return ok(cases.map(serializeCase));
 }
 
+// ───────────────────────── Paginated cases listing (admin catalog / search)
+
+export type SerializedCaseListItem = {
+  id: string;
+  authorId: string;
+  name: string;
+  primaryCondition: string | null;
+  subgroup: string | null;
+  specialty: string | null;
+  tags: string[];
+  teaser: string | null;
+  mode: CaseMode;
+  hasSolution: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CasesPage = {
+  items: SerializedCaseListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+};
+
+const getCasesPagedSchema = z.object({
+  subgroup: z.string().optional(),
+  specialty: z.string().optional(),
+  mode: caseModeEnumSchema.optional(),
+  search: z.string().optional(),
+  page: z.number().int().optional(),
+  pageSize: z.number().int().optional(),
+});
+
+export async function getCasesPaged(
+  input?: z.infer<typeof getCasesPagedSchema>,
+): Promise<ActionResult<CasesPage>> {
+  try {
+    await requireUser();
+  } catch {
+    return fail('Требуется авторизация.');
+  }
+
+  const parsed = getCasesPagedSchema.safeParse(input ?? {});
+  if (!parsed.success) return fail('Некорректные параметры запроса.');
+  const { subgroup, specialty, mode, search } = parsed.data;
+
+  const page = Math.max(1, parsed.data.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, parsed.data.pageSize ?? 20));
+
+  const where: Prisma.CaseWhereInput = {};
+  if (subgroup) where.subgroup = subgroup;
+  if (specialty) where.specialty = specialty;
+  if (mode) where.mode = mode as PrismaCaseMode;
+
+  const trimmedSearch = search?.trim();
+  if (trimmedSearch) {
+    where.OR = [
+      { name: { contains: trimmedSearch, mode: 'insensitive' } },
+      { teaser: { contains: trimmedSearch, mode: 'insensitive' } },
+      { primaryCondition: { contains: trimmedSearch, mode: 'insensitive' } },
+      { tags: { has: trimmedSearch } },
+    ];
+  }
+
+  const [rows, total] = await prisma.$transaction([
+    prisma.case.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        authorId: true,
+        name: true,
+        primaryCondition: true,
+        subgroup: true,
+        specialty: true,
+        tags: true,
+        teaser: true,
+        mode: true,
+        solution: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.case.count({ where }),
+  ]);
+
+  const items: SerializedCaseListItem[] = rows.map((row) => ({
+    id: row.id,
+    authorId: row.authorId,
+    name: row.name,
+    primaryCondition: row.primaryCondition,
+    subgroup: row.subgroup,
+    specialty: row.specialty,
+    tags: row.tags,
+    teaser: row.teaser,
+    mode: row.mode as CaseMode,
+    hasSolution: row.solution !== null && row.solution !== undefined,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  }));
+
+  return ok({
+    items,
+    total,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+  });
+}
+
 export async function getCaseById(id: string): Promise<ActionResult<SerializedCase>> {
   try {
     await requireUser();
