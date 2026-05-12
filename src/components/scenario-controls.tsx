@@ -184,6 +184,16 @@ export default function ScenarioControls(_props: ScenarioControlsProps) {
             <Button
               variant="outline"
               className={navButtonClass}
+              onClick={() => router.push('/admin/news')}
+            >
+              <Newspaper className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('manageNews')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
               onClick={() => router.push('/add-doctor')}
             >
               <UserPlus className="mr-2" />

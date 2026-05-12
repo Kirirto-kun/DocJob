@@ -982,6 +982,87 @@ export async function getNews(): Promise<ActionResult<Array<{ id: string; title:
   return ok(items.map((n) => ({ id: n.id, title: n.title, body: n.body, date: n.date.toISOString() })));
 }
 
+type NewsInput = { title: string; body: string; date?: string };
+
+const NEWS_ADMIN_ONLY = 'Управлять новостями может только администратор.';
+
+async function ensureNewsAdmin(): Promise<{ success: false; error: string } | null> {
+  try {
+    await requireAdmin();
+    return null;
+  } catch {
+    return fail(NEWS_ADMIN_ONLY);
+  }
+}
+
+function validateNewsInput(
+  input: NewsInput,
+): { success: false; error: string } | { success: true; data: { title: string; body: string; date: Date | null } } {
+  const title = input.title?.trim();
+  const body = input.body?.trim();
+  if (!title || title.length > 200) return fail('Заголовок обязателен и не более 200 символов.');
+  if (!body || body.length > 10000) return fail('Текст обязателен и не более 10000 символов.');
+  if (input.date) {
+    const date = new Date(input.date);
+    if (Number.isNaN(date.getTime())) return fail('Некорректная дата.');
+    return ok({ title, body, date });
+  }
+  return ok({ title, body, date: null });
+}
+
+function revalidateNewsPaths() {
+  revalidatePath('/news');
+  revalidatePath('/admin/news');
+}
+
+export async function getNewsItem(
+  id: string,
+): Promise<ActionResult<{ id: string; title: string; body: string; date: string }>> {
+  const denied = await ensureNewsAdmin();
+  if (denied) return denied;
+  const item = await prisma.newsItem.findUnique({ where: { id } });
+  if (!item) return fail('Новость не найдена.');
+  return ok({ id: item.id, title: item.title, body: item.body, date: item.date.toISOString() });
+}
+
+export async function createNews(input: NewsInput): Promise<ActionResult<{ id: string }>> {
+  const denied = await ensureNewsAdmin();
+  if (denied) return denied;
+  const validation = validateNewsInput(input);
+  if (!validation.success) return validation;
+  const { title, body, date } = validation.data;
+  const created = await prisma.newsItem.create({
+    data: { title, body, date: date ?? new Date() },
+  });
+  revalidateNewsPaths();
+  return ok({ id: created.id });
+}
+
+export async function updateNews(
+  id: string,
+  input: NewsInput,
+): Promise<ActionResult<{ id: string }>> {
+  const denied = await ensureNewsAdmin();
+  if (denied) return denied;
+  const validation = validateNewsInput(input);
+  if (!validation.success) return validation;
+  const { title, body, date } = validation.data;
+  await prisma.newsItem.update({
+    where: { id },
+    data: { title, body, ...(date ? { date } : {}) },
+  });
+  revalidateNewsPaths();
+  return ok({ id });
+}
+
+export async function deleteNews(id: string): Promise<ActionResult<{ id: string }>> {
+  const denied = await ensureNewsAdmin();
+  if (denied) return denied;
+  await prisma.newsItem.delete({ where: { id } });
+  revalidateNewsPaths();
+  return ok({ id });
+}
+
 // ───────────────────────── Serialization helpers
 
 export type SerializedUser = {
