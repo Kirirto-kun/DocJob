@@ -14,7 +14,7 @@ yarn-error.log*
 .modified
 docs
 functions
-medizoai_codebase
+legacy_firebase_python
 dataconnect
 firebase.json
 firestore.rules

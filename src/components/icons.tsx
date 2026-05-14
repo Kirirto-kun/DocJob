@@ -8,7 +8,7 @@ type DocJobLogoProps = Omit<ComponentProps<typeof Image>, 'src' | 'alt' | 'width
 export const DocJobLogo = ({ className, ...props }: DocJobLogoProps) => (
     <Image
         src="/logo_dj.jpg"
-        alt="MEDIZO"
+        alt="DocJob"
         width={128}
         height={128}
         priority
@@ -16,5 +16,3 @@ export const DocJobLogo = ({ className, ...props }: DocJobLogoProps) => (
         {...props}
     />
 );
-
-export const MedizoAiLogo = DocJobLogo;

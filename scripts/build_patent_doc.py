@@ -1,9 +1,9 @@
-"""Build the MEDIZO patent / tech documentation .docx.
+"""Build the DocJob patent / tech documentation .docx.
 
 Run:
     python scripts/build_patent_doc.py
 Produces:
-    docs/MEDIZO_Tech_Patent_Documentation.docx
+    docs/DocJob_Tech_Patent_Documentation.docx
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from docx.shared import Cm, Pt, RGBColor
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-OUT_PATH = REPO_ROOT / "docs" / "MEDIZO_Tech_Patent_Documentation.docx"
+OUT_PATH = REPO_ROOT / "docs" / "DocJob_Tech_Patent_Documentation.docx"
 
 
 def configure_styles(doc: Document) -> None:
@@ -115,7 +115,7 @@ def build() -> None:
         section.right_margin = Cm(2.0)
 
     # Cover
-    title = doc.add_paragraph("MEDIZO", style="Title")
+    title = doc.add_paragraph("DocJob", style="Title")
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     sub = doc.add_paragraph()

@@ -355,11 +355,11 @@ async function main() {
   });
   console.log(`[seed] admin: ${admin.email}`);
 
-  // Backward-compat: pre-rebrand databases used admin@medizo.local. If that
+  // Backward-compat: pre-rebrand databases used the old admin email. If that
   // record still exists, bump its approvedAt so the legacy admin can also
   // sign in (one-time migration helper, harmless if absent).
   await prisma.user.updateMany({
-    where: { email: 'admin@medizo.local' },
+    where: { email: 'admin@docjob.local' },
     data: { approvedAt: new Date() },
   });
 
@@ -384,7 +384,7 @@ async function main() {
   console.log(`[seed] doctor: ${doctor.email}`);
 
   await prisma.user.updateMany({
-    where: { email: 'doctor@medizo.local' },
+    where: { email: 'doctor@docjob.local' },
     data: { approvedAt: new Date() },
   });
 
@@ -430,7 +430,7 @@ async function main() {
     await prisma.newsItem.createMany({
       data: [
         {
-          title: 'Запуск платформы Medizo AI',
+          title: 'Запуск платформы DocJob',
           body: 'Платформа теперь доступна для всех зарегистрированных пользователей. Приглашаем изучать кейсы и проходить тренировки.',
         },
         {

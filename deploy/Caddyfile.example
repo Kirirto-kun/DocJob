@@ -1,8 +1,8 @@
-# /etc/caddy/Caddyfile — example for MEDIZO behind Caddy.
+# /etc/caddy/Caddyfile — example for DocJob behind Caddy.
 # Caddy will fetch and renew a Let's Encrypt cert automatically.
 # Make sure the DNS A/AAAA record for docjob.sanduai.kz points at this server.
 
-# If you set WEB_HOST_PORT in /opt/medizo/.env (because 3000 is busy),
+# If you set WEB_HOST_PORT in /opt/docjob/.env (because 3000 is busy),
 # change the upstream port below to match.
 
 docjob.sanduai.kz {

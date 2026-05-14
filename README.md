@@ -1,82 +1,38 @@
 
-# Medizo AI 🩺🤖
+# DocJob
 
-**AI-Powered Healthcare Assistant** – Intelligent symptom checker, personalized health insights, and medical Q&A.
+**AI-симулятор клинических кейсов.** Сократический ассистент проводит обучающегося через клинические инциденты, санитарно-эпидемиологические расследования, лучшие практики и управленческие кейсы — постепенно раскрывая findings по запросу и автоматически оценивая финальный ответ относительно скрытого эталона.
 
-Hackathon project → now open-source and ready for community contributions!
+## Tech stack
 
-[![Stars](https://img.shields.io/github/stars/usama7871/MEDIZO_AI_HACKATHON?style=social)](https://github.com/usama7871/MEDIZO_AI_HACKATHON/stargazers)
-[![Forks](https://img.shields.io/github/forks/usama7871/MEDIZO_AI_HACKATHON?style=social)](https://github.com/usama7871/MEDIZO_AI_HACKATHON/network/members)
-[![Live Demo](https://img.shields.io/badge/Vercel-Live_Demo-brightgreen)](https://medizo-ai-hackathon.vercel.app/)
-[![License](https://img.shields.io/github/license/usama7871/MEDIZO_AI_HACKATHON)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-
-> 🚀 **Hackathon Project** | Healthcare AI | AI Agents Ready | Next.js | TypeScript | Firebase | Vercel
-
-## 🌟 Live Demo
-
-👉 **Try it live:** [https://medizo-ai-hackathon.vercel.app/](https://medizo-ai-hackathon.vercel.app/)
-
-<!-- Add your screenshots/GIFs below for maximum engagement -->
-![Demo Screenshot 1](https://via.placeholder.com/1200x600?text=Medizo+AI+Home+Screen)
-![Demo Screenshot 2](https://via.placeholder.com/1200x600?text=Symptom+Checker+in+Action)
-
-## 🛠 Tech Stack
-
-- **Framework**: Next.js (App Router)
+- **Framework**: Next.js 15 (App Router, Server Actions)
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Backend/DB**: Firebase (Firestore + Authentication)
-- **Deployment**: Vercel
-- **AI Ready**: Structured for easy LangChain / OpenAI Agents SDK / Groq integration
+- **UI**: Tailwind 3 + shadcn/ui + BlockNote (редактор кейсов)
+- **DB**: PostgreSQL 16 + Prisma ORM
+- **Auth**: NextAuth v5 (credentials + JWT + bcrypt)
+- **AI**: OpenAI (`gpt-4.1`) через `chat.completions.parse` со строгой Zod-схемой
+- **Локализация**: next-intl (ru / kk)
+- **Деплой**: Docker Compose (postgres + web), production-overlay через `docker-compose.prod.yml`
 
-## 📦 Quick Start
+## Quick start (local dev)
 
 ```bash
-git clone https://github.com/usama7871/MEDIZO_AI_HACKATHON.git
-cd MEDIZO_AI_HACKATHON
+# 1. Сервер БД
+docker compose --env-file .env.local up -d postgres
 
+# 2. Зависимости + миграции + seed
 npm install
+npm run db:migrate
+npm run db:seed
 
-# Create .env.local (see .env.example if available)
-# Add Firebase config + any API keys
-
+# 3. Dev-сервер
 npm run dev
 ```
 
-Open http://localhost:3000
+Открой http://localhost:3000. Сидовый админ: `admin@docjob.local` / `password123`.
 
-One-click deploy to Vercel supported.
+Подробности деплоя на VPS — см. [`DEPLOY.md`](DEPLOY.md). Архитектура и соглашения — [`CLAUDE.md`](CLAUDE.md). Техническая документация для патента — [`docs/DocJob_Tech_Patent_Documentation.docx`](docs/DocJob_Tech_Patent_Documentation.docx).
 
-## 🤝 Contributing
+## License
 
-We welcome contributions to turn this into a powerful open-source healthcare AI tool!
-
-Ideas:
-- Integrate OpenAI / Groq for real AI responses
-- Add LangChain agents for multi-step reasoning
-- Build n8n workflows for reminders/appointments
-- Enhance UI/UX (mobile, accessibility)
-- Add tests, docs, localization
-
-1. Fork & ⭐ star the repo
-2. Create branch: `git checkout -b feat/your-feature`
-3. Commit & open PR
-
-`good first issue` labels coming soon!
-
-**Top Contributors**
-
-[![Contributors](https://contrib.rocks/image?repo=usama7871/MEDIZO_AI_HACKATHON)](https://github.com/usama7871/MEDIZO_AI_HACKATHON/graphs/contributors)
-
-## 📄 License
-
-MIT License – free to use, modify, and contribute.
-
----
-
-**⭐ Star this repo to help it trend on GitHub!**  
-Let's build the future of open-source healthcare AI together.  
-#HealthcareAI #AIAgents #NextJS #TypeScript #Hackathon #OpenSource
-
+MIT.

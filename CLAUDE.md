@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run genkit:dev` — starts the Genkit dev UI against `src/ai/dev.ts`. **Legacy** — only the old Gemini flows live there. The new chat/import flows run on OpenAI and have no Genkit UI.
 - `npm run db:migrate` — `prisma migrate dev` (wrapped in `dotenv-cli` so it reads `.env.local` then `.env`)
 - `npm run db:deploy` — `prisma migrate deploy` for prod. The Docker entrypoint runs this on container start.
-- `npm run db:seed` — seeds admin (`admin@medizo.local` / `password123`), demo doctor, 2 cases, tags, news
+- `npm run db:seed` — seeds admin (`admin@docjob.local` / `password123`), demo doctor, 2 cases, tags, news
 - `npm run db:studio` — Prisma Studio GUI
 - `npm run import:cases` — bulk-imports reference markdown cases (`reference cases/*.md`) through `structureCaseFromMarkdown`. Idempotent by case name; admin-owned.
 - `npm run docker:up` / `docker:down` — spin up Postgres + web via docker-compose
@@ -28,7 +28,7 @@ Path alias: `@/*` → `src/*`.
 
 ## Architecture (post-redesign)
 
-The app is a **chat-driven clinical case simulator**. A user opens a case, the AI plays the role of a Socratic tutor that progressively reveals findings, then evaluates the user's final diagnosis/reflection against a hidden `solution`. Runs as a **Dockerised Postgres + Next.js stack** self-hosted on a VPS. Firebase scaffolding (`apphosting.yaml`, `firestore.rules`, `dataconnect/`, `functions/`, `medizoai_codebase/`) is **legacy/unused** at runtime and excluded from `tsc` via `tsconfig.json`.
+The app is a **chat-driven clinical case simulator**. A user opens a case, the AI plays the role of a Socratic tutor that progressively reveals findings, then evaluates the user's final diagnosis/reflection against a hidden `solution`. Runs as a **Dockerised Postgres + Next.js stack** self-hosted on a VPS. Firebase scaffolding (`apphosting.yaml`, `firestore.rules`, `dataconnect/`, `functions/`, `legacy_firebase_python/`) is **legacy/unused** at runtime and excluded from `tsc` via `tsconfig.json`.
 
 ### Data & auth layer
 

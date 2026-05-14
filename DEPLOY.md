@@ -1,4 +1,4 @@
-# MEDIZO — Deployment guide (`docjob.sanduai.kz`)
+# DocJob — Deployment guide (`docjob.sanduai.kz`)
 
 Self-hosted production deploy on a single Linux VPS using Docker Compose + Caddy. Final URL: `https://docjob.sanduai.kz`.
 
@@ -82,8 +82,8 @@ systemctl enable --now caddy
 ```bash
 mkdir -p /opt
 cd /opt
-git clone https://github.com/Kirirto-kun/MEDIZO_AI_HACKATHON.git medizo
-cd medizo
+git clone https://github.com/Kirirto-kun/DocJob.git docjob
+cd docjob
 ```
 
 ## 6. Create the production `.env`
@@ -125,13 +125,13 @@ The first time Caddy serves `docjob.sanduai.kz`, it will fetch a Let's Encrypt c
 ## 8. Build and start the app
 
 ```bash
-cd /opt/medizo
+cd /opt/docjob
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
 What happens:
 
-1. Postgres 16 starts, seeded by Compose with user `medizo`, database `medizo`, password from `.env`.
+1. Postgres 16 starts, seeded by Compose with user `docjob`, database `docjob`, password from `.env`.
 2. The web image builds (one-time, ~2–4 minutes).
 3. The web container starts, runs `npx prisma migrate deploy` against Postgres, then `npm run start` on port 3000.
 4. Caddy proxies `https://docjob.sanduai.kz` → `127.0.0.1:3000` and serves a fresh TLS cert.
@@ -146,13 +146,13 @@ You should see `prisma migrate deploy` finishing without errors, then Next.js: `
 
 ## 9. Seed an admin account
 
-Inside the web container, run the seed script. It creates `admin@medizo.local` (password `password123`), a demo doctor, 4 demo cases, and tags.
+Inside the web container, run the seed script. It creates `admin@docjob.local` (password `password123`), a demo doctor, 4 demo cases, and tags.
 
 ```bash
 docker compose exec web npx tsx prisma/seed.ts
 ```
 
-Open `https://docjob.sanduai.kz/login`, sign in as `admin@medizo.local` / `password123`, then immediately go to **Profile** and change the password — or create a new admin via Prisma Studio:
+Open `https://docjob.sanduai.kz/login`, sign in as `admin@docjob.local` / `password123`, then immediately go to **Profile** and change the password — or create a new admin via Prisma Studio:
 
 ```bash
 docker compose exec web npx prisma studio
@@ -184,7 +184,7 @@ Then in your browser:
 Whenever you push new commits to `main` on GitHub:
 
 ```bash
-cd /opt/medizo
+cd /opt/docjob
 git pull
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
@@ -196,25 +196,25 @@ Migrations run on container start, so schema changes apply automatically.
 The data lives in two Docker volumes:
 
 ```bash
-docker volume ls | grep medizo
-# medizo_postgres_data   → Postgres data
-# medizo_uploads         → uploaded attachments
+docker volume ls | grep docjob
+# docjob_postgres_data   → Postgres data
+# docjob_uploads         → uploaded attachments
 ```
 
-Daily backup script (drop into `/root/backup-medizo.sh` and `chmod +x`):
+Daily backup script (drop into `/root/backup-docjob.sh` and `chmod +x`):
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 DATE=$(date +%F)
-BACKUP_DIR=/var/backups/medizo
+BACKUP_DIR=/var/backups/docjob
 mkdir -p "$BACKUP_DIR"
 
-docker compose -f /opt/medizo/docker-compose.yml -f /opt/medizo/docker-compose.prod.yml exec -T postgres \
-    pg_dump -U medizo medizo | gzip > "$BACKUP_DIR/medizo-db-$DATE.sql.gz"
+docker compose -f /opt/docjob/docker-compose.yml -f /opt/docjob/docker-compose.prod.yml exec -T postgres \
+    pg_dump -U docjob docjob | gzip > "$BACKUP_DIR/docjob-db-$DATE.sql.gz"
 
-docker run --rm -v medizo_uploads:/data -v "$BACKUP_DIR":/backup alpine \
-    tar czf "/backup/medizo-uploads-$DATE.tgz" -C /data .
+docker run --rm -v docjob_uploads:/data -v "$BACKUP_DIR":/backup alpine \
+    tar czf "/backup/docjob-uploads-$DATE.tgz" -C /data .
 
 # Keep last 14 days
 find "$BACKUP_DIR" -type f -mtime +14 -delete
@@ -223,7 +223,7 @@ find "$BACKUP_DIR" -type f -mtime +14 -delete
 Add to cron: `crontab -e` →
 
 ```
-30 3 * * * /root/backup-medizo.sh >> /var/log/medizo-backup.log 2>&1
+30 3 * * * /root/backup-docjob.sh >> /var/log/docjob-backup.log 2>&1
 ```
 
 ## 13. Common troubleshooting
@@ -232,7 +232,7 @@ Add to cron: `crontab -e` →
 - **502 from Caddy** — web container is not running or crashed. `docker compose logs web --tail=200`.
 - **NextAuth `Untrusted host`** — `NEXTAUTH_URL` does not match the public URL exactly. Edit `.env`, set `NEXTAUTH_URL=https://docjob.sanduai.kz`, then `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`.
 - **OpenAI errors in chat** — open `docker compose logs web | grep -i openai`. Most often: empty `OPENAI_API_KEY`, expired key, or wrong model name. The default model is `gpt-4.1`; switch via `.env` if needed.
-- **Disk filling up from uploads** — files live in the `medizo_uploads` volume. Move it to a larger partition or wire S3 (`src/lib/storage.ts` is the integration point).
+- **Disk filling up from uploads** — files live in the `docjob_uploads` volume. Move it to a larger partition or wire S3 (`src/lib/storage.ts` is the integration point).
 - **Need to reset everything** — `docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v` (the `-v` deletes volumes — use only for a clean wipe).
 
 ## 14. Optional: run import of reference cases
