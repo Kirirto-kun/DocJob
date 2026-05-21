@@ -43,7 +43,7 @@ export default function CasesBySubgroupPage({
   const { patients, isInitialized, refreshPatients } = usePatientStore();
   const [specialtyFilter, setSpecialtyFilter] = useState<string>(ALL_SPECIALTIES);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [savedIds, setSavedIds] = useState<Set<string> | null>(null);
   const [, startTransition] = useTransition();
 
   // The patient store loads once on app start. If the admin creates a new
@@ -194,7 +194,7 @@ export default function CasesBySubgroupPage({
                       <SaveCaseButton
                         caseId={c.id}
                         variant="icon"
-                        initialSaved={savedIds.has(c.id)}
+                        initialSaved={savedIds ? savedIds.has(c.id) : undefined}
                       />
                     </div>
                     <CardHeader className="space-y-2 pr-10">

@@ -26,6 +26,16 @@ export function SaveCaseButton({
   const [saved, setSaved] = useState<boolean | null>(initialSaved ?? null);
   const [pending, startTransition] = useTransition();
 
+  // Sync from prop when parent re-renders with a freshly-loaded value
+  // (e.g. catalog page initially passes `false` while it loads the
+  // savedIds list, then re-renders with the real value).
+  useEffect(() => {
+    if (initialSaved !== undefined) {
+      setSaved(initialSaved);
+    }
+  }, [initialSaved]);
+
+  // No prop given → fetch fresh state from server.
   useEffect(() => {
     if (initialSaved !== undefined) return;
     let cancelled = false;

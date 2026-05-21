@@ -48,8 +48,8 @@ export default function AiSearchPage() {
 
   return (
     <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
-      <main className="flex-1 p-4 md:p-6 lg:p-8">
-        <div className="mx-auto flex h-full max-w-3xl flex-col gap-4">
+      <main className="flex h-full min-h-0 flex-1 flex-col p-4 md:p-6 lg:p-8">
+        <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col gap-4">
           <div>
             <h1 className="font-headline text-3xl font-semibold">{t('title')}</h1>
             <p className="mt-1 text-muted-foreground">{t('description')}</p>

@@ -72,8 +72,8 @@ export default function AdminCaseSubmissionsPage() {
 
   return (
     <DashboardLayout sidebarContent={<ScenarioControls onScenarioGenerated={() => {}} />}>
-      <main className="flex-1 p-4 md:p-6 lg:p-8">
-        <div className="mx-auto max-w-5xl space-y-6">
+      <main className="h-full overflow-y-auto p-4 md:p-6 lg:p-8">
+        <div className="mx-auto max-w-5xl space-y-6 pb-12">
           <div>
             <h1 className="font-headline text-3xl font-semibold">{t('title')}</h1>
             <p className="mt-1 text-muted-foreground">{t('description')}</p>
