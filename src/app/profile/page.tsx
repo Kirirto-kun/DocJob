@@ -40,9 +40,10 @@ export default function ProfilePage() {
     );
   }
 
-  const ROLE_KEYS: Record<UserRole, 'admin' | 'doctor' | 'patient'> = {
+  const ROLE_KEYS: Record<UserRole, 'admin' | 'doctor' | 'reviewer' | 'patient'> = {
     admin: 'admin',
     doctor: 'doctor',
+    reviewer: 'reviewer',
     patient: 'patient',
   };
   const roleLabel = t(`role.${ROLE_KEYS[currentUser.role]}`);

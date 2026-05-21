@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { DocJobLogo } from '@/components/icons';
 import { LanguageSwitcher } from '@/components/language-switcher';
@@ -55,11 +56,14 @@ const REGION_KEYS = [
   'other',
 ] as const;
 
+type AccountKind = 'user' | 'reviewer';
+
 export default function RegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
   const t = useTranslations('auth.register');
   const [isLoading, setIsLoading] = useState(false);
+  const [accountKind, setAccountKind] = useState<AccountKind>('user');
 
   const SPECIALTIES = useMemo(() => {
     const clinicalSpecialties = SUBGROUPS.find((s) => s.slug === 'clinical')?.specialties ?? [];
@@ -73,25 +77,47 @@ export default function RegisterPage() {
 
   const registerSchema = useMemo(
     () =>
-      z.object({
-        fullName: z.string().min(2, t('errors.fullNameMin')),
-        region: z.string().min(1, t('errors.regionRequired')),
-        age: z.coerce
-          .number({ invalid_type_error: t('errors.ageNumber') })
-          .int(t('errors.ageInt'))
-          .min(16, t('errors.ageMin'))
-          .max(100, t('errors.ageMax')),
-        specialty: z.string().min(1, t('errors.specialtyRequired')),
-        email: z.string().email(t('errors.emailInvalid')),
-        phoneNumber: z
-          .string()
-          .min(7, t('errors.phoneMin'))
-          .regex(/^[\d +\-()]+$/, t('errors.phoneFormat')),
-        password: z.string().min(6, t('errors.passwordMin')),
-        consentAccepted: z.literal(true, {
-          errorMap: () => ({ message: t('errors.consentRequired') }),
+      z
+        .object({
+          accountKind: z.enum(['user', 'reviewer']),
+          fullName: z.string().min(2, t('errors.fullNameMin')),
+          region: z.string().min(1, t('errors.regionRequired')),
+          age: z.coerce
+            .number({ invalid_type_error: t('errors.ageNumber') })
+            .int(t('errors.ageInt'))
+            .min(16, t('errors.ageMin'))
+            .max(100, t('errors.ageMax')),
+          specialty: z.string().min(1, t('errors.specialtyRequired')),
+          workplace: z.string().optional(),
+          academicDegree: z.string().optional(),
+          email: z.string().email(t('errors.emailInvalid')),
+          phoneNumber: z
+            .string()
+            .min(7, t('errors.phoneMin'))
+            .regex(/^[\d +\-()]+$/, t('errors.phoneFormat')),
+          password: z.string().min(6, t('errors.passwordMin')),
+          consentAccepted: z.literal(true, {
+            errorMap: () => ({ message: t('errors.consentRequired') }),
+          }),
+        })
+        .superRefine((data, ctx) => {
+          if (data.accountKind === 'reviewer') {
+            if (!data.workplace || data.workplace.trim().length < 2) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['workplace'],
+                message: t('errors.workplaceRequired'),
+              });
+            }
+            if (!data.academicDegree || data.academicDegree.trim().length < 2) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['academicDegree'],
+                message: t('errors.academicDegreeRequired'),
+              });
+            }
+          }
         }),
-      }),
     [t],
   );
   type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -106,9 +132,12 @@ export default function RegisterPage() {
     resolver: zodResolver(registerSchema),
     mode: 'onChange',
     defaultValues: {
+      accountKind: 'user',
       fullName: '',
       region: '',
       specialty: '',
+      workplace: '',
+      academicDegree: '',
       email: '',
       phoneNumber: '',
       password: '',
@@ -119,6 +148,12 @@ export default function RegisterPage() {
   const regionValue = watch('region');
   const specialtyValue = watch('specialty');
   const consentValue = watch('consentAccepted');
+
+  const onTabChange = (value: string) => {
+    const next = value === 'reviewer' ? 'reviewer' : 'user';
+    setAccountKind(next);
+    setValue('accountKind', next, { shouldValidate: true });
+  };
 
   const onSubmit: SubmitHandler<RegisterFormValues> = async (data) => {
     setIsLoading(true);
@@ -132,8 +167,10 @@ export default function RegisterPage() {
         age: data.age,
         specialty: data.specialty,
         phoneNumber: data.phoneNumber,
+        workplace: data.accountKind === 'reviewer' ? data.workplace : undefined,
+        academicDegree: data.accountKind === 'reviewer' ? data.academicDegree : undefined,
         consentAccepted: data.consentAccepted,
-        role: 'DOCTOR',
+        role: data.accountKind === 'reviewer' ? 'REVIEWER' : 'DOCTOR',
       });
 
       if (!result.success) {
@@ -145,8 +182,6 @@ export default function RegisterPage() {
         return;
       }
 
-      // New users are created with approvedAt = null and need an
-      // administrator to approve before they can log in.
       toast({
         title: t('toast.pendingTitle'),
         description: t('toast.pendingDescription'),
@@ -172,6 +207,13 @@ export default function RegisterPage() {
           <CardDescription>{t('description')}</CardDescription>
         </CardHeader>
         <CardContent>
+          <Tabs value={accountKind} onValueChange={onTabChange} className="mb-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="user">{t('accountKind.user')}</TabsTrigger>
+              <TabsTrigger value="reviewer">{t('accountKind.reviewer')}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="fullName">{t('fullNameLabel')}</Label>
@@ -209,6 +251,16 @@ export default function RegisterPage() {
               {errors.age && <p className="text-sm text-destructive">{errors.age.message}</p>}
             </div>
 
+            {accountKind === 'reviewer' ? (
+              <div className="space-y-2">
+                <Label htmlFor="workplace">{t('workplaceLabel')}</Label>
+                <Input id="workplace" {...register('workplace')} />
+                {errors.workplace && (
+                  <p className="text-sm text-destructive">{errors.workplace.message}</p>
+                )}
+              </div>
+            ) : null}
+
             <div className="space-y-2">
               <Label htmlFor="specialty">{t('specialtyLabel')}</Label>
               <Select
@@ -230,6 +282,20 @@ export default function RegisterPage() {
                 <p className="text-sm text-destructive">{errors.specialty.message}</p>
               )}
             </div>
+
+            {accountKind === 'reviewer' ? (
+              <div className="space-y-2">
+                <Label htmlFor="academicDegree">{t('academicDegreeLabel')}</Label>
+                <Input
+                  id="academicDegree"
+                  placeholder={t('academicDegreePlaceholder')}
+                  {...register('academicDegree')}
+                />
+                {errors.academicDegree && (
+                  <p className="text-sm text-destructive">{errors.academicDegree.message}</p>
+                )}
+              </div>
+            ) : null}
 
             <div className="space-y-2">
               <Label htmlFor="email">{t('emailLabel')}</Label>

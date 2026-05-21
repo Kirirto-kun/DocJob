@@ -388,6 +388,28 @@ async function main() {
     data: { approvedAt: new Date() },
   });
 
+  const reviewerPassword = await bcrypt.hash('password123', 10);
+  const reviewer = await prisma.user.upsert({
+    where: { email: 'reviewer@docjob.local' },
+    update: { approvedAt: new Date() },
+    create: {
+      email: 'reviewer@docjob.local',
+      name: 'Рецензент Петров',
+      fullName: 'Петров Пётр Петрович',
+      region: 'Алматы',
+      age: 55,
+      phoneNumber: '+7 (700) 111-11-11',
+      specialty: 'Кардиология',
+      workplace: 'НИИ кардиологии',
+      academicDegree: 'д.м.н., профессор',
+      passwordHash: reviewerPassword,
+      role: Role.REVIEWER,
+      avatar: 'https://i.pravatar.cc/150?u=reviewer-petrov',
+      approvedAt: new Date(),
+    },
+  });
+  console.log(`[seed] reviewer: ${reviewer.email}`);
+
   const existingCases = await prisma.case.count();
   if (existingCases === 0) {
     for (const demo of demoCases) {

@@ -30,9 +30,10 @@ export default function UserSwitcher() {
     return null;
   }
 
-  const ROLE_KEY: Record<string, 'rolesAdmin' | 'rolesDoctor' | 'rolesPatient'> = {
+  const ROLE_KEY: Record<string, 'rolesAdmin' | 'rolesDoctor' | 'rolesReviewer' | 'rolesPatient'> = {
     admin: 'rolesAdmin',
     doctor: 'rolesDoctor',
+    reviewer: 'rolesReviewer',
     patient: 'rolesPatient',
   };
 

@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   ADMIN
   DOCTOR
+  REVIEWER
   PATIENT
 }
 
@@ -31,6 +32,8 @@ model User {
   age               Int?
   specialty         String?
   phoneNumber       String?
+  workplace         String?
+  academicDegree    String?
   avatar            String?
   profilePhotoUrl   String?
   consentAcceptedAt DateTime?
@@ -40,6 +43,10 @@ model User {
   medicalRecords    String?
   patientIds        String[] @default([])
   createdCases      Case[]   @relation("CaseAuthor")
+  savedCases        SavedCase[]
+  reviews           Review[]
+  caseSubmissions   CaseSubmission[]            @relation("SubmissionAuthor")
+  submissionMessages CaseSubmissionMessage[]    @relation("SubmissionMessageSender")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -70,6 +77,8 @@ model Case {
   images              CaseImage[]
   attachments         CaseAttachment[]
   chatSessions        ChatSession[]
+  reviews             Review[]
+  savedBy             SavedCase[]
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
@@ -138,4 +147,62 @@ model NewsItem {
   body      String   @db.Text
   date      DateTime @default(now())
   createdAt DateTime @default(now())
+}
+
+model SavedCase {
+  id        String   @id @default(cuid())
+  userId    String
+  caseId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, caseId])
+  @@index([userId])
+  @@index([caseId])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  caseId     String
+  reviewerId String
+  body       String   @db.Text
+  case       Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  reviewer   User     @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([caseId])
+  @@index([reviewerId])
+}
+
+model CaseSubmission {
+  id            String                  @id @default(cuid())
+  authorUserId  String
+  author        User                    @relation("SubmissionAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  title         String
+  description   String                  @db.Text
+  authors       String[]                @default([])
+  subgroup      String?
+  status        String                  @default("new")
+  messages      CaseSubmissionMessage[]
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@index([authorUserId])
+  @@index([status])
+}
+
+model CaseSubmissionMessage {
+  id           String         @id @default(cuid())
+  submissionId String
+  senderId     String
+  submission   CaseSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  sender       User           @relation("SubmissionMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  body         String         @db.Text
+  attachments  Json           @default("[]")
+  createdAt    DateTime       @default(now())
+
+  @@index([submissionId])
+  @@index([senderId])
 }

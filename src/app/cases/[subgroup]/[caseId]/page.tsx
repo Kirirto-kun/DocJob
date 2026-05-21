@@ -4,10 +4,8 @@ import { getCurrentUser } from '@/lib/session';
 import {
   EMPTY_BODY,
   caseBodySchema,
-  caseSolutionSchema,
   type CaseBody,
   type CaseMode,
-  type CaseSolution,
 } from '@/lib/case-schema';
 import type { SerializedCase } from '@/app/actions';
 import { CasePageClient } from './_components/case-page-client';
@@ -78,41 +76,5 @@ export default async function CasePage({ params }: CasePageParams) {
     updatedAt: c.updatedAt.toISOString(),
   };
 
-  const solution = await loadSolution({
-    caseId,
-    userId: user.id,
-    isAdmin: user.role === 'ADMIN',
-    rawSolution: c.solution,
-  });
-
-  return (
-    <CasePageClient
-      subgroup={subgroup}
-      caseData={caseData}
-      solution={solution}
-    />
-  );
-}
-
-async function loadSolution({
-  caseId,
-  userId,
-  isAdmin,
-  rawSolution,
-}: {
-  caseId: string;
-  userId: string;
-  isAdmin: boolean;
-  rawSolution: unknown;
-}): Promise<CaseSolution | null> {
-  if (!rawSolution) return null;
-  if (!isAdmin) {
-    const chatSession = await prisma.chatSession.findUnique({
-      where: { userId_caseId: { userId, caseId } },
-      select: { phase: true },
-    });
-    if (chatSession?.phase !== 'done') return null;
-  }
-  const parsed = caseSolutionSchema.safeParse(rawSolution);
-  return parsed.success ? parsed.data : null;
+  return <CasePageClient subgroup={subgroup} caseData={caseData} />;
 }

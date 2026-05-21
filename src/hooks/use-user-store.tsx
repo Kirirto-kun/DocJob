@@ -10,7 +10,7 @@ import {
 } from '@/app/actions';
 
 // Legacy-compatible User type (role is lowercase for existing callers)
-export type UserRole = 'admin' | 'doctor' | 'patient';
+export type UserRole = 'admin' | 'doctor' | 'reviewer' | 'patient';
 
 export type User = {
   id: string;
@@ -26,6 +26,8 @@ export type User = {
   region?: string | null;
   age?: number | null;
   phoneNumber?: string | null;
+  workplace?: string | null;
+  academicDegree?: string | null;
   profilePhotoUrl?: string | null;
   consentAcceptedAt?: string | null;
   solvedCaseIds?: string[];
@@ -46,6 +48,8 @@ function serializedToUser(s: SerializedUser): User {
     region: s.region,
     age: s.age,
     phoneNumber: s.phoneNumber,
+    workplace: s.workplace,
+    academicDegree: s.academicDegree,
     profilePhotoUrl: s.profilePhotoUrl,
     consentAcceptedAt: s.consentAcceptedAt,
     solvedCaseIds: s.solvedCaseIds,
@@ -112,7 +116,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         age: user.age ?? undefined,
         specialty: user.specialty || undefined,
         phoneNumber: user.phoneNumber ?? undefined,
-        role: user.role.toUpperCase() as 'ADMIN' | 'DOCTOR' | 'PATIENT',
+        role: user.role.toUpperCase() as 'ADMIN' | 'DOCTOR' | 'REVIEWER' | 'PATIENT',
       });
       if (!res.success) throw new Error(res.error);
       await refreshUsers();

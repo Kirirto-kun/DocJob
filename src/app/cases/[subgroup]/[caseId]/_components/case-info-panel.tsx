@@ -83,22 +83,6 @@ export function CaseInfoPanel({ caseData }: CaseInfoPanelProps) {
         <CaseBodyViewer body={caseData.body} />
       </section>
 
-      {caseData.taskQuestions.length > 0 ? (
-        <>
-          <Separator />
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              {t('sectionTask')}
-            </h2>
-            <ol className="list-decimal space-y-2 pl-5 text-[0.95rem] leading-relaxed">
-              {caseData.taskQuestions.map((question, index) => (
-                <li key={index}>{question}</li>
-              ))}
-            </ol>
-          </section>
-        </>
-      ) : null}
-
       {sortedAttachments.length > 0 ? (
         <>
           <Separator />

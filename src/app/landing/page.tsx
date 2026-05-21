@@ -9,6 +9,7 @@ import {
   HeartPulse,
   Mail,
   MapPin,
+  Search,
   ShieldAlert,
   Sparkles,
   Stethoscope,
@@ -110,6 +111,10 @@ export default async function LandingPage() {
 
       <Separator className="opacity-30" />
 
+      <AiSearchHeroSection />
+
+      <Separator className="opacity-30" />
+
       <section id="capabilities" className="px-6 py-20">
         <div className="mx-auto max-w-7xl">
           <div className="mb-12 text-center">
@@ -163,6 +168,22 @@ export default async function LandingPage() {
               {t('catalogSection.subtitle')}
             </p>
           </div>
+
+          <Card className="mb-8 border-primary/40 bg-primary/5 p-6 md:p-8">
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/40 bg-primary/15">
+                <Brain className="h-6 w-6 text-primary" />
+              </div>
+              <div className="flex-1 space-y-1">
+                <h3 className="font-headline text-lg font-semibold md:text-xl">
+                  {t('catalogSection.aiHighlight.title')}
+                </h3>
+                <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
+                  {t('catalogSection.aiHighlight.description')}
+                </p>
+              </div>
+            </div>
+          </Card>
 
           <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
             {directions.map((d) => {
@@ -426,6 +447,82 @@ async function HeroSection({ directions }: { directions: Direction[] }) {
   );
 }
 
+async function AiSearchHeroSection() {
+  const t = await getTranslations('landing.aiSearchHero');
+  return (
+    <section className="relative overflow-hidden px-6 py-20">
+      <div className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-20 blur-3xl"
+          style={{
+            background: 'radial-gradient(circle, hsl(var(--accent)), transparent 70%)',
+            animation: 'landingBlob2 14s ease-in-out infinite',
+          }}
+        />
+      </div>
+
+      <div className="relative mx-auto flex max-w-4xl flex-col items-center gap-7 text-center">
+        <div className="relative">
+          <span
+            className="absolute inset-0 rounded-full"
+            style={{
+              boxShadow: '0 0 0 0 hsl(var(--primary) / 0.45)',
+              animation: 'aiSearchPulse 2.4s ease-out infinite',
+            }}
+          />
+          <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-primary/40 bg-primary/10">
+            <Search className="h-9 w-9 text-primary" />
+          </div>
+        </div>
+
+        <Badge
+          variant="outline"
+          className="border-primary/40 bg-primary/10 px-4 py-1.5 text-xs uppercase tracking-[0.3em] text-primary"
+          style={{ animation: 'aiSearchFade 0.8s ease-out 0.1s both' }}
+        >
+          {t('badge')}
+        </Badge>
+
+        <h2
+          className="font-headline text-3xl font-semibold leading-tight tracking-tight md:text-5xl"
+        >
+          <span
+            className="block text-foreground/85"
+            style={{ animation: 'aiSearchSlideUp 0.8s ease-out 0.3s both' }}
+          >
+            {t('line1')}
+          </span>
+          <span
+            className="block text-primary"
+            style={{ animation: 'aiSearchSlideUp 0.8s ease-out 0.55s both' }}
+          >
+            {t('line2')}
+          </span>
+        </h2>
+
+        <p
+          className="max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg"
+          style={{ animation: 'aiSearchFade 0.8s ease-out 0.8s both' }}
+        >
+          {t('hint')}
+        </p>
+
+        <div
+          className="flex justify-center"
+          style={{ animation: 'aiSearchFade 0.8s ease-out 1s both' }}
+        >
+          <Link href="/register">
+            <Button size="lg" className="h-12 px-10 text-base">
+              <Sparkles className="mr-2 h-4 w-4" />
+              {t('cta')}
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function LandingStyles() {
   return (
     <style>{`
@@ -451,6 +548,19 @@ function LandingStyles() {
       @keyframes landingEcg {
         0%   { stroke-dashoffset: 1200; }
         100% { stroke-dashoffset: 0; }
+      }
+      @keyframes aiSearchPulse {
+        0%   { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.45); }
+        70%  { box-shadow: 0 0 0 30px hsl(var(--primary) / 0); }
+        100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0); }
+      }
+      @keyframes aiSearchSlideUp {
+        0%   { opacity: 0; transform: translateY(14px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes aiSearchFade {
+        0%   { opacity: 0; }
+        100% { opacity: 1; }
       }
     `}</style>
   );

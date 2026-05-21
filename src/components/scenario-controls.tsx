@@ -10,7 +10,6 @@ import {
   Loader2,
   Upload,
   UserPlus,
-  ListOrdered,
   UserRound,
   LifeBuoy,
   Newspaper,
@@ -20,6 +19,10 @@ import {
   Megaphone,
   UserCheck,
   Files,
+  Star,
+  Search,
+  PenSquare,
+  Inbox,
 } from 'lucide-react';
 import UserSwitcher from './user-switcher';
 import { useUserStore } from '@/hooks/use-user-store';
@@ -98,12 +101,48 @@ export default function ScenarioControls(_props: ScenarioControlsProps) {
             <Button
               variant="outline"
               className={cn(navButtonPrimaryClass)}
-              onClick={() => router.push('/manage-patients')}
+              onClick={() => router.push('/select-subgroup')}
             >
-              <ListOrdered className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('myCases')}</span>
+              <LayoutGrid className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('subgroupCatalog')}</span>
             </Button>
           </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
+              onClick={() => router.push('/saved-cases')}
+            >
+              <Star className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('savedCases')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
+              onClick={() => router.push('/ai-search')}
+            >
+              <Search className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('aiSearch')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
+              onClick={() => router.push('/suggest-case')}
+            >
+              <FilePlus2 className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('suggestCase')}</span>
+            </Button>
+          </div>
+          <Separator className="my-2 bg-sidebar-border/50" />
+        </>
+      )}
+
+      {currentUser.role === 'reviewer' && (
+        <>
           <div className={navWrapperClass}>
             <Button
               variant="outline"
@@ -112,6 +151,46 @@ export default function ScenarioControls(_props: ScenarioControlsProps) {
             >
               <LayoutGrid className="mr-2" />
               <span className="group-data-[collapsible=icon]:hidden">{t('subgroupCatalog')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
+              onClick={() => router.push('/saved-cases')}
+            >
+              <Star className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('savedCases')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
+              onClick={() => router.push('/reviewer/my-reviews')}
+            >
+              <PenSquare className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('myReviews')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
+              onClick={() => router.push('/ai-search')}
+            >
+              <Search className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('aiSearch')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
+              onClick={() => router.push('/suggest-case')}
+            >
+              <FilePlus2 className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('suggestCase')}</span>
             </Button>
           </div>
           <Separator className="my-2 bg-sidebar-border/50" />
@@ -164,10 +243,10 @@ export default function ScenarioControls(_props: ScenarioControlsProps) {
             <Button
               variant="outline"
               className={navButtonClass}
-              onClick={() => router.push('/manage-patients')}
+              onClick={() => router.push('/admin/case-submissions')}
             >
-              <ListOrdered className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('myCases')}</span>
+              <Inbox className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('caseSubmissions')}</span>
             </Button>
           </div>
           <div className={navWrapperClass}>
