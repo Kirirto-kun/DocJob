@@ -1182,6 +1182,221 @@ export async function deleteNews(id: string): Promise<ActionResult<{ id: string 
   return ok({ id });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Announcements (admin advertisement popups) — additive section
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type SerializedAnnouncement = {
+  id: string;
+  title: string;
+  body: string;
+  imageUrl: string | null;
+  linkUrl: string | null;
+  linkLabel: string | null;
+  active: boolean;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type AnnouncementInput = {
+  id?: string;
+  title: string;
+  body: string;
+  imageUrl?: string;
+  linkUrl?: string;
+  linkLabel?: string;
+  active?: boolean;
+  expiresAt?: string;
+};
+
+const ANNOUNCEMENT_ADMIN_ONLY = 'Управлять объявлениями может только администратор.';
+
+function serializeAnnouncement(item: {
+  id: string;
+  title: string;
+  body: string;
+  imageUrl: string | null;
+  linkUrl: string | null;
+  linkLabel: string | null;
+  active: boolean;
+  expiresAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}): SerializedAnnouncement {
+  return {
+    id: item.id,
+    title: item.title,
+    body: item.body,
+    imageUrl: item.imageUrl,
+    linkUrl: item.linkUrl,
+    linkLabel: item.linkLabel,
+    active: item.active,
+    expiresAt: item.expiresAt ? item.expiresAt.toISOString() : null,
+    createdAt: item.createdAt.toISOString(),
+    updatedAt: item.updatedAt.toISOString(),
+  };
+}
+
+async function ensureAnnouncementAdmin(): Promise<{ success: false; error: string } | null> {
+  try {
+    await requireAdmin();
+    return null;
+  } catch {
+    return fail(ANNOUNCEMENT_ADMIN_ONLY);
+  }
+}
+
+function validateAnnouncementInput(
+  input: AnnouncementInput,
+):
+  | { success: false; error: string }
+  | {
+      success: true;
+      data: {
+        title: string;
+        body: string;
+        imageUrl: string | null;
+        linkUrl: string | null;
+        linkLabel: string | null;
+        active: boolean;
+        expiresAt: Date | null;
+      };
+    } {
+  const title = input.title?.trim();
+  const body = input.body?.trim();
+  if (!title || title.length > 200) return fail('Заголовок обязателен и не более 200 символов.');
+  if (!body || body.length > 5000) return fail('Текст обязателен и не более 5000 символов.');
+
+  const linkUrl = input.linkUrl?.trim() || null;
+  if (linkUrl) {
+    try {
+      new URL(linkUrl);
+    } catch {
+      return fail('Некорректная ссылка.');
+    }
+  }
+
+  let expiresAt: Date | null = null;
+  if (input.expiresAt) {
+    const date = new Date(input.expiresAt);
+    if (Number.isNaN(date.getTime())) return fail('Некорректная дата окончания.');
+    expiresAt = date;
+  }
+
+  return ok({
+    title,
+    body,
+    imageUrl: input.imageUrl?.trim() || null,
+    linkUrl,
+    linkLabel: input.linkLabel?.trim() || null,
+    active: input.active ?? true,
+    expiresAt,
+  });
+}
+
+function revalidateAnnouncementPaths() {
+  revalidatePath('/admin/announcements');
+  revalidatePath('/');
+}
+
+// --- Public (per logged-in user) ---
+
+export async function getActiveAnnouncements(): Promise<ActionResult<SerializedAnnouncement[]>> {
+  const user = await getCurrentUser();
+  if (!user) return ok([]);
+  try {
+    const now = new Date();
+    const dismissals = await prisma.announcementDismissal.findMany({
+      where: { userId: user.id },
+      select: { announcementId: true },
+    });
+    const dismissedIds = dismissals.map((d) => d.announcementId);
+    const items = await prisma.announcement.findMany({
+      where: {
+        active: true,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        ...(dismissedIds.length > 0 ? { id: { notIn: dismissedIds } } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return ok(items.map(serializeAnnouncement));
+  } catch (error) {
+    console.error('getActiveAnnouncements failed', error);
+    return fail('Не удалось загрузить объявления.');
+  }
+}
+
+export async function dismissAnnouncement(announcementId: string): Promise<ActionResult<{ id: string }>> {
+  const user = await getCurrentUser();
+  if (!user) return fail('Требуется авторизация.');
+  if (!announcementId) return fail('Некорректные данные.');
+  try {
+    await prisma.announcementDismissal.upsert({
+      where: { userId_announcementId: { userId: user.id, announcementId } },
+      create: { userId: user.id, announcementId },
+      update: {},
+    });
+    return ok({ id: announcementId });
+  } catch (error) {
+    console.error('dismissAnnouncement failed', error);
+    return fail('Не удалось скрыть объявление.');
+  }
+}
+
+// --- Admin CRUD ---
+
+export async function getAnnouncements(): Promise<ActionResult<SerializedAnnouncement[]>> {
+  const denied = await ensureAnnouncementAdmin();
+  if (denied) return denied;
+  const items = await prisma.announcement.findMany({ orderBy: { createdAt: 'desc' } });
+  return ok(items.map(serializeAnnouncement));
+}
+
+export async function getAnnouncement(id: string): Promise<ActionResult<SerializedAnnouncement>> {
+  const denied = await ensureAnnouncementAdmin();
+  if (denied) return denied;
+  const item = await prisma.announcement.findUnique({ where: { id } });
+  if (!item) return fail('Объявление не найдено.');
+  return ok(serializeAnnouncement(item));
+}
+
+export async function createAnnouncement(
+  input: AnnouncementInput,
+): Promise<ActionResult<SerializedAnnouncement>> {
+  const denied = await ensureAnnouncementAdmin();
+  if (denied) return denied;
+  const validation = validateAnnouncementInput(input);
+  if (!validation.success) return validation;
+  const created = await prisma.announcement.create({ data: validation.data });
+  revalidateAnnouncementPaths();
+  return ok(serializeAnnouncement(created));
+}
+
+export async function updateAnnouncement(
+  input: AnnouncementInput & { id: string },
+): Promise<ActionResult<SerializedAnnouncement>> {
+  const denied = await ensureAnnouncementAdmin();
+  if (denied) return denied;
+  if (!input.id) return fail('Некорректные данные.');
+  const validation = validateAnnouncementInput(input);
+  if (!validation.success) return validation;
+  const updated = await prisma.announcement.update({
+    where: { id: input.id },
+    data: validation.data,
+  });
+  revalidateAnnouncementPaths();
+  return ok(serializeAnnouncement(updated));
+}
+
+export async function deleteAnnouncement(id: string): Promise<ActionResult<{ id: string }>> {
+  const denied = await ensureAnnouncementAdmin();
+  if (denied) return denied;
+  await prisma.announcement.delete({ where: { id } });
+  revalidateAnnouncementPaths();
+  return ok({ id });
+}
+
 // ───────────────────────── Serialization helpers
 
 export type SerializedUser = {

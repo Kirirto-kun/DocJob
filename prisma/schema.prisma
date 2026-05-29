@@ -206,3 +206,28 @@ model CaseSubmissionMessage {
   @@index([submissionId])
   @@index([senderId])
 }
+
+// --- Announcements (admin advertisement popups) ---
+
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String
+  body      String    @db.Text
+  imageUrl  String?
+  linkUrl   String?
+  linkLabel String?
+  active    Boolean   @default(true)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model AnnouncementDismissal {
+  id             String   @id @default(cuid())
+  userId         String
+  announcementId String
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, announcementId])
+  @@index([userId])
+}
