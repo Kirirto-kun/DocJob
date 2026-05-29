@@ -74,6 +74,7 @@ model Case {
   body                Json        @default("{\"blocks\":[]}")
   solution            Json?
   taskQuestions       String[]    @default([])
+  embedding           Unsupported("vector(1536)")?
   images              CaseImage[]
   attachments         CaseAttachment[]
   chatSessions        ChatSession[]
