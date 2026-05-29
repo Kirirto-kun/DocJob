@@ -27,6 +27,11 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/prisma ./prisma
+# src, scripts and tsconfig are needed so the tsx-based maintenance scripts
+# (db:seed:prod, embed:cases:prod) can run inside the container.
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 RUN mkdir -p /app/storage/uploads && chown -R nextjs:nodejs /app/storage
 USER nextjs

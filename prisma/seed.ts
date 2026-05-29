@@ -355,14 +355,6 @@ async function main() {
   });
   console.log(`[seed] admin: ${admin.email}`);
 
-  // Backward-compat: pre-rebrand databases used the old admin email. If that
-  // record still exists, bump its approvedAt so the legacy admin can also
-  // sign in (one-time migration helper, harmless if absent).
-  await prisma.user.updateMany({
-    where: { email: 'admin@docjob.local' },
-    data: { approvedAt: new Date() },
-  });
-
   const doctorPassword = await bcrypt.hash('password123', 10);
   const doctor = await prisma.user.upsert({
     where: { email: 'doctor@docjob.local' },
@@ -382,11 +374,6 @@ async function main() {
     },
   });
   console.log(`[seed] doctor: ${doctor.email}`);
-
-  await prisma.user.updateMany({
-    where: { email: 'doctor@docjob.local' },
-    data: { approvedAt: new Date() },
-  });
 
   const reviewerPassword = await bcrypt.hash('password123', 10);
   const reviewer = await prisma.user.upsert({

@@ -17,6 +17,8 @@
     "db:studio": "dotenv -e .env.local -e .env -- prisma studio",
     "import:cases": "dotenv -e .env.local -e .env -- tsx scripts/import-cases.ts",
     "embed:cases": "dotenv -e .env.local -e .env -- tsx scripts/embed-cases.ts",
+    "db:seed:prod": "tsx prisma/seed.ts",
+    "embed:cases:prod": "tsx scripts/embed-cases.ts",
     "postinstall": "prisma generate",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down"
