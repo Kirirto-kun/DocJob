@@ -38,6 +38,23 @@ export default function AiSearchPage() {
     if (!currentUser) router.push('/login');
   }, [isInitialized, currentUser, router]);
 
+  // When the user opens a case and presses Back, the browser restores this page
+  // from its back-forward cache (bfcache) with the old React state — so the
+  // previous query and results "stick". Reset to a clean search on bfcache
+  // restore so coming back always shows a fresh, empty search.
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        setQuery('');
+        setResults(null);
+        setHasSearched(false);
+        setIsSearching(false);
+      }
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
+
   const onSearch = async () => {
     const text = query.trim();
     if (!text || searching) return;
