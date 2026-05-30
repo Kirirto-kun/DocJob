@@ -23,6 +23,7 @@ import {
   Search,
   PenSquare,
   Inbox,
+  Bell,
 } from 'lucide-react';
 import UserSwitcher from './user-switcher';
 import { useUserStore } from '@/hooks/use-user-store';
@@ -267,6 +268,16 @@ export default function ScenarioControls(_props: ScenarioControlsProps) {
             >
               <Newspaper className="mr-2" />
               <span className="group-data-[collapsible=icon]:hidden">{t('manageNews')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
+              onClick={() => router.push('/admin/announcements')}
+            >
+              <Bell className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('manageAnnouncements')}</span>
             </Button>
           </div>
           <div className={navWrapperClass}>
