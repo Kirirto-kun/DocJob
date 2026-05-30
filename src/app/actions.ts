@@ -257,6 +257,30 @@ export async function rejectUser(userId: string): Promise<ActionResult<{ id: str
   return ok({ id: userId });
 }
 
+/**
+ * Permanently delete a user — revokes their access to the platform entirely.
+ * Cascades remove their authored cases, chat sessions, saved cases, reviews and
+ * submissions (see onDelete: Cascade in the schema). Admin-only; an admin
+ * cannot delete their own account.
+ */
+export async function deleteUser(userId: string): Promise<ActionResult<{ id: string }>> {
+  let admin;
+  try {
+    admin = await requireAdmin();
+  } catch {
+    return fail('Только администратор может удалять пользователей.');
+  }
+  if (admin.id === userId) {
+    return fail('Нельзя удалить собственную учётную запись администратора.');
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return fail('Пользователь не найден.');
+  await prisma.user.delete({ where: { id: userId } });
+  revalidatePath('/admin/users');
+  revalidatePath('/admin/pending');
+  return ok({ id: userId });
+}
+
 export async function updateUserStatistics(
   caseId: string,
   result: 'solved' | 'unsolved'
