@@ -338,15 +338,25 @@ const demoCases: DemoCase[] = [
 ];
 
 async function main() {
-  const adminPassword = await bcrypt.hash('password123', 10);
+  // Admin credentials are configurable via env so the real production password
+  // never lives in the repo. Login normalises email with .toLowerCase()
+  // (see src/lib/auth.ts), so store it the same way.
+  const adminEmail = (process.env.ADMIN_EMAIL ?? 'admin@docjob.local').trim().toLowerCase();
+  const adminPlainPassword = process.env.ADMIN_PASSWORD; // unset → keep existing password on update
+  const adminUpdate: Prisma.UserUpdateInput = { role: Role.ADMIN, approvedAt: new Date() };
+  // Only (re)hash the password on update when ADMIN_PASSWORD is explicitly given,
+  // so a plain re-seed never silently resets a live admin password.
+  if (adminPlainPassword) {
+    adminUpdate.passwordHash = await bcrypt.hash(adminPlainPassword, 10);
+  }
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@docjob.local' },
-    update: { approvedAt: new Date() },
+    where: { email: adminEmail },
+    update: adminUpdate,
     create: {
-      email: 'admin@docjob.local',
+      email: adminEmail,
       name: 'Администратор',
       fullName: 'Системный Администратор',
-      passwordHash: adminPassword,
+      passwordHash: await bcrypt.hash(adminPlainPassword ?? 'password123', 10),
       role: Role.ADMIN,
       specialty: 'Администрирование системы',
       avatar: 'https://i.pravatar.cc/150?u=admin',

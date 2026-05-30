@@ -199,8 +199,13 @@ docker compose logs web --tail 30                                      # "Ready 
 ### 7.1. Заполнить данные и эмбеддинги
 
 ```bash
-# админ/доктор/рецензент + теги + 4 демо-кейса
-docker compose exec web npm run db:seed:prod
+# админ/доктор/рецензент + теги + 4 демо-кейса.
+# Свои креды админа передаём через -e (НЕ через .env — там $ съест compose).
+# Пароль обязательно в ОДИНАРНЫХ кавычках, чтобы $ и ! не тронул shell.
+docker compose exec \
+  -e ADMIN_EMAIL='docjob.admin@gmail.com' \
+  -e ADMIN_PASSWORD='ТВОЙ_ПАРОЛЬ' \
+  web npm run db:seed:prod
 
 # эмбеддинги для семантического поиска (нужен рабочий OPENAI_API_KEY)
 docker compose exec web npm run embed:cases:prod
@@ -210,10 +215,20 @@ docker compose exec web npm run embed:cases:prod
 > обёрнуты в dotenv и рассчитаны на локальную разработку (.env.local), которого в
 > контейнере нет.
 
-Логины по умолчанию (**смени пароль после первого входа**):
-- админ: `admin@docjob.local` / `password123`
+**Креды админа** берутся из `ADMIN_EMAIL` / `ADMIN_PASSWORD` при сидинге:
+- задал обе → админ создаётся (или ему обновляется пароль) с этими кредами;
+- НЕ задал `ADMIN_PASSWORD` при повторном сиде → существующий пароль НЕ сбрасывается;
+- вообще без переменных → дефолт `admin@docjob.local` / `password123` (только для теста).
+
+Демо-логины врача и рецензента (**смени пароли на проде**):
 - доктор: `doctor@docjob.local` / `password123`
 - рецензент: `reviewer@docjob.local` / `password123`
+
+Если раньше уже засеялся дефолтный админ — удали его, чтобы остался только твой:
+```bash
+docker compose exec postgres psql -U docjob -d docjob \
+  -c "DELETE FROM \"User\" WHERE email='admin@docjob.local';"
+```
 
 ---
 
