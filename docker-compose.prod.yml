@@ -1,14 +1,21 @@
-# Production overlay. Apply with:
+# Production overlay. Apply together with the base file:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 #
-# Locks down public ports so only Caddy/nginx on the host can reach the
-# Next.js container, and Postgres is not exposed at all.
-
+# Hardening:
+# - Postgres is NOT published to the host (only the web container reaches it
+#   over the private docker network). `!reset []` clears the base port mapping.
+# - web is published ONLY on 127.0.0.1:3000 so the host's Nginx reverse proxy
+#   can reach it while the public internet cannot hit the Node server directly.
+#   `!override` REPLACES the base ports list (otherwise Compose would MERGE and
+#   leave the public 0.0.0.0:3000 mapping in place — which Docker exposes through
+#   the firewall by default).
 services:
   postgres:
     ports: !reset []
 
   web:
-    ports:
+    environment:
+      NODE_ENV: production
+    ports: !override
       - "127.0.0.1:${WEB_HOST_PORT:-3000}:3000"
     restart: unless-stopped

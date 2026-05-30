@@ -1,246 +1,345 @@
-# DocJob — Deployment guide (`docjob.sanduai.kz`)
+# Деплой DocJob на пустой сервер (docjob.kz) — step by step
 
-Self-hosted production deploy on a single Linux VPS using Docker Compose + Caddy. Final URL: `https://docjob.sanduai.kz`.
+Полный гайд: от чистого VPS до работающего `https://docjob.kz`.
+Стек: **Docker + Postgres (pgvector) + Next.js + Nginx + Let's Encrypt**.
 
-The repo already contains everything you need:
+> Гайд для **Ubuntu 22.04 / 24.04** (самый частый VPS). Проверь свою ОС:
+> `cat /etc/os-release`. Для Debian команды те же. Для CentOS/Alma/Rocky
+> вместо `apt` будет `dnf` — скажи, и я перепишу.
 
-- `Dockerfile` — multi-stage build for Next.js + Prisma.
-- `docker-compose.yml` — Postgres 16 + the web app.
-- `docker-compose.prod.yml` — overlay that locks public ports so only Caddy can reach the app.
-- `deploy/Caddyfile.example` — sample reverse proxy with auto HTTPS.
-- `prisma/migrations/*` — schema migrations applied automatically by the web container at boot (`npx prisma migrate deploy`).
+---
 
-## 0. Prerequisites
+## 0. Что нужно заранее
 
-- A Linux server (Ubuntu 22.04 / 24.04 recommended) with root or sudo access.
-- A domain you control. We will add one DNS record for `docjob.sanduai.kz`.
-- Your OpenAI API key.
+- **IP сервера** и доступ по SSH (root или пользователь с `sudo`).
+- **Домен `docjob.kz`** с A-записью на IP сервера (ты уже поменял DNS — проверим в шаге 5).
+- **Доступ к репозиторию** `github.com/Kirirto-kun/DocJob` (приватный).
+- **OpenAI API-ключ** с балансом (для семантического поиска и эмбеддингов).
 
-Server packages we will install: Docker Engine, Docker Compose plugin, Caddy, Git.
+> ⚠️ У меня **нет прямого доступа к твоему серверу** (нет SSH-ключей). Поэтому весь код
+> я запушил в GitHub (`origin/main`), а ты на сервере его `git clone`-нешь. Все команды
+> ниже выполняешь **ты на сервере** (после шага 1).
 
-## 1. DNS
+---
 
-In your DNS provider for `sanduai.kz`, add an `A` record:
+## 1. Подключиться к серверу
 
-| Name    | Type | Value          |
-|---------|------|----------------|
-| docjob  | A    | <SERVER_IPv4>  |
-
-If your server has IPv6, also add an `AAAA` record with the same name. Wait 1–5 minutes for propagation. Verify from your laptop:
+С твоего компьютера (Windows PowerShell или любой терминал):
 
 ```bash
-dig +short docjob.sanduai.kz
-# expected: <SERVER_IPv4>
+ssh root@IP_СЕРВЕРА
+# или: ssh ТВОЙ_ЮЗЕР@IP_СЕРВЕРА
 ```
 
-## 2. SSH into the server
+Дальше всё выполняется на сервере.
+
+---
+
+## 2. Обновить систему и базовые пакеты
 
 ```bash
-ssh root@<SERVER_IPv4>
-# or: ssh ubuntu@<SERVER_IPv4>
+sudo apt update && sudo apt -y upgrade
+sudo apt -y install git curl ufw dnsutils
 ```
 
-If you log in as a non-root user, prefix the install commands below with `sudo`.
-
-## 3. Install Docker + Compose
+Файрвол — открываем только SSH, HTTP, HTTPS:
 
 ```bash
-apt update
-apt install -y ca-certificates curl gnupg git
-
-install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-chmod a+r /etc/apt/keyrings/docker.gpg
-
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
-  | tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-apt update
-apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-docker --version
-docker compose version
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw --force enable
+sudo ufw status
 ```
 
-## 4. Install Caddy
+> Порт приложения (3000) и Postgres (5432) наружу НЕ открываем. В проде web слушает
+> только `127.0.0.1:3000` (через docker-compose.prod.yml), а Postgres вообще не
+> публикуется — оба доступны лишь локально, через Nginx.
 
-Caddy will terminate TLS and reverse-proxy to the Next.js container on `127.0.0.1:3000`.
+---
+
+## 3. Установить Docker + Docker Compose
 
 ```bash
-apt install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+# убрать старые версии, если были
+sudo apt -y remove docker docker-engine docker.io containerd runc 2>/dev/null || true
 
-apt update
-apt install -y caddy
+# ключ и репозиторий Docker
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-systemctl enable --now caddy
+sudo apt update
+sudo apt -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
-## 5. Clone the repo
+Проверка:
 
 ```bash
-mkdir -p /opt
-cd /opt
-git clone https://github.com/Kirirto-kun/DocJob.git docjob
-cd docjob
+sudo docker --version
+sudo docker compose version
 ```
 
-## 6. Create the production `.env`
-
-`docker compose` reads `.env` (not `.env.local`) for variable substitution. Generate a strong NextAuth secret and your Postgres password, then create `.env`:
+(Опционально — чтобы не писать `sudo` перед docker; после этого перелогинься по SSH:)
 
 ```bash
-NEXTAUTH_SECRET=$(openssl rand -base64 48)
-POSTGRES_PASSWORD=$(openssl rand -base64 24)
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+---
+
+## 4. Подключить GitHub и склонировать репозиторий
+
+Репозиторий приватный → нужен доступ. Рекомендую **Deploy Key** (SSH-ключ только для чтения этого репо).
+
+### 4.1. Сгенерировать SSH-ключ на сервере
+
+```bash
+ssh-keygen -t ed25519 -C "docjob-server" -f ~/.ssh/docjob_deploy -N ""
+cat ~/.ssh/docjob_deploy.pub
+```
+
+Скопируй выведенную строку (`ssh-ed25519 AAAA...`).
+
+### 4.2. Добавить ключ в GitHub
+
+1. Открой `https://github.com/Kirirto-kun/DocJob` → **Settings** → **Deploy keys** → **Add deploy key**.
+2. Title: `docjob-server`. Key: вставь строку. **Allow write access** оставь выключенным.
+3. **Add key**.
+
+### 4.3. Настроить git и склонировать
+
+```bash
+cat >> ~/.ssh/config <<'EOF'
+Host github.com
+  IdentityFile ~/.ssh/docjob_deploy
+  IdentitiesOnly yes
+EOF
+
+ssh -T git@github.com   # ответит "Hi ...! You've successfully authenticated" — это норм
+
+sudo mkdir -p /opt/docjob && sudo chown $USER:$USER /opt/docjob
+git clone git@github.com:Kirirto-kun/DocJob.git /opt/docjob
+cd /opt/docjob
+```
+
+> **Альтернатива (проще)** — HTTPS + Personal Access Token: GitHub → Settings →
+> Developer settings → Personal access tokens → Fine-grained → доступ только к этому
+> репо (Contents: Read). Затем:
+> `git clone https://USERNAME:ТОКЕН@github.com/Kirirto-kun/DocJob.git /opt/docjob`
+
+---
+
+## 5. Проверить, что домен смотрит на сервер
+
+```bash
+curl -s ifconfig.me ; echo     # IP этого сервера
+dig +short docjob.kz           # должен вернуть тот же IP
+dig +short www.docjob.kz       # желательно тот же IP (A или CNAME -> docjob.kz)
+```
+
+Если `dig` показывает другой IP или пусто — DNS ещё не обновился (жди до 1–24 ч) или
+A-запись неверная. SSL (шаг 9) не выпустится, пока домен не указывает сюда.
+
+---
+
+## 6. Создать файл окружения `.env`
+
+`docker compose` читает **`.env`** (не `.env.local`). Создаём на сервере:
+
+```bash
+cd /opt/docjob
+
 cat > .env <<EOF
-POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-NEXTAUTH_URL=https://docjob.sanduai.kz
+# --- Postgres ---
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+
+# --- Auth ---
+NEXTAUTH_SECRET=$(openssl rand -base64 32)
+NEXTAUTH_URL=https://docjob.kz
 AUTH_TRUST_HOST=true
 
-# OpenAI — used by the chat-bot and markdown import
-OPENAI_API_KEY=sk-... # paste your real key here
+# --- OpenAI (рабочий ключ с балансом) ---
+OPENAI_API_KEY=ВСТАВЬ_СВОЙ_КЛЮЧ
 OPENAI_MODEL=gpt-4.1
 EOF
-chmod 600 .env
-cat .env
+
+# впиши OPENAI_API_KEY вручную:
+nano .env
 ```
 
-Edit `OPENAI_API_KEY` to your actual key. Save the file (`vim .env` or `nano .env`).
+> `.env` в `.gitignore` — секреты останутся только на сервере. `DATABASE_URL` для
+> контейнера web compose собирает сам из `POSTGRES_PASSWORD`.
 
-## 7. Configure Caddy
+---
 
-```bash
-cp deploy/Caddyfile.example /etc/caddy/Caddyfile
-caddy validate --config /etc/caddy/Caddyfile
-systemctl reload caddy
-```
+## 7. Поднять приложение (Docker)
 
-The first time Caddy serves `docjob.sanduai.kz`, it will fetch a Let's Encrypt cert automatically. Make sure:
-
-- Ports 80 and 443 are open in your firewall (for `ufw`: `ufw allow 80,443/tcp`).
-- The DNS record from step 1 already resolves on this machine: `getent hosts docjob.sanduai.kz`.
-
-## 8. Build and start the app
+Поднимаем с продакшн-оверлеем (Postgres скрыт, web слушает только `127.0.0.1:3000`):
 
 ```bash
 cd /opt/docjob
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-What happens:
-
-1. Postgres 16 starts, seeded by Compose with user `docjob`, database `docjob`, password from `.env`.
-2. The web image builds (one-time, ~2–4 minutes).
-3. The web container starts, runs `npx prisma migrate deploy` against Postgres, then `npm run start` on port 3000.
-4. Caddy proxies `https://docjob.sanduai.kz` → `127.0.0.1:3000` and serves a fresh TLS cert.
-
-Watch the logs:
+Первый билд ~3–5 минут. Контейнер web при старте сам прогоняет миграции
+(включая `CREATE EXTENSION vector`). Проверь:
 
 ```bash
-docker compose logs -f web
+docker compose ps                                                      # postgres healthy, web up
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/login   # 200
+docker compose logs web --tail 30                                      # "Ready in ...", без ошибок
 ```
 
-You should see `prisma migrate deploy` finishing without errors, then Next.js: `Ready - started server on 0.0.0.0:3000`.
-
-## 9. Seed an admin account
-
-Inside the web container, run the seed script. It creates `admin@docjob.local` (password `password123`), a demo doctor, 4 demo cases, and tags.
+### 7.1. Заполнить данные и эмбеддинги
 
 ```bash
-docker compose exec web npx tsx prisma/seed.ts
+# админ/доктор/рецензент + теги + 4 демо-кейса
+docker compose exec web npm run db:seed:prod
+
+# эмбеддинги для семантического поиска (нужен рабочий OPENAI_API_KEY)
+docker compose exec web npm run embed:cases:prod
 ```
 
-Open `https://docjob.sanduai.kz/login`, sign in as `admin@docjob.local` / `password123`, then immediately go to **Profile** and change the password — or create a new admin via Prisma Studio:
+> Используй именно `:prod`-варианты внутри контейнера — обычные `db:seed`/`embed:cases`
+> обёрнуты в dotenv и рассчитаны на локальную разработку (.env.local), которого в
+> контейнере нет.
+
+Логины по умолчанию (**смени пароль после первого входа**):
+- админ: `admin@docjob.local` / `password123`
+- доктор: `doctor@docjob.local` / `password123`
+- рецензент: `reviewer@docjob.local` / `password123`
+
+---
+
+## 8. Установить и настроить Nginx
 
 ```bash
-docker compose exec web npx prisma studio
-# (then SSH-tunnel port 5555 from your laptop if you want the GUI)
+sudo apt -y install nginx
+
+sudo cp /opt/docjob/nginx/docjob.kz.conf /etc/nginx/sites-available/docjob.kz
+sudo ln -sf /etc/nginx/sites-available/docjob.kz /etc/nginx/sites-enabled/docjob.kz
+sudo rm -f /etc/nginx/sites-enabled/default
+
+sudo nginx -t
+sudo systemctl reload nginx
 ```
 
-## 10. Verify everything works
-
-From your laptop:
+Проверка по HTTP (пока без сертификата):
 
 ```bash
-curl -I https://docjob.sanduai.kz
-# expected: HTTP/2 200 (or 302 to /login) and Server: Caddy
-
-curl -s -o /dev/null -w "%{http_code}\n" https://docjob.sanduai.kz/login
-# expected: 200
+curl -s -o /dev/null -w "%{http_code}\n" -H "Host: docjob.kz" http://127.0.0.1/login   # 200
 ```
 
-Then in your browser:
+Открой `http://docjob.kz` в браузере — должно открыться приложение (пока http).
 
-1. `https://docjob.sanduai.kz/login` — log in as admin.
-2. Go to `/select-subgroup` → pick `Кейсы клинических инцидентов` → open one of the seeded cases.
-3. The chat on the right should greet you in Russian (this is the live OpenAI call, so it tests `OPENAI_API_KEY`).
-4. Send a message, then click **Финальный ответ** to verify evaluation.
-5. Open `/new-case` to verify the BlockNote editor + the **Файлы** tab work. Upload a PDF and a PNG with title/description.
+---
 
-## 11. Updating the app
+## 9. Включить HTTPS (Let's Encrypt, бесплатно, авто-продление)
 
-Whenever you push new commits to `main` on GitHub:
+```bash
+sudo apt -y install certbot python3-certbot-nginx
+sudo certbot --nginx -d docjob.kz -d www.docjob.kz
+```
+
+Certbot спросит email и согласие, предложит редирект HTTP→HTTPS — **выбери редирект (2)**.
+Он сам впишет SSL-блок и перезагрузит nginx.
+
+Проверка авто-продления:
+
+```bash
+sudo certbot renew --dry-run
+```
+
+Готово — открывай **`https://docjob.kz`** 🎉
+
+---
+
+## 10. Финальная проверка
+
+```bash
+curl -sI https://docjob.kz/login | head -n 1     # HTTP/2 200
+docker compose ps                                # всё up/healthy
+```
+
+В браузере зайди на `https://docjob.kz`, залогинься админом и проверь:
+- `/ai-search` — введи «инфаркт миокарда» → возвращаются релевантные кейсы;
+- `/admin/announcements` — создай объявление с картинкой и ссылкой;
+- открой любой кейс — тело читаемое, светлое.
+
+---
+
+## 11. Обновление приложения (когда появится новое в `main`)
 
 ```bash
 cd /opt/docjob
 git pull
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# миграции применятся автоматически при старте контейнера
 ```
 
-Migrations run on container start, so schema changes apply automatically.
+Если добавились новые кейсы и нужны эмбеддинги:
+```bash
+docker compose exec web npm run embed:cases:prod
+```
 
-## 12. Backups
+---
 
-The data lives in two Docker volumes:
+## 12. Полезные команды
 
 ```bash
-docker volume ls | grep docjob
-# docjob_postgres_data   → Postgres data
-# docjob_uploads         → uploaded attachments
+# логи
+docker compose logs -f web
+docker compose logs -f postgres
+
+# перезапуск web
+docker compose -f docker-compose.yml -f docker-compose.prod.yml restart web
+
+# стоп / старт всего стека
+docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# консоль БД
+docker compose exec postgres psql -U docjob -d docjob
+
+# бэкап БД
+docker compose exec -T postgres pg_dump -U docjob docjob > backup_$(date +%F).sql
+
+# восстановление из бэкапа
+cat backup_2026-05-30.sql | docker compose exec -T postgres psql -U docjob -d docjob
 ```
 
-Daily backup script (drop into `/root/backup-docjob.sh` and `chmod +x`):
+---
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-DATE=$(date +%F)
-BACKUP_DIR=/var/backups/docjob
-mkdir -p "$BACKUP_DIR"
+## 13. Troubleshooting
 
-docker compose -f /opt/docjob/docker-compose.yml -f /opt/docjob/docker-compose.prod.yml exec -T postgres \
-    pg_dump -U docjob docjob | gzip > "$BACKUP_DIR/docjob-db-$DATE.sql.gz"
+| Симптом | Причина и решение |
+|---|---|
+| `certbot` «challenge failed» | Домен ещё не указывает на сервер (шаг 5) или 80 закрыт. Проверь `dig +short docjob.kz` и `sudo ufw status`. |
+| Сайт по http есть, по https нет | Certbot не отработал. Повтори `sudo certbot --nginx -d docjob.kz -d www.docjob.kz`. |
+| 502 Bad Gateway | Контейнер web не поднят/упал. `docker compose ps`, `docker compose logs web`. |
+| 413 при загрузке файла | nginx режет большой файл. В конфиге уже стоит `client_max_body_size 30M;` — проверь, что скопировал именно его, и `sudo systemctl reload nginx`. |
+| Поиск «не по смыслу» / пусто | Нет эмбеддингов или нет баланса OpenAI. `docker compose exec web npm run embed:cases:prod`, смотри логи на `insufficient_quota`. |
+| web падает `P1000 Authentication failed` | Несовпадение `POSTGRES_PASSWORD` со старым томом БД. Если БД пустая: `docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v` (⚠️ удалит данные) и подними заново. |
+| `git pull` просит пароль | Deploy key не подхватился. Проверь `~/.ssh/config` (шаг 4.3) и `ssh -T git@github.com`. |
 
-docker run --rm -v docjob_uploads:/data -v "$BACKUP_DIR":/backup alpine \
-    tar czf "/backup/docjob-uploads-$DATE.tgz" -C /data .
+---
 
-# Keep last 14 days
-find "$BACKUP_DIR" -type f -mtime +14 -delete
-```
-
-Add to cron: `crontab -e` →
+## Архитектура (что где живёт)
 
 ```
-30 3 * * * /root/backup-docjob.sh >> /var/log/docjob-backup.log 2>&1
+Интернет ── 443/80 ──> Nginx (хост) ──127.0.0.1:3000──> web (Docker, Next.js)
+                                                          │
+                                                          └── postgres (Docker, pgvector)
+                                                                только внутри docker-сети
 ```
 
-## 13. Common troubleshooting
-
-- **Caddy `unable to obtain certificate`** — DNS not pointing to this server yet, or ports 80/443 are blocked. Run `dig docjob.sanduai.kz` and `ufw status`.
-- **502 from Caddy** — web container is not running or crashed. `docker compose logs web --tail=200`.
-- **NextAuth `Untrusted host`** — `NEXTAUTH_URL` does not match the public URL exactly. Edit `.env`, set `NEXTAUTH_URL=https://docjob.sanduai.kz`, then `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`.
-- **OpenAI errors in chat** — open `docker compose logs web | grep -i openai`. Most often: empty `OPENAI_API_KEY`, expired key, or wrong model name. The default model is `gpt-4.1`; switch via `.env` if needed.
-- **Disk filling up from uploads** — files live in the `docjob_uploads` volume. Move it to a larger partition or wire S3 (`src/lib/storage.ts` is the integration point).
-- **Need to reset everything** — `docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v` (the `-v` deletes volumes — use only for a clean wipe).
-
-## 14. Optional: run import of reference cases
-
-If you want the long-form clinical cases from `cases/*.md` populated as Cases (uses OpenAI):
-
-```bash
-docker compose exec web npm run import:cases
-```
-
-It reads `cases/*.md`, structures each through OpenAI, and inserts them as `CLINICAL_QUEST` cases owned by the first `ADMIN` user. Idempotent by case name.
+- **web** опубликован только на `127.0.0.1:3000` → снаружи напрямую недоступен, только через Nginx.
+- **postgres** не публикуется на хост → недоступен из интернета.
+- Тома Docker: `postgres_data` (БД) и `uploads` (картинки/вложения) переживают пересборку.
+- HTTPS-сертификат продлевается автоматически (systemd-таймер certbot).
