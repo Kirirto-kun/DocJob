@@ -47,8 +47,8 @@ export default function AiSearchPage() {
       if (e.persisted) {
         setQuery('');
         setResults(null);
-        setHasSearched(false);
-        setIsSearching(false);
+        setSearching(false);
+        setPendingId(null);
       }
     };
     window.addEventListener('pageshow', onPageShow);
