@@ -165,7 +165,7 @@ NEXTAUTH_URL=https://docjob.kz
 AUTH_TRUST_HOST=true
 
 # --- OpenAI (рабочий ключ с балансом) ---
-OPENAI_API_KEY=ВСТАВЬ_СВОЙ_КЛЮЧ
+OPENAI_API_KEY=""
 OPENAI_MODEL=gpt-4.1
 EOF
 
