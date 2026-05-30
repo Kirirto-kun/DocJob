@@ -46,6 +46,7 @@
     "pendingApprovals": "Заявки на регистрацию",
     "allCases": "Все кейсы",
     "manageNews": "Управление новостями",
+    "manageUsers": "Пользователи",
     "manageAnnouncements": "Объявления",
     "managementGroup": "Управление",
     "managementGroupShort": "УПРАВЛЕНИЕ",
@@ -479,10 +480,18 @@
   },
   "taxonomy": {
     "subgroup": {
-      "clinical": { "label": "Кейсы клинических инцидентов" },
-      "sanepid": { "label": "Кейсы санитарно-эпидемиологических инцидентов" },
-      "best_practices": { "label": "Кейсы лучших практик" },
-      "management": { "label": "Кейсы в менеджменте здравоохранения" },
+      "clinical": {
+        "label": "Кейсы клинических инцидентов"
+      },
+      "sanepid": {
+        "label": "Кейсы санитарно-эпидемиологических инцидентов"
+      },
+      "best_practices": {
+        "label": "Кейсы лучших практик"
+      },
+      "management": {
+        "label": "Кейсы в менеджменте здравоохранения"
+      },
       "missing": "Без подгруппы"
     }
   },

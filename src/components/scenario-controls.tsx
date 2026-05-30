@@ -24,6 +24,7 @@ import {
   PenSquare,
   Inbox,
   Bell,
+  Users,
 } from 'lucide-react';
 import UserSwitcher from './user-switcher';
 import { useUserStore } from '@/hooks/use-user-store';
