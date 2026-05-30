@@ -103,7 +103,6 @@
       "loading": "Загрузка…",
       "noAccount": "Нет аккаунта?",
       "registerCta": "Зарегистрироваться",
-      "demoHint": "Для демо используйте admin@docjob.local / password123",
       "errors": {
         "emailInvalid": "Введите корректный email",
         "passwordRequired": "Введите пароль"

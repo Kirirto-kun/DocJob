@@ -114,9 +114,6 @@ export default function LoginPage() {
               {t('registerCta')}
             </Link>
           </div>
-          <p className="text-xs text-center text-muted-foreground mt-4">
-            {t('demoHint')}
-          </p>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
             <Link href="/legal/terms" className="hover:underline">
               {t('legal.terms')}

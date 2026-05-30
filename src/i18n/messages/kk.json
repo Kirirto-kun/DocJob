@@ -103,7 +103,6 @@
       "loading": "Жүктелуде…",
       "noAccount": "Аккаунтыңыз жоқ па?",
       "registerCta": "Тіркелу",
-      "demoHint": "Демо үшін admin@docjob.local / password123 пайдаланыңыз",
       "errors": {
         "emailInvalid": "Жарамды email енгізіңіз",
         "passwordRequired": "Құпия сөзді енгізіңіз"
