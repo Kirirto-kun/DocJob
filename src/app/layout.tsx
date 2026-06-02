@@ -11,6 +11,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t('appTitle'),
     description: t('appTagline'),
+    icons: {
+      icon: [{ url: '/favicon.ico?v=20260602', sizes: 'any' }],
+      shortcut: ['/favicon.ico?v=20260602'],
+    },
   };
 }
 
