@@ -1,7 +1,7 @@
 {
   "common": {
     "appTitle": "DocJob — Оқу кейстері платформасы",
-    "appTagline": "DocJob — медициналық кейстер платформасы",
+    "appTagline": "DocJob — AI-іздеуі бар медициналық кейстер платформасы",
     "language": {
       "label": "Тіл",
       "ru": "Русский",
@@ -26,8 +26,8 @@
     }
   },
   "nav": {
-    "dashboardSubtitle": "DocJob — медициналық кейстер платформасы",
-    "headerTagline": "DocJob — медициналық кейстер платформасы",
+    "dashboardSubtitle": "DocJob — AI-іздеуі бар медициналық кейстер платформасы",
+    "headerTagline": "DocJob — AI-іздеуі бар медициналық кейстер платформасы",
     "profile": "Профиль",
     "support": "Техникалық қолдау",
     "news": "Жаңалықтар",

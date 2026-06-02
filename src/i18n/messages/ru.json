@@ -1,7 +1,7 @@
 {
   "common": {
     "appTitle": "DocJob — Платформа учебных кейсов",
-    "appTagline": "DocJob — платформа медицинских кейсов",
+    "appTagline": "DocJob — платформа медицинских кейсов с ИИ поиском",
     "language": {
       "label": "Язык",
       "ru": "Русский",
@@ -26,8 +26,8 @@
     }
   },
   "nav": {
-    "dashboardSubtitle": "DocJob — платформа медицинских кейсов",
-    "headerTagline": "DocJob — платформа медицинских кейсов",
+    "dashboardSubtitle": "DocJob — платформа медицинских кейсов с ИИ поиском",
+    "headerTagline": "DocJob — платформа медицинских кейсов с ИИ поиском",
     "profile": "Профиль",
     "support": "Техподдержка",
     "news": "Новости",
