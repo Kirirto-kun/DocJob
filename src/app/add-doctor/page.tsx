@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -128,7 +129,7 @@ export default function AddDoctorPage() {
               </div>
               <div>
                 <Label htmlFor="password">Временный пароль</Label>
-                <Input id="password" type="password" {...register('password')} />
+                <PasswordInput id="password" {...register('password')} />
                 {errors.password && <p className="text-destructive text-sm mt-1">{errors.password.message}</p>}
               </div>
 

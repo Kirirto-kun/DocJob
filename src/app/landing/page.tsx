@@ -1,14 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import {
   Activity,
   Brain,
+  CalendarDays,
   Clock,
   Globe2,
   HeartPulse,
   Mail,
   MapPin,
+  Newspaper,
   Search,
   ShieldAlert,
   Sparkles,
@@ -20,9 +22,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { getNews } from '@/app/actions';
 import { DocJobLogo } from '@/components/icons';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { CyclingWord } from '@/components/cycling-word';
+
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('landing.metadata');
@@ -37,6 +42,12 @@ const ECG_PATH =
 
 type DirectionKey = 'clinical' | 'sanepid' | 'bestPractice' | 'management';
 type CapabilityKey = 'international' | 'ai' | 'allTime' | 'scaling';
+type LandingNewsItem = {
+  id: string;
+  title: string;
+  body: string;
+  date: string;
+};
 
 const directionIcons: Record<DirectionKey, LucideIcon> = {
   clinical: Stethoscope,
@@ -57,6 +68,8 @@ const capabilityKeys: CapabilityKey[] = ['international', 'ai', 'allTime', 'scal
 
 export default async function LandingPage() {
   const t = await getTranslations('landing');
+  const newsResult = await getNews();
+  const newsItems = newsResult.success ? newsResult.data.slice(0, 3) : [];
 
   const directions = directionKeys.map((k) => ({
     key: k,
@@ -90,6 +103,9 @@ export default async function LandingPage() {
             </a>
             <a href="#catalog" className="transition-colors hover:text-foreground">
               {t('nav.catalog')}
+            </a>
+            <a href="#news" className="transition-colors hover:text-foreground">
+              {t('nav.news')}
             </a>
             <a href="#contacts" className="transition-colors hover:text-foreground">
               {t('nav.contacts')}
@@ -213,6 +229,10 @@ export default async function LandingPage() {
 
       <Separator className="opacity-30" />
 
+      <NewsSection items={newsItems} />
+
+      <Separator className="opacity-30" />
+
       <section className="px-6 py-20">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
           <h2 className="font-headline text-3xl font-semibold md:text-4xl">{t('cta.title')}</h2>
@@ -285,6 +305,9 @@ export default async function LandingPage() {
             </a>
             <a href="#catalog" className="transition-colors hover:text-foreground">
               {t('footer.catalog')}
+            </a>
+            <a href="#news" className="transition-colors hover:text-foreground">
+              {t('footer.news')}
             </a>
             <a href="#contacts" className="transition-colors hover:text-foreground">
               {t('footer.contacts')}
@@ -521,6 +544,78 @@ async function AiSearchHeroSection() {
       </div>
     </section>
   );
+}
+
+async function NewsSection({ items }: { items: LandingNewsItem[] }) {
+  const t = await getTranslations('landing.newsSection');
+  const locale = await getLocale();
+
+  return (
+    <section id="news" className="px-6 py-20">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-12 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-2xl">
+            <Badge variant="outline" className="mb-3 border-primary/40 bg-primary/10 text-primary">
+              <Newspaper className="mr-2 h-3.5 w-3.5" />
+              {t('badge')}
+            </Badge>
+            <h2 className="font-headline text-3xl font-semibold tracking-tight md:text-4xl">
+              {t('title')}
+            </h2>
+            <p className="mt-3 text-base text-muted-foreground md:text-lg">{t('subtitle')}</p>
+          </div>
+
+          <Link href="/news">
+            <Button variant="outline" className="shrink-0">
+              <Newspaper className="mr-2 h-4 w-4" />
+              {t('readAll')}
+            </Button>
+          </Link>
+        </div>
+
+        {items.length > 0 ? (
+          <div className="grid gap-5 md:grid-cols-3">
+            {items.map((item) => (
+              <Card
+                key={item.id}
+                className="flex min-h-56 flex-col border-border/60 bg-card/60 p-6 transition-colors hover:border-primary/40"
+              >
+                <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
+                  <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                  <span>{formatLandingNewsDate(item.date, locale)}</span>
+                </div>
+                <h3 className="text-lg font-semibold leading-snug">{item.title}</h3>
+                <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">
+                  {makeNewsExcerpt(item.body)}
+                </p>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="border-border/60 bg-card/60 p-8 text-center">
+            <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          </Card>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function formatLandingNewsDate(iso: string, locale: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+
+  return date.toLocaleDateString(locale === 'kk' ? 'kk-KZ' : 'ru-RU', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function makeNewsExcerpt(body: string): string {
+  const normalized = body.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= 180) return normalized;
+  return `${normalized.slice(0, 180).trim()}...`;
 }
 
 function LandingStyles() {

@@ -1127,8 +1127,13 @@ export async function addTag(label: string): Promise<ActionResult<{ label: strin
 // ───────────────────────── News
 
 export async function getNews(): Promise<ActionResult<Array<{ id: string; title: string; body: string; date: string }>>> {
-  const items = await prisma.newsItem.findMany({ orderBy: { date: 'desc' } });
-  return ok(items.map((n) => ({ id: n.id, title: n.title, body: n.body, date: n.date.toISOString() })));
+  try {
+    const items = await prisma.newsItem.findMany({ orderBy: { date: 'desc' } });
+    return ok(items.map((n) => ({ id: n.id, title: n.title, body: n.body, date: n.date.toISOString() })));
+  } catch (error) {
+    console.error('getNews failed', error);
+    return fail('Не удалось загрузить новости.');
+  }
 }
 
 type NewsInput = { title: string; body: string; date?: string };
@@ -1160,6 +1165,7 @@ function validateNewsInput(
 }
 
 function revalidateNewsPaths() {
+  revalidatePath('/landing');
   revalidatePath('/news');
   revalidatePath('/admin/news');
 }

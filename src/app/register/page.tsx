@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
@@ -313,7 +314,7 @@ export default function RegisterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password">{t('passwordLabel')}</Label>
-              <Input id="password" type="password" {...register('password')} />
+              <PasswordInput id="password" {...register('password')} />
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}

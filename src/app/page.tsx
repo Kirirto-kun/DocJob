@@ -212,6 +212,14 @@ export default function Home() {
             <Button
               variant="outline"
               className="w-full"
+              onClick={() => router.push('/ai-search')}
+            >
+              <Search className="mr-2 h-4 w-4" />
+              {t('admin.aiSearch')}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
               onClick={() => router.push('/admin/case-submissions')}
             >
               <Inbox className="mr-2 h-4 w-4" />

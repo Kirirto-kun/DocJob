@@ -7,9 +7,11 @@ import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale } from '@/i18n/config';
 const { auth: edgeAuth } = NextAuth(authConfig);
 
 const PUBLIC_PATHS = ['/login', '/register', '/landing'];
+const PUBLIC_ASSET_FILE = /\.(?:avif|gif|jpg|jpeg|png|svg|webp)$/i;
 
 function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
+  if (!pathname.startsWith('/api/') && PUBLIC_ASSET_FILE.test(pathname)) return true;
   if (pathname.startsWith('/legal/')) return true;
   if (pathname.startsWith('/api/auth')) return true;
   if (pathname.startsWith('/api/images/')) return true;

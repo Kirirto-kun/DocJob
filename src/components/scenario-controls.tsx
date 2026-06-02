@@ -245,6 +245,16 @@ export default function ScenarioControls(_props: ScenarioControlsProps) {
             <Button
               variant="outline"
               className={navButtonClass}
+              onClick={() => router.push('/ai-search')}
+            >
+              <Search className="mr-2" />
+              <span className="group-data-[collapsible=icon]:hidden">{t('aiSearch')}</span>
+            </Button>
+          </div>
+          <div className={navWrapperClass}>
+            <Button
+              variant="outline"
+              className={navButtonClass}
               onClick={() => router.push('/admin/case-submissions')}
             >
               <Inbox className="mr-2" />

@@ -7,12 +7,13 @@ type DocJobLogoProps = Omit<ComponentProps<typeof Image>, 'src' | 'alt' | 'width
 
 export const DocJobLogo = ({ className, ...props }: DocJobLogoProps) => (
     <Image
-        src="/logo_dj.jpg"
+        src="/logo_dj.jpg?v=20260602"
         alt="DocJob"
         width={128}
         height={128}
+        unoptimized
         priority
-        className={cn('rounded-full bg-white object-cover', className)}
+        className={cn('rounded-full bg-background object-cover', className)}
         {...props}
     />
 );
