@@ -22,10 +22,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { getNews } from '@/app/actions';
 import { DocJobLogo } from '@/components/icons';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { CyclingWord } from '@/components/cycling-word';
+import { getPublicNewsItems } from '@/lib/news';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,8 +68,7 @@ const capabilityKeys: CapabilityKey[] = ['international', 'ai', 'allTime', 'scal
 
 export default async function LandingPage() {
   const t = await getTranslations('landing');
-  const newsResult = await getNews();
-  const newsItems = newsResult.success ? newsResult.data.slice(0, 3) : [];
+  const newsItems = await getLandingNewsItems();
 
   const directions = directionKeys.map((k) => ({
     key: k,
@@ -616,6 +615,15 @@ function makeNewsExcerpt(body: string): string {
   const normalized = body.replace(/\s+/g, ' ').trim();
   if (normalized.length <= 180) return normalized;
   return `${normalized.slice(0, 180).trim()}...`;
+}
+
+async function getLandingNewsItems(): Promise<LandingNewsItem[]> {
+  try {
+    return (await getPublicNewsItems()).slice(0, 3);
+  } catch (error) {
+    console.error('getLandingNewsItems failed', error);
+    return [];
+  }
 }
 
 function LandingStyles() {

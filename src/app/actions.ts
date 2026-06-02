@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import { CaseMode as PrismaCaseMode, Prisma, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
+import { getPublicNewsItems } from '@/lib/news';
 import { getCurrentUser, requireUser, requireAdmin } from '@/lib/session';
 import { analyzeStudentQuestion, AnalyzeStudentQuestionInput } from '@/ai/flows/analyze-student-question';
 import { generatePersonalizedScenario, GeneratePersonalizedScenarioInput } from '@/ai/flows/generate-personalized-scenario';
@@ -1128,8 +1129,7 @@ export async function addTag(label: string): Promise<ActionResult<{ label: strin
 
 export async function getNews(): Promise<ActionResult<Array<{ id: string; title: string; body: string; date: string }>>> {
   try {
-    const items = await prisma.newsItem.findMany({ orderBy: { date: 'desc' } });
-    return ok(items.map((n) => ({ id: n.id, title: n.title, body: n.body, date: n.date.toISOString() })));
+    return ok(await getPublicNewsItems());
   } catch (error) {
     console.error('getNews failed', error);
     return fail('Не удалось загрузить новости.');
