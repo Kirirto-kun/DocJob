@@ -29,18 +29,12 @@ import { createCase } from '@/app/actions';
 import {
   CASE_MODE_BY_SUBGROUP,
   EMPTY_BODY,
-  expectedSolutionKind,
   type CaseBody,
   type CaseMode,
-  type CaseSolution,
-  type IncidentSolution,
-  type ReflectionSolution,
   type StructuredCaseDraft,
 } from '@/lib/case-schema';
 import { SUBGROUPS, findSubgroup, type Subgroup, type SubgroupSlug } from '@/lib/case-taxonomy';
 import { MarkdownImportDialog } from './_components/markdown-import-dialog';
-import { SolutionForm } from './_components/solution-form';
-import { StringListField } from './_components/string-list-field';
 
 const MODE_LABELS: Record<CaseMode, string> = {
   CLINICAL_QUEST: 'Клинический инцидент',
@@ -54,26 +48,7 @@ const PATIENT_DEMOGRAPHICS_SUBGROUPS: ReadonlySet<SubgroupSlug> = new Set(['clin
 const GENDER_OPTIONS = [
   { value: 'М', label: 'М' },
   { value: 'Ж', label: 'Ж' },
-  { value: 'смешанный', label: 'смешанный' },
 ];
-
-function emptySolutionFor(kind: 'incident' | 'reflection'): CaseSolution {
-  if (kind === 'incident') {
-    return {
-      kind: 'incident',
-      diagnosis: '',
-      errors: [],
-      correctAlgorithm: '',
-      preventability: 'conditional',
-    } satisfies IncidentSolution;
-  }
-  return {
-    kind: 'reflection',
-    keyInsights: [],
-    correctDecisions: [],
-    lessonsLearned: '',
-  } satisfies ReflectionSolution;
-}
 
 function bodyFromMarkdown(markdown: string): CaseBody {
   const trimmed = markdown.trim();
@@ -107,11 +82,9 @@ export default function NewCasePage() {
   const [teaser, setTeaser] = useState('');
 
   const [body, setBody] = useState<CaseBody>(EMPTY_BODY);
-  const [taskQuestions, setTaskQuestions] = useState<string[]>(['']);
-  const [solution, setSolution] = useState<CaseSolution | null>(null);
   const [attachments, setAttachments] = useState<ManagedAttachment[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'body' | 'files' | 'tasks' | 'solution'>('body');
+  const [activeTab, setActiveTab] = useState<'body' | 'files'>('body');
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -139,15 +112,6 @@ export default function NewCasePage() {
   }, [currentUser, router, toast, isInitialized]);
 
   useEffect(() => {
-    if (!mode) {
-      setSolution(null);
-      return;
-    }
-    const expected = expectedSolutionKind(mode);
-    setSolution((prev) => (prev && prev.kind === expected ? prev : emptySolutionFor(expected)));
-  }, [mode]);
-
-  useEffect(() => {
     if (!showDemographics) {
       setAge('');
       setGender('');
@@ -168,10 +132,6 @@ export default function NewCasePage() {
     }
     if (draft.tags.length) setTags((prev) => Array.from(new Set([...prev, ...draft.tags])));
     if (draft.bodyMarkdown) setBody(bodyFromMarkdown(draft.bodyMarkdown));
-    if (draft.taskQuestions.length) setTaskQuestions(draft.taskQuestions);
-    if (mode && draft.solution.kind === expectedSolutionKind(mode)) {
-      setSolution(draft.solution);
-    }
     toast({
       title: 'Черновик заполнен',
       description: 'Проверьте все поля и при необходимости перенесите тело в редактор вручную.',
@@ -181,7 +141,6 @@ export default function NewCasePage() {
   const handleSubmit = async () => {
     if (!currentUser || !subgroup || !mode) return;
     const trimmedName = name.trim();
-    const cleanedTasks = taskQuestions.map((t) => t.trim()).filter(Boolean);
 
     if (!trimmedName) {
       toast({ variant: 'destructive', title: 'Укажите название кейса' });
@@ -190,19 +149,6 @@ export default function NewCasePage() {
     if (isBodyEmpty(body)) {
       toast({ variant: 'destructive', title: 'Заполните тело кейса' });
       setActiveTab('body');
-      return;
-    }
-    if (cleanedTasks.length === 0) {
-      toast({ variant: 'destructive', title: 'Добавьте хотя бы один вопрос задания' });
-      setActiveTab('tasks');
-      return;
-    }
-    if (solution && solution.kind !== expectedSolutionKind(mode)) {
-      toast({
-        variant: 'destructive',
-        title: 'Тип ответа не соответствует подгруппе',
-      });
-      setActiveTab('solution');
       return;
     }
 
@@ -219,8 +165,6 @@ export default function NewCasePage() {
         teaser: teaser.trim() || null,
         mode,
         body,
-        solution,
-        taskQuestions: cleanedTasks,
         attachmentIds: attachments.map((a) => a.id),
       });
       if (!result.success) {
@@ -253,7 +197,7 @@ export default function NewCasePage() {
         <header className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold text-primary font-headline">Новый кейс</h1>
           <p className="text-sm text-muted-foreground">
-            Заполните метаданные, тело кейса, задание и эталонный ответ.
+            Заполните метаданные и тело кейса.
           </p>
         </header>
 
@@ -374,10 +318,6 @@ export default function NewCasePage() {
           <TabsList>
             <TabsTrigger value="body">Тело кейса</TabsTrigger>
             <TabsTrigger value="files">Файлы</TabsTrigger>
-            <TabsTrigger value="tasks">Задание</TabsTrigger>
-            <TabsTrigger value="solution" disabled={!subgroup}>
-              Правильный ответ
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="body" className="space-y-4">
@@ -432,45 +372,6 @@ export default function NewCasePage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="tasks" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Задание</CardTitle>
-                <CardDescription>
-                  Список вопросов, на которые студент должен ответить.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <StringListField
-                  items={taskQuestions}
-                  placeholder={(i) => `Вопрос ${i + 1}`}
-                  addLabel="Добавить вопрос"
-                  onChange={setTaskQuestions}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="solution" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Правильный ответ</CardTitle>
-                <CardDescription>
-                  Скрыт от студента до завершения кейса.
-                  {mode ? ` Тип: ${expectedSolutionKind(mode)}.` : ''}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {!subgroup || !solution ? (
-                  <p className="text-sm text-muted-foreground">
-                    Сначала выберите подгруппу — форма ответа зависит от типа кейса.
-                  </p>
-                ) : (
-                  <SolutionForm value={solution} onChange={setSolution} />
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
 
         <div className="flex justify-end">

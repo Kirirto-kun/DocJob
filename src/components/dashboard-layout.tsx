@@ -66,7 +66,7 @@ export default function DashboardLayout({ children, sidebarContent }: DashboardL
           <div className="flex flex-1 flex-col overflow-y-auto">{sidebarContent}</div>
         </Sidebar>
 
-        <div className="relative z-10 flex h-full min-h-0 flex-1 flex-col">
+        <div className="relative z-10 flex h-full min-h-0 min-w-0 flex-1 flex-col">
           <header className="flex h-16 shrink-0 items-center gap-4 border-b bg-background/50 px-4 backdrop-blur-sm md:px-6">
             <SidebarTrigger className="flex-shrink-0" />
             <h2 className="hidden min-w-0 flex-1 truncate text-center font-headline text-base font-semibold text-foreground/85 md:block lg:text-lg">

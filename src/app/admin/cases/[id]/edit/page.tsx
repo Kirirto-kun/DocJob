@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, use } from 'react';
+import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -17,36 +17,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
 import {
   getCaseById,
-  getCaseSolution,
   updateCase,
   type SerializedCase,
 } from '@/app/actions';
-import { StringListField } from '@/app/new-case/_components/string-list-field';
-import { SolutionForm } from '@/app/new-case/_components/solution-form';
-import {
-  expectedSolutionKind,
-  type CaseSolution,
-  type IncidentSolution,
-  type ReflectionSolution,
-} from '@/lib/case-schema';
-
-function emptySolutionFor(kind: 'incident' | 'reflection'): CaseSolution {
-  if (kind === 'incident') {
-    return {
-      kind: 'incident',
-      diagnosis: '',
-      errors: [],
-      correctAlgorithm: '',
-      preventability: 'conditional',
-    } satisfies IncidentSolution;
-  }
-  return {
-    kind: 'reflection',
-    keyInsights: [],
-    correctDecisions: [],
-    lessonsLearned: '',
-  } satisfies ReflectionSolution;
-}
 
 type AdminCaseEditPageProps = {
   params: Promise<{ id: string }>;
@@ -64,8 +37,6 @@ export default function AdminCaseEditPage({ params }: AdminCaseEditPageProps) {
   const [name, setName] = useState('');
   const [teaser, setTeaser] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [taskQuestions, setTaskQuestions] = useState<string[]>(['']);
-  const [solution, setSolution] = useState<CaseSolution | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -83,10 +54,7 @@ export default function AdminCaseEditPage({ params }: AdminCaseEditPageProps) {
     if (!isInitialized || !currentUser || currentUser.role !== 'admin') return;
     let cancelled = false;
     (async () => {
-      const [caseRes, solRes] = await Promise.all([
-        getCaseById(caseId),
-        getCaseSolution(caseId),
-      ]);
+      const caseRes = await getCaseById(caseId);
       if (cancelled) return;
       if (!caseRes.success) {
         setLoadError(true);
@@ -97,24 +65,11 @@ export default function AdminCaseEditPage({ params }: AdminCaseEditPageProps) {
       setName(c.name);
       setTeaser(c.teaser ?? '');
       setTags(c.tags);
-      setTaskQuestions(c.taskQuestions.length ? c.taskQuestions : ['']);
-      const expected = expectedSolutionKind(c.mode);
-      const loadedSolution = solRes.success ? solRes.data.solution : null;
-      setSolution(
-        loadedSolution && loadedSolution.kind === expected
-          ? loadedSolution
-          : emptySolutionFor(expected),
-      );
     })();
     return () => {
       cancelled = true;
     };
   }, [caseId, isInitialized, currentUser]);
-
-  const expectedKind = useMemo(
-    () => (caseData ? expectedSolutionKind(caseData.mode) : null),
-    [caseData],
-  );
 
   const handleSave = async () => {
     if (!caseData) return;
@@ -123,8 +78,6 @@ export default function AdminCaseEditPage({ params }: AdminCaseEditPageProps) {
       toast({ variant: 'destructive', title: t('errorTitle'), description: t('saveFailed') });
       return;
     }
-    const cleanedTasks = taskQuestions.map((q) => q.trim()).filter(Boolean);
-
     setIsSaving(true);
     try {
       const result = await updateCase({
@@ -132,8 +85,8 @@ export default function AdminCaseEditPage({ params }: AdminCaseEditPageProps) {
         name: trimmedName,
         teaser: teaser.trim() || null,
         tags,
-        taskQuestions: cleanedTasks,
-        solution: solution ?? undefined,
+        taskQuestions: [],
+        solution: null,
       });
       if (!result.success) {
         toast({ variant: 'destructive', title: t('errorTitle'), description: result.error });
@@ -249,35 +202,6 @@ export default function AdminCaseEditPage({ params }: AdminCaseEditPageProps) {
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Задание</CardTitle>
-            <CardDescription>Список вопросов, на которые студент должен ответить.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <StringListField
-              items={taskQuestions}
-              placeholder={(i) => `Вопрос ${i + 1}`}
-              addLabel="Добавить вопрос"
-              onChange={setTaskQuestions}
-            />
-          </CardContent>
-        </Card>
-
-        {solution && expectedKind ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Правильный ответ</CardTitle>
-              <CardDescription>
-                Скрыт от студента до завершения кейса. Тип: {expectedKind}.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SolutionForm value={solution} onChange={setSolution} />
-            </CardContent>
-          </Card>
-        ) : null}
 
         <div className="flex justify-end gap-2">
           <Button asChild variant="outline">
