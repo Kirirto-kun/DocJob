@@ -254,9 +254,9 @@ export default function AdminCasesPage() {
                 <Card key={c.id} className="transition-colors hover:border-primary/40">
                   <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate font-semibold">{c.name}</h3>
-                        <Badge variant="secondary" className="text-[10px]">
+                      <div className="flex items-center gap-2">
+                        <h3 className="min-w-0 truncate font-semibold">{c.name}</h3>
+                        <Badge variant="secondary" className="shrink-0 text-[10px]">
                           {t(MODE_KEY_BY_VALUE[c.mode] ?? 'modeClinical')}
                         </Badge>
                       </div>
