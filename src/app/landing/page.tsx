@@ -26,14 +26,27 @@ import { DocJobLogo } from '@/components/icons';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { CyclingWord } from '@/components/cycling-word';
 import { getPublicNewsItems } from '@/lib/news';
+import { SITE_EMAIL, SITE_NAME, SITE_URL } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('landing.metadata');
+  const title = t('title');
+  const description = t('description');
   return {
-    title: t('title'),
-    description: t('description'),
+    title,
+    description,
+    alternates: { canonical: '/landing' },
+    openGraph: {
+      type: 'website',
+      siteName: SITE_NAME,
+      locale: 'ru_RU',
+      url: `${SITE_URL}/landing`,
+      title,
+      description,
+      images: [{ url: '/logo_dj.jpg', alt: SITE_NAME }],
+    },
   };
 }
 
@@ -70,6 +83,29 @@ export default async function LandingPage() {
   const t = await getTranslations('landing');
   const newsItems = await getLandingNewsItems();
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'EducationalOrganization',
+        '@id': `${SITE_URL}/#organization`,
+        name: SITE_NAME,
+        url: SITE_URL,
+        logo: `${SITE_URL}/logo_dj.jpg`,
+        email: SITE_EMAIL,
+        description: t('metadata.description'),
+      },
+      {
+        '@type': 'WebSite',
+        '@id': `${SITE_URL}/#website`,
+        url: SITE_URL,
+        name: SITE_NAME,
+        inLanguage: 'ru-RU',
+        publisher: { '@id': `${SITE_URL}/#organization` },
+      },
+    ],
+  };
+
   const directions = directionKeys.map((k) => ({
     key: k,
     icon: directionIcons[k],
@@ -86,6 +122,10 @@ export default async function LandingPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">

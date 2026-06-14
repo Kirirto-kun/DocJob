@@ -5,15 +5,47 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AppProviders } from '@/components/app-providers';
 import { NoCopyRoot } from '@/components/no-copy-root';
+import { SEO_KEYWORDS, SITE_NAME, SITE_URL } from '@/lib/site';
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('common');
+  const title = t('appTitle');
+  const description = t('appTagline');
+
   return {
-    title: t('appTitle'),
-    description: t('appTagline'),
+    metadataBase: new URL(SITE_URL),
+    title,
+    description,
+    applicationName: SITE_NAME,
+    keywords: [...SEO_KEYWORDS],
+    alternates: { canonical: '/' },
     icons: {
       icon: [{ url: '/favicon.ico?v=20260602', sizes: 'any' }],
       shortcut: ['/favicon.ico?v=20260602'],
+    },
+    openGraph: {
+      type: 'website',
+      siteName: SITE_NAME,
+      locale: 'ru_RU',
+      url: SITE_URL,
+      title,
+      description,
+      images: [{ url: '/logo_dj.jpg', alt: SITE_NAME }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ['/logo_dj.jpg'],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, 'max-image-preview': 'large' },
+    },
+    verification: {
+      google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+      yandex: process.env.YANDEX_VERIFICATION || undefined,
     },
   };
 }
