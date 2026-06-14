@@ -186,7 +186,7 @@ export default function AdminCaseEditPage({ params }: AdminCaseEditPageProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="case-teaser">Тизер (краткий анонс)</Label>
+              <Label htmlFor="case-teaser">Автор кейса</Label>
               <Textarea
                 id="case-teaser"
                 value={teaser}
