@@ -33,6 +33,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      # SEO: search engine ownership verification (read at runtime in metadata)
+      GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
+      YANDEX_VERIFICATION: ${YANDEX_VERIFICATION:-}
     ports:
       - "3000:3000"
     volumes:
