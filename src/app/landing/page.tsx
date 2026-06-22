@@ -25,6 +25,7 @@ import { Separator } from '@/components/ui/separator';
 import { DocJobLogo } from '@/components/icons';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { CyclingWord } from '@/components/cycling-word';
+import { LandingContactForm } from '@/components/landing/contact-form';
 import { getPublicNewsItems } from '@/lib/news';
 import { SITE_EMAIL, SITE_NAME, SITE_URL } from '@/lib/site';
 
@@ -328,6 +329,10 @@ export default async function LandingPage() {
               </div>
             </div>
           </Card>
+        </div>
+
+        <div className="mx-auto mt-12 max-w-6xl">
+          <LandingContactForm />
         </div>
       </section>
 
