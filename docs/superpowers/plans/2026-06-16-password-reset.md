@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a "Забыли пароль?" email-based password reset flow (one-time reset link) to the MEDIZO app.
+**Goal:** Add a "Забыли пароль?" email-based password reset flow (one-time reset link) to the DocJob app.
 
 **Architecture:** A new `PasswordResetToken` table stores a SHA-256 *hash* of a one-time token (1h TTL, single-use). `requestPasswordReset` issues a token and emails a `/reset-password?token=...` link via Resend (with a console fallback when no API key is set). `resetPassword` validates the token and updates the bcrypt password hash. Security-critical pure logic (token gen/hash/expiry/cooldown) lives in `src/lib/password-reset-tokens.ts` and is unit-tested with vitest; DB-touching actions and pages are verified via `npm run typecheck` and a manual dev walkthrough.
 
@@ -310,7 +310,7 @@ export interface SendEmailInput {
   text?: string;
 }
 
-const FROM = process.env.EMAIL_FROM ?? 'MEDIZO <onboarding@resend.dev>';
+const FROM = process.env.EMAIL_FROM ?? 'DocJob <noreply@docjob.kz>';
 
 /**
  * Send an email via Resend. When RESEND_API_KEY is absent (local dev), the
@@ -342,10 +342,10 @@ export function buildPasswordResetEmail(resetUrl: string): {
   html: string;
   text: string;
 } {
-  const subject = 'Восстановление пароля — MEDIZO';
+  const subject = 'Восстановление пароля — DocJob';
 
   const text =
-    `Вы запросили восстановление пароля в MEDIZO.\n\n` +
+    `Вы запросили восстановление пароля в DocJob.\n\n` +
     `Перейдите по ссылке, чтобы задать новый пароль (ссылка действует ${TTL_HOURS} ч):\n` +
     `${resetUrl}\n\n` +
     `Если вы не запрашивали сброс пароля, просто проигнорируйте это письмо.`;
@@ -353,7 +353,7 @@ export function buildPasswordResetEmail(resetUrl: string): {
   const html = `
     <div style="font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 480px; margin: 0 auto; color: #111;">
       <h2 style="margin-bottom: 16px;">Восстановление пароля</h2>
-      <p>Вы запросили восстановление пароля в MEDIZO.</p>
+      <p>Вы запросили восстановление пароля в DocJob.</p>
       <p style="margin: 24px 0;">
         <a href="${resetUrl}"
            style="display: inline-block; padding: 12px 20px; background: #2563eb; color: #fff; border-radius: 8px; text-decoration: none;">
@@ -856,7 +856,7 @@ Append to `.env.example` (only if the keys are not already present):
 ```
 # Email (password reset). Leave RESEND_API_KEY empty in dev to log emails to the console.
 RESEND_API_KEY=
-EMAIL_FROM="MEDIZO <noreply@docjob.kz>"
+EMAIL_FROM="DocJob <noreply@docjob.kz>"
 ```
 
 - [ ] **Step 2: Run the full test suite and typecheck**
