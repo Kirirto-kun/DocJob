@@ -19,7 +19,8 @@ import {
   isResetTokenUsable,
   isWithinResendCooldown,
 } from '@/lib/password-reset-tokens';
-import { sendEmail, buildPasswordResetEmail } from '@/lib/email';
+import { sendEmail, buildPasswordResetEmail, buildContactEmail } from '@/lib/email';
+import { SITE_EMAIL } from '@/lib/site';
 import {
   runCaseChat,
   runIntroMessage,
@@ -2396,4 +2397,38 @@ export async function resetPassword(
   ]);
 
   return ok({ id: record.userId });
+}
+
+// ───────────────────────── Landing contact form
+
+const contactMessageSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  email: z.string().trim().email().max(200),
+  message: z.string().trim().min(1).max(2000),
+  company: z.string().optional(), // honeypot — real users never fill this
+});
+
+/**
+ * Send a contact-form message to the site inbox. Bots that fill the hidden
+ * `company` honeypot field are silently accepted but dropped (no email),
+ * so we don't reveal the trap.
+ */
+export async function sendContactMessage(
+  input: z.infer<typeof contactMessageSchema>,
+): Promise<ActionResult<{ sent: true }>> {
+  const parsed = contactMessageSchema.safeParse(input);
+  if (!parsed.success) return fail('Проверьте правильность заполнения формы.');
+
+  const { name, email, message, company } = parsed.data;
+  if (company && company.trim().length > 0) return ok({ sent: true });
+
+  const { subject, html, text } = buildContactEmail({ name, email, message });
+  try {
+    await sendEmail({ to: SITE_EMAIL, subject, html, text, replyTo: email });
+  } catch (error) {
+    console.error('Failed to send contact message:', error);
+    return fail('Не удалось отправить сообщение. Попробуйте позже.');
+  }
+
+  return ok({ sent: true });
 }
