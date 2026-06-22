@@ -36,6 +36,10 @@ services:
       # SEO: search engine ownership verification (read at runtime in metadata)
       GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
       YANDEX_VERIFICATION: ${YANDEX_VERIFICATION:-}
+      # Email (password reset) via Resend. Read at runtime by src/lib/email.ts.
+      # Without RESEND_API_KEY the app logs emails to the console instead of sending.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: "${EMAIL_FROM:-DocJob <noreply@docjob.kz>}"
     ports:
       - "3000:3000"
     volumes:
