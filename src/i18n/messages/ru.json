@@ -300,7 +300,29 @@
       "title": "Сервис DocJob",
       "addressLabel": "Адрес",
       "addressValue": "Город Астана, проспект Кабанбай батыра 6/1, БЦ «Каскад»",
-      "emailLabel": "Email"
+      "emailLabel": "Email",
+      "form": {
+        "heading": "Напишите нам",
+        "subtitle": "Есть вопрос или предложение? Заполните форму — ответим на вашу почту.",
+        "nameLabel": "Имя",
+        "namePlaceholder": "Ваше имя",
+        "emailLabel": "Email",
+        "emailPlaceholder": "you@example.com",
+        "messageLabel": "Сообщение",
+        "messagePlaceholder": "Ваше сообщение…",
+        "submit": "Отправить",
+        "submitting": "Отправка…",
+        "successTitle": "Сообщение отправлено",
+        "successDescription": "Спасибо! Мы свяжемся с вами по указанной почте.",
+        "errorTitle": "Не удалось отправить",
+        "errorDescription": "Попробуйте ещё раз позже.",
+        "modelCredit": "3D-модель Земли — «Stylized planet» by cmzw (CC-BY-4.0)",
+        "errors": {
+          "name": "Введите имя",
+          "email": "Введите корректный email",
+          "message": "Введите сообщение"
+        }
+      }
     },
     "footer": {
       "capabilities": "Возможности",
