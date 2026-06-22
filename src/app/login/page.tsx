@@ -115,6 +115,11 @@ export default function LoginPage() {
               {t('registerCta')}
             </Link>
           </div>
+          <div className="mt-3 text-center text-sm">
+            <Link href="/forgot-password" className="text-muted-foreground hover:text-primary hover:underline">
+              Забыли пароль?
+            </Link>
+          </div>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
             <Link href="/legal/terms" className="hover:underline">
               {t('legal.terms')}
