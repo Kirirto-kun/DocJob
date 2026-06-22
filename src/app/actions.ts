@@ -13,6 +13,14 @@ import { simulateComorbidities, SimulateComorbiditiesInput } from '@/ai/flows/si
 import { savePatientRecord } from '@/services/patient-record';
 import { deleteAttachmentFile } from '@/lib/storage';
 import {
+  generateResetToken,
+  hashResetToken,
+  resetTokenExpiry,
+  isResetTokenUsable,
+  isWithinResendCooldown,
+} from '@/lib/password-reset-tokens';
+import { sendEmail, buildPasswordResetEmail } from '@/lib/email';
+import {
   runCaseChat,
   runIntroMessage,
   type CaseChatInput,
@@ -2283,4 +2291,106 @@ export async function searchCases(
       return fail('Не удалось выполнить поиск.');
     }
   }
+}
+
+// ───────────────────────── Password reset
+
+function resetBaseUrl(): string {
+  return process.env.NEXTAUTH_URL?.replace(/\/$/, '') ?? 'http://localhost:3000';
+}
+
+/**
+ * Issue a password-reset token and email a reset link. The response is the
+ * SAME whether or not the email is registered (anti-enumeration). Only
+ * existing, admin-approved users actually receive an email.
+ */
+export async function requestPasswordReset(
+  email: string,
+): Promise<ActionResult<{ sent: true }>> {
+  const parsed = z.string().email().safeParse(email);
+  if (!parsed.success) return ok({ sent: true });
+
+  const normalized = parsed.data.toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email: normalized } });
+
+  if (user && user.approvedAt) {
+    const now = new Date();
+    const recent = await prisma.passwordResetToken.findFirst({
+      where: { userId: user.id, usedAt: null },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const throttled =
+      !!recent && recent.expiresAt > now && isWithinResendCooldown(recent.createdAt, now);
+
+    if (!throttled) {
+      // Invalidate any outstanding tokens, then issue a fresh one.
+      await prisma.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: now },
+      });
+
+      const rawToken = generateResetToken();
+      await prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashResetToken(rawToken),
+          expiresAt: resetTokenExpiry(now),
+        },
+      });
+
+      const resetUrl = `${resetBaseUrl()}/reset-password?token=${rawToken}`;
+      const { subject, html, text } = buildPasswordResetEmail(resetUrl);
+      try {
+        await sendEmail({ to: normalized, subject, html, text });
+      } catch (error) {
+        // Don't leak delivery failures to the client; log for ops.
+        console.error('Failed to send password reset email:', error);
+      }
+    }
+  }
+
+  return ok({ sent: true });
+}
+
+/** Lightweight check so the reset page can show "link expired" before input. */
+export async function checkResetToken(token: string): Promise<{ valid: boolean }> {
+  if (!token) return { valid: false };
+  const record = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash: hashResetToken(token) },
+  });
+  if (!record) return { valid: false };
+  return { valid: isResetTokenUsable(record, new Date()) };
+}
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z.string().min(6),
+});
+
+export async function resetPassword(
+  input: z.infer<typeof resetPasswordSchema>,
+): Promise<ActionResult<{ id: string }>> {
+  const parsed = resetPasswordSchema.safeParse(input);
+  if (!parsed.success) return fail('Пароль должен быть не короче 6 символов.');
+
+  const now = new Date();
+  const record = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash: hashResetToken(parsed.data.token) },
+  });
+  if (!record || !isResetTokenUsable(record, now)) {
+    return fail('Ссылка устарела или недействительна. Запросите восстановление заново.');
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+    prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: now } }),
+    prisma.passwordResetToken.updateMany({
+      where: { userId: record.userId, usedAt: null },
+      data: { usedAt: now },
+    }),
+  ]);
+
+  return ok({ id: record.userId });
 }
