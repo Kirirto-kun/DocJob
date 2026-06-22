@@ -13,6 +13,7 @@ function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
   if (!pathname.startsWith('/api/') && PUBLIC_ASSET_FILE.test(pathname)) return true;
   if (pathname.startsWith('/legal/')) return true;
+  if (pathname.startsWith('/planet/')) return true;
   if (pathname.startsWith('/api/auth')) return true;
   if (pathname.startsWith('/api/images/')) return true;
   if (pathname.startsWith('/api/i18n/')) return true;
