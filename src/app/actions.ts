@@ -2308,6 +2308,7 @@ export async function requestPasswordReset(
   email: string,
 ): Promise<ActionResult<{ sent: true }>> {
   const parsed = z.string().email().safeParse(email);
+  // Malformed email: return the same neutral success (anti-enumeration), not an error.
   if (!parsed.success) return ok({ sent: true });
 
   const normalized = parsed.data.toLowerCase();
@@ -2324,20 +2325,22 @@ export async function requestPasswordReset(
       !!recent && recent.expiresAt > now && isWithinResendCooldown(recent.createdAt, now);
 
     if (!throttled) {
-      // Invalidate any outstanding tokens, then issue a fresh one.
-      await prisma.passwordResetToken.updateMany({
-        where: { userId: user.id, usedAt: null },
-        data: { usedAt: now },
-      });
-
       const rawToken = generateResetToken();
-      await prisma.passwordResetToken.create({
-        data: {
-          userId: user.id,
-          tokenHash: hashResetToken(rawToken),
-          expiresAt: resetTokenExpiry(now),
-        },
-      });
+      // Invalidate any outstanding tokens and issue a fresh one atomically, so
+      // concurrent requests can't leave two simultaneously-valid tokens.
+      await prisma.$transaction([
+        prisma.passwordResetToken.updateMany({
+          where: { userId: user.id, usedAt: null },
+          data: { usedAt: now },
+        }),
+        prisma.passwordResetToken.create({
+          data: {
+            userId: user.id,
+            tokenHash: hashResetToken(rawToken),
+            expiresAt: resetTokenExpiry(now),
+          },
+        }),
+      ]);
 
       const resetUrl = `${resetBaseUrl()}/reset-password?token=${rawToken}`;
       const { subject, html, text } = buildPasswordResetEmail(resetUrl);
