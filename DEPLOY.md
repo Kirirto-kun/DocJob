@@ -7,11 +7,15 @@
 > `cat /etc/os-release`. Для Debian команды те же. Для CentOS/Alma/Rocky
 > вместо `apt` будет `dnf` — скажи, и я перепишу.
 
-> ℹ️ **Монорепо (с SP-0):** код в репозитории теперь pnpm-воркспейс (`apps/web` +
-> `packages/db`/`config`/`types`) вместо одного пакета в корне. `Dockerfile` и
-> `docker-compose*.yml` пока **не обновлены** под новый layout и продолжают собирать
-> старую структуру — это плановая работа SP-5. Шаги деплоя ниже (сборка и запуск через
-> `docker compose ... up -d --build`) не менялись и по-прежнему рабочие.
+> ⚠️ **Монорепо (с SP-0): Docker-сборка СЛОМАНА.** Код в репозитории теперь
+> pnpm-воркспейс (`apps/web` + `packages/db`/`config`/`types`) вместо одного пакета
+> в корне. Переезд удалил корневой `package-lock.json`, а также корневые `prisma/` и
+> `src/` — при этом `Dockerfile` по-прежнему делает `COPY prisma ./prisma`, `npm ci`
+> и `npm run build` из корня, так что билд контейнера **не проходит**. Это плановая
+> работа **SP-5** (обновление `Dockerfile`/`docker-compose*.yml` под новый layout).
+> **Не выполняй** `docker compose ... up -d --build` (шаги 7, 9, 11 ниже), пока SP-5
+> не закрыт — сборка упадёт. SP-0 верифицирован локально через `pnpm build` /
+> `pnpm test` в корне монорепо, а не через контейнерную сборку.
 
 ---
 
@@ -300,7 +304,7 @@ docker compose ps                                # всё up/healthy
 ```bash
 cd /opt/docjob
 git pull
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build 
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 # миграции применятся автоматически при старте контейнера
 ```
 

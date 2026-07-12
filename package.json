@@ -10,7 +10,9 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "db:generate": "turbo db:generate"
+    "db:generate": "turbo db:generate",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
   },
   "devDependencies": {
     "turbo": "^2.1.0"

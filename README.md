@@ -16,18 +16,22 @@
 
 ## Quick start (local dev)
 
+Монорепо на pnpm-воркспейсах (`apps/web` + `packages/db`/`config`/`types`).
+
 ```bash
 # 1. Сервер БД
 docker compose --env-file .env.local up -d postgres
 
 # 2. Зависимости + миграции + seed
-npm install
-npm run db:migrate
-npm run db:seed
+pnpm install
+pnpm --filter @docjob/db db:migrate
+pnpm --filter @docjob/db db:seed
 
-# 3. Dev-сервер
-npm run dev
+# 3. Dev-сервер (все пакеты через turbo)
+pnpm dev
 ```
+
+Другие полезные команды из корня: `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm lint`.
 
 Открой http://localhost:3000. Сидовый админ: `admin@docjob.local` / `password123`.
 
