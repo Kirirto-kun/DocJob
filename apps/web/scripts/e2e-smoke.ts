@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { runChat } from '../src/ai/runChat';
 import { runIntroMessage, runCaseChat } from '../src/ai/flows/case-chat-flow';
-import { prisma } from '../src/lib/prisma';
+import { prisma } from '@docjob/db';
 import { caseSolutionSchema, caseBodySchema } from '../src/lib/case-schema';
 
 async function main() {

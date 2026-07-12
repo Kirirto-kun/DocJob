@@ -1,6 +1,8 @@
 import { CaseMode, PrismaClient, Prisma, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import type { SubgroupSlug } from '../src/lib/case-taxonomy';
+
+// SP-1: restore the shared import once case-taxonomy moves into a shared package.
+type SubgroupSlug = 'clinical' | 'sanepid' | 'best_practices' | 'management';
 
 const prisma = new PrismaClient();
 

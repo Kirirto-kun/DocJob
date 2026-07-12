@@ -2,7 +2,7 @@
    Run: npx dotenv -e .env.local -- tsx scripts/e2e-create-case.ts */
 import { promises as fs } from 'fs';
 import path from 'path';
-import { prisma } from '../src/lib/prisma';
+import { prisma } from '@docjob/db';
 import { saveAttachment } from '../src/lib/storage';
 
 async function main() {
