@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@docjob/db';
 import { getCurrentUser } from '@/lib/session';
 import {
   EMPTY_BODY,

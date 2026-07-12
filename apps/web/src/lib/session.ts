@@ -1,5 +1,5 @@
 import { auth } from './auth';
-import { prisma } from './prisma';
+import { prisma } from '@docjob/db';
 import type { User } from '@prisma/client';
 
 export async function getCurrentUser(): Promise<User | null> {

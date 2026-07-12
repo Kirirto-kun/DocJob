@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@docjob/db';
 import { openai } from '@/lib/openai';
 import { caseBodyToPlainText } from '@/lib/case-body-text';
 import type { CaseBody } from '@/lib/case-schema';

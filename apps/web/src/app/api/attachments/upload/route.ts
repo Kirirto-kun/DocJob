@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/session';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@docjob/db';
 import { saveAttachment } from '@/lib/storage';
 
 export const runtime = 'nodejs';

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { CaseMode as PrismaCaseMode, Prisma, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@docjob/db';
 import { getPublicNewsItems } from '@/lib/news';
 import { getCurrentUser, requireUser, requireAdmin } from '@/lib/session';
 import { analyzeStudentQuestion, AnalyzeStudentQuestionInput } from '@/ai/flows/analyze-student-question';

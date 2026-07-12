@@ -8,7 +8,13 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate": "pnpm --filter @docjob/db db:migrate",
+    "db:deploy": "pnpm --filter @docjob/db db:deploy",
+    "db:seed": "pnpm --filter @docjob/db db:seed",
+    "db:studio": "pnpm --filter @docjob/db db:studio",
+    "import:cases": "dotenv -e ../../.env.local -e ../../.env -- tsx scripts/import-cases.ts",
+    "embed:cases": "dotenv -e ../../.env.local -e ../../.env -- tsx scripts/embed-cases.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",
