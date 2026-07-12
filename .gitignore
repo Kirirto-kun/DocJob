@@ -15,13 +15,17 @@ node_modules
 
 # testing
 /coverage
+/apps/web/coverage
 
 # next.js
 /.next/
 /out/
+/apps/web/.next/
+/apps/web/out/
 
 # production
 /build
+/apps/web/build
 
 # misc
 .DS_Store
@@ -54,6 +58,8 @@ firestore-debug.log
 /apps/web/src/generated/
 /prisma/*.db
 /prisma/migrations/dev.db*
+/packages/db/prisma/*.db
+/packages/db/prisma/migrations/dev.db*
 
 # uploads
 /apps/web/storage/uploads/*

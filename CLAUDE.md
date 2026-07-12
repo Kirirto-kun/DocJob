@@ -2,29 +2,38 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Monorepo layout
+
+This is a **pnpm + Turborepo workspace** (`pnpm-workspace.yaml`: `apps/*`, `packages/*`). The Next.js app lives at `apps/web` (package name `web`); Prisma is extracted into `packages/db` (`@docjob/db`, exports a `prisma` singleton — `import { prisma } from '@docjob/db'`); `packages/config` (`@docjob/config`, env loading) and `packages/types` (`@docjob/types`, shared `Result<T>`) are thin scaffolds pending SP-1. All commands below run from the **repo root** via `turbo`, which fans them out to the relevant workspace package(s) (`turbo.json` wires `build`/`typecheck`/`test` to depend on `@docjob/db`'s `db:generate` first). Use `pnpm --filter web <script>` or `pnpm --filter @docjob/db <script>` to target a single package directly.
+
 ## Commands
 
-- `npm run dev` — Next.js dev server (Turbopack) on http://localhost:3000
-- `npm run build` / `npm run start` — production build (runs `prisma generate` first) and serve
-- `npm run lint` — Next.js ESLint
-- `npm run typecheck` — `tsc --noEmit`. **Run this explicitly.** `next.config.ts` sets `typescript.ignoreBuildErrors: true` and `eslint.ignoreDuringBuilds: true`, so `npm run build` will not surface type or lint errors on its own.
-- `npm run genkit:dev` — starts the Genkit dev UI against `src/ai/dev.ts`. **Legacy** — only the old Gemini flows live there. The new chat/import flows run on OpenAI and have no Genkit UI.
-- `npm run db:migrate` — `prisma migrate dev` (wrapped in `dotenv-cli` so it reads `.env.local` then `.env`)
-- `npm run db:deploy` — `prisma migrate deploy` for prod. The Docker entrypoint runs this on container start.
-- `npm run db:seed` — seeds admin (`admin@docjob.local` / `password123`), demo doctor, 2 cases, tags, news
-- `npm run db:studio` — Prisma Studio GUI
-- `npm run import:cases` — bulk-imports reference markdown cases (`reference cases/*.md`) through `structureCaseFromMarkdown`. Idempotent by case name; admin-owned.
-- `npm run docker:up` / `docker:down` — spin up Postgres + web via docker-compose
+- `pnpm dev` — `turbo dev` → Next.js dev server (Turbopack) on http://localhost:3000 (equivalent: `pnpm --filter web dev`)
+- `pnpm build` — `turbo build` → builds `@docjob/db` (`prisma generate`) then `apps/web` (`next build`) in dependency order
+- `pnpm start` — run from `apps/web` (`pnpm --filter web start`) to serve the production build
+- `pnpm lint` — `turbo lint` (Next.js ESLint)
+- `pnpm typecheck` — `turbo typecheck` (`tsc --noEmit` per package). **Run this explicitly.** `apps/web/next.config.ts` sets `typescript.ignoreBuildErrors: true` and `eslint.ignoreDuringBuilds: true`, so `pnpm build` will not surface type or lint errors on its own.
+- `pnpm test` — `turbo test` → runs the `apps/web` vitest suite
+- Genkit dev UI against `src/ai/dev.ts` (**legacy** — only the old Gemini flows live there; the new chat/import flows run on OpenAI and have no Genkit UI). **Note:** the `genkit:dev`/`genkit:watch` npm-script aliases from the pre-monorepo root `package.json` were not carried over to `apps/web/package.json` in SP-0; the `genkit`/`genkit-cli`/`@genkit-ai/*` deps are still present, so run it directly if needed: `pnpm --filter web exec -- genkit start -- tsx src/ai/dev.ts`.
+- `pnpm db:generate` — `turbo db:generate` → `prisma generate` inside `@docjob/db`
+- `pnpm --filter @docjob/db db:migrate` (or `pnpm --filter web db:migrate`, a thin passthrough) — `prisma migrate dev` (wrapped in `dotenv-cli` so it reads `../../.env.local` then `../../.env` relative to `packages/db`)
+- `pnpm --filter @docjob/db db:deploy` — `prisma migrate deploy` for prod. The Docker entrypoint runs this on container start.
+- `pnpm --filter @docjob/db db:seed` — seeds admin (`admin@docjob.local` / `password123`), demo doctor, 2 cases, tags, news
+- `pnpm --filter @docjob/db db:studio` — Prisma Studio GUI
+- `pnpm --filter web import:cases` — bulk-imports reference markdown cases (`reference cases/*.md`) through `structureCaseFromMarkdown`. Idempotent by case name; admin-owned.
+- `docker compose up -d` / `docker compose down` — spin up Postgres + web via docker-compose. **Note:** the `docker:up`/`docker:down` npm-script aliases that used to exist in the pre-monorepo root `package.json` were dropped when the workspace root `package.json` was rebuilt in SP-0; call `docker compose` directly (or `docker compose --env-file .env.local up -d postgres`, per the tip below) until/unless the aliases are re-added.
 
-Required env vars in `.env` / `.env.local` (see `.env.example`):
+Required env vars in `.env` / `.env.local` **at the repo root** (see `.env.example`):
 - `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `AUTH_TRUST_HOST`
 - `OPENAI_API_KEY` (**primary** — used by `case-chat-flow` and `structure-case-from-markdown`), `OPENAI_MODEL` (defaults to `gpt-4.1`)
 - `GOOGLE_API_KEY` (legacy, only if you still call old Genkit flows)
 - `UPLOAD_DIR` (filesystem path for images + attachments; defaults to `./storage/uploads`)
 
+**Local-dev env-loading caveat (post-monorepo-move):** `packages/db`'s `db:*` scripts and `apps/web`'s `import:cases`/`embed:cases` explicitly load env vars via `dotenv-cli -e ../../.env.local -e ../../.env` (relative to their own package). Next.js itself (`next dev` / `next build` / `next start`, run from `apps/web`) only auto-loads `.env*` files relative to its **own** project root and does **not** pick up the repo-root `.env.local`/`.env` on its own. Running `pnpm --filter web dev` (or `pnpm dev`) directly from a shell that hasn't otherwise exported these vars will boot and compile fine but 500 on env-dependent routes (`MissingSecret` from NextAuth, missing `OPENAI_API_KEY`, etc.). Work around it locally with `pnpm --filter web exec -- dotenv -e ../../.env.local -e ../../.env -- next dev --turbopack`, or export the vars into your shell before running `pnpm dev`. Production (Docker) is unaffected — `docker-compose.yml` injects env vars directly, not via dotenv autoloading.
+
 **docker-compose tip**: docker-compose only reads `.env` (not `.env.local`) for its own variable substitution. For local dev, either duplicate `.env.local` → `.env`, or pass `--env-file .env.local` explicitly: `docker compose --env-file .env.local up -d postgres`. The `POSTGRES_HOST_PORT` var defaults to `5433` to avoid the common clash with a host-installed Postgres on 5432. If 5433 is also busy (some dev machines in this project have hit that — used `5434`), bump it and update `DATABASE_URL` to match.
 
-Path alias: `@/*` → `src/*`.
+Path alias inside `apps/web`: `@/*` → `apps/web/src/*`.
 
 ## Architecture (post-redesign)
 
@@ -32,12 +41,12 @@ The app is a **chat-driven clinical case simulator**. A user opens a case, the A
 
 ### Data & auth layer
 
-- **Database**: Postgres 16 (Docker service `postgres`). Schema in `prisma/schema.prisma`.
+- **Database**: Postgres 16 (Docker service `postgres`). Schema in `packages/db/prisma/schema.prisma`.
 - **Models**: `User`, `Case`, `CaseImage`, `CaseAttachment`, `ChatSession`, `Tag`, `NewsItem`. Enums: `Role { ADMIN DOCTOR PATIENT }`, `CaseMode { CLINICAL_QUEST SANEPID_INVESTIGATION BEST_PRACTICE MANAGEMENT }`.
 - `Case` carries `mode CaseMode`, `body Json` (BlockNote document), `solution Json?` (hidden answer key), `taskQuestions String[]`. Has-many `CaseAttachment` and `ChatSession`.
 - `CaseAttachment` — uploaded PDF / image / Office docs / txt-csv attached to a case (or pre-uploaded with `caseId = null` until `createCase`/`updateCase` claims it). Holds `filename`, `originalName`, `mimeType`, `size`, `kind`.
 - `ChatSession` — one row per `(userId, caseId)` (unique). Stores `phase` (`discussing` | `diagnosis_submitted` | `done`), full `messages Json` (array of `ChatHistoryMessage`), `finalAnswer`, `evaluation Json?`, `completedAt`.
-- **ORM**: Prisma. Singleton client in `src/lib/prisma.ts`. Migrations in `prisma/migrations/`. Seed in `prisma/seed.ts`.
+- **ORM**: Prisma, extracted into `@docjob/db` (`packages/db`). Singleton client exported from `packages/db/src/index.ts` (`import { prisma } from '@docjob/db'`). Migrations in `packages/db/prisma/migrations/`. Seed in `packages/db/prisma/seed.ts`.
 - **Auth**: NextAuth v5 (Auth.js) with Credentials provider + JWT sessions + bcrypt password hashing. Split into `src/lib/auth.config.ts` (edge-compatible, used by `src/middleware.ts`) and `src/lib/auth.ts` (full config with Prisma + bcrypt, used by handlers/server code). The handler route is `src/app/api/auth/[...nextauth]/route.ts` → re-exports from `src/lib/auth-handlers.ts`.
 - **Route guard**: `src/middleware.ts` redirects unauthenticated traffic to `/login`. Public paths: `/login`, `/register`, `/api/auth/*`, `/api/images/*`. Note: `/api/attachments/*` is **not** public — it requires a session.
 - **Server-side user helpers**: `src/lib/session.ts` — `getCurrentUser()`, `requireUser()`, `requireAdmin()` for use inside Server Actions / server components.
