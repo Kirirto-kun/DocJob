@@ -48,13 +48,13 @@ firebase-debug.log
 firestore-debug.log
 
 # prisma
-/src/generated/
+/apps/web/src/generated/
 /prisma/*.db
 /prisma/migrations/dev.db*
 
 # uploads
-/storage/uploads/*
-!/storage/uploads/.gitkeep
+/apps/web/storage/uploads/*
+!/apps/web/storage/uploads/.gitkeep
 # ultraplan/batch worktrees
 .claude/
 ---
