@@ -22,6 +22,7 @@
     "@blocknote/mantine": "^0.49.0",
     "@blocknote/react": "^0.49.0",
     "@dataconnect/generated": "file:src/dataconnect-generated",
+    "@docjob/core": "workspace:*",
     "@docjob/db": "workspace:*",
     "@docjob/config": "workspace:*",
     "@docjob/types": "workspace:*",
