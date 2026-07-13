@@ -10,18 +10,15 @@ import {
 } from '@/app/actions';
 
 // Legacy-compatible User type (role is lowercase for existing callers)
-export type UserRole = 'admin' | 'doctor' | 'reviewer' | 'patient';
+export type UserRole = 'admin' | 'doctor' | 'reviewer';
 
 export type User = {
   id: string;
   name: string;
   email: string;
-  avatar: string;
   specialty: string;
-  medicalRecords?: string;
   role: UserRole;
   password?: string;
-  patientIds?: string[];
   fullName?: string | null;
   region?: string | null;
   age?: number | null;
@@ -30,8 +27,6 @@ export type User = {
   academicDegree?: string | null;
   profilePhotoUrl?: string | null;
   consentAcceptedAt?: string | null;
-  solvedCaseIds?: string[];
-  unsolvedCaseIds?: string[];
 };
 
 function serializedToUser(s: SerializedUser): User {
@@ -39,11 +34,8 @@ function serializedToUser(s: SerializedUser): User {
     id: s.id,
     name: s.name,
     email: s.email,
-    avatar: s.avatar ?? '',
     specialty: s.specialty ?? '',
-    medicalRecords: s.medicalRecords ?? undefined,
     role: s.role.toLowerCase() as UserRole,
-    patientIds: s.patientIds,
     fullName: s.fullName,
     region: s.region,
     age: s.age,
@@ -52,8 +44,6 @@ function serializedToUser(s: SerializedUser): User {
     academicDegree: s.academicDegree,
     profilePhotoUrl: s.profilePhotoUrl,
     consentAcceptedAt: s.consentAcceptedAt,
-    solvedCaseIds: s.solvedCaseIds,
-    unsolvedCaseIds: s.unsolvedCaseIds,
   };
 }
 
@@ -99,7 +89,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       id: session.user.id,
       name: session.user.name ?? '',
       email: session.user.email ?? '',
-      avatar: session.user.image ?? '',
       specialty: '',
       role: (session.user.role?.toLowerCase() as UserRole) ?? 'doctor',
     };
@@ -116,7 +105,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         age: user.age ?? undefined,
         specialty: user.specialty || undefined,
         phoneNumber: user.phoneNumber ?? undefined,
-        role: user.role.toUpperCase() as 'ADMIN' | 'DOCTOR' | 'REVIEWER' | 'PATIENT',
+        role: user.role.toUpperCase() as 'ADMIN' | 'DOCTOR' | 'REVIEWER',
       });
       if (!res.success) throw new Error(res.error);
       await refreshUsers();
@@ -134,10 +123,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         age: user.age ?? null,
         specialty: user.specialty || null,
         phoneNumber: user.phoneNumber ?? null,
-        avatar: user.avatar || null,
         profilePhotoUrl: user.profilePhotoUrl ?? null,
-        medicalRecords: user.medicalRecords ?? null,
-        patientIds: user.patientIds ?? undefined,
       });
       if (!res.success) throw new Error(res.error);
       await refreshUsers();

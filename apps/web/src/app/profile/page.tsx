@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { CheckCircle2, Loader2, Upload, XCircle } from 'lucide-react';
+import { Loader2, PenSquare, Star, Upload } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard-layout';
 import ScenarioControls from '@/components/scenario-controls';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -12,21 +12,43 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore, type UserRole } from '@/hooks/use-user-store';
+import { getMyReviews, getSavedCaseIds } from '@/app/actions';
 
 export default function ProfilePage() {
   const { currentUser, isInitialized, updateUser } = useUserStore();
   const router = useRouter();
   const { toast } = useToast();
   const t = useTranslations('user.profile');
+  const tNav = useTranslations('nav');
   const locale = useLocale();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+  const [reviewCount, setReviewCount] = useState(0);
 
   useEffect(() => {
     if (isInitialized && !currentUser) {
       router.push('/login');
     }
   }, [isInitialized, currentUser, router]);
+
+  useEffect(() => {
+    if (!isInitialized || !currentUser) return;
+    let cancelled = false;
+    void (async () => {
+      const res = await getSavedCaseIds();
+      if (!cancelled && res.success) setSavedCount(res.data.length);
+    })();
+    if (currentUser.role === 'reviewer') {
+      void (async () => {
+        const res = await getMyReviews();
+        if (!cancelled && res.success) setReviewCount(res.data.length);
+      })();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [isInitialized, currentUser]);
 
   if (!isInitialized || !currentUser) {
     return (
@@ -40,19 +62,16 @@ export default function ProfilePage() {
     );
   }
 
-  const ROLE_KEYS: Record<UserRole, 'admin' | 'doctor' | 'reviewer' | 'patient'> = {
+  const ROLE_KEYS: Record<UserRole, 'admin' | 'doctor' | 'reviewer'> = {
     admin: 'admin',
     doctor: 'doctor',
     reviewer: 'reviewer',
-    patient: 'patient',
   };
   const roleLabel = t(`role.${ROLE_KEYS[currentUser.role]}`);
   const fallback = t('fieldFallback');
 
-  const avatarSrc = currentUser.profilePhotoUrl ?? currentUser.avatar ?? '';
+  const avatarSrc = currentUser.profilePhotoUrl ?? '';
   const fallbackChar = currentUser.name.trim().charAt(0).toUpperCase() || '?';
-  const solvedCount = currentUser.solvedCaseIds?.length ?? 0;
-  const unsolvedCount = currentUser.unsolvedCaseIds?.length ?? 0;
 
   const consentText = currentUser.consentAcceptedAt
     ? t('consentAccepted', {
@@ -198,15 +217,17 @@ export default function ProfilePage() {
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <StatTile
-                    icon={<CheckCircle2 className="h-8 w-8 text-emerald-500" />}
-                    label={t('stats.solved')}
-                    value={solvedCount}
+                    icon={<Star className="h-8 w-8 text-amber-500" />}
+                    label={tNav('savedCases')}
+                    value={savedCount}
                   />
-                  <StatTile
-                    icon={<XCircle className="h-8 w-8 text-rose-500" />}
-                    label={t('stats.unsolved')}
-                    value={unsolvedCount}
-                  />
+                  {currentUser.role === 'reviewer' && (
+                    <StatTile
+                      icon={<PenSquare className="h-8 w-8 text-primary" />}
+                      label={tNav('myReviews')}
+                      value={reviewCount}
+                    />
+                  )}
                 </div>
               </CardContent>
             </Card>

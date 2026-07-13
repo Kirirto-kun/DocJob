@@ -1,14 +1,9 @@
 'use client';
 
-import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { handleFileUpload } from '@/app/actions';
 import {
-  Loader2,
-  Upload,
   UserPlus,
   UserRound,
   LifeBuoy,
@@ -45,48 +40,9 @@ const navWrapperClass =
   'p-2 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center';
 
 export default function ScenarioControls(_props: ScenarioControlsProps) {
-  const { currentUser, updateUser } = useUserStore();
-  const { toast } = useToast();
+  const { currentUser } = useUserStore();
   const router = useRouter();
   const t = useTranslations('nav');
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileSelect = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !currentUser) return;
-
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const result = await handleFileUpload(formData);
-    setIsUploading(false);
-
-    if (result.success) {
-      toast({
-        title: t('scenario.uploadSuccessTitle'),
-        description: t('scenario.uploadSuccessDescription', { name: file.name }),
-      });
-      const recordHeader = `--- UPLOADED BY PATIENT (${new Date().toLocaleDateString()}) ---\n`;
-      const newRecords = recordHeader + result.data.recordContent;
-      updateUser({
-        ...currentUser,
-        medicalRecords:
-          (currentUser.medicalRecords ? currentUser.medicalRecords + '\n\n' : '') + newRecords,
-      });
-    } else {
-      toast({
-        variant: 'destructive',
-        title: t('scenario.uploadErrorTitle'),
-        description: result.error,
-      });
-    }
-  };
 
   if (!currentUser) return null;
 
@@ -339,35 +295,6 @@ export default function ScenarioControls(_props: ScenarioControlsProps) {
           <span className="group-data-[collapsible=icon]:hidden">{t('support')}</span>
         </Button>
       </div>
-
-      {currentUser.role === 'patient' && (
-        <>
-          <Separator className="my-2 bg-sidebar-border/50" />
-          <div className={navWrapperClass}>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="hidden"
-              accept=".txt,.md,.pdf"
-            />
-            <Button
-              variant="outline"
-              className="w-full border-accent text-accent hover:bg-accent/10 hover:text-accent-foreground"
-              onClick={handleFileSelect}
-              disabled={isUploading}
-            >
-              {isUploading ? <Loader2 className="mr-2 animate-spin" /> : <Upload className="mr-2" />}
-              <span className="group-data-[collapsible=icon]:hidden">{t('patient.uploadReport')}</span>
-            </Button>
-          </div>
-          {currentUser.medicalRecords && (
-            <div className="p-2 group-data-[collapsible=icon]:hidden">
-              <p className="text-xs text-muted-foreground truncate">{t('patient.recordsSaved')}</p>
-            </div>
-          )}
-        </>
-      )}
 
       <div className="mt-auto p-3 group-data-[collapsible=icon]:hidden">
         <BannerAd slot={1} />

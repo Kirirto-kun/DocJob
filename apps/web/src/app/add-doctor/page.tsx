@@ -62,8 +62,6 @@ export default function AddDoctorPage() {
       await addUser({
         id: '',
         role: 'doctor',
-        avatar: '',
-        patientIds: [],
         name: data.name,
         email: data.email,
         specialty: data.specialty,

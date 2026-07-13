@@ -28,7 +28,6 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Администратор',
   REVIEWER: 'Рецензент',
   DOCTOR: 'Врач',
-  PATIENT: 'Пациент',
 };
 
 export default function AdminUsersPage() {

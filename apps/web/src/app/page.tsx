@@ -6,7 +6,6 @@ import { useTranslations } from 'next-intl';
 import {
   Loader2,
   ShieldAlert,
-  FileText,
   Star,
   Search,
   PenSquare,
@@ -159,39 +158,8 @@ export default function Home() {
       );
     }
 
-    if (currentUser.role === 'patient') {
-      return (
-        <Card className="m-auto w-full max-w-2xl bg-card/80 animate-fade-in">
-          <CardHeader>
-            <CardTitle className="font-headline text-2xl">
-              {t('patient.welcome', { name: currentUser.name })}
-            </CardTitle>
-            <CardDescription>{t('patient.description')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-start gap-4 rounded-lg border bg-muted/50 p-4">
-              <FileText className="h-8 w-8 text-primary mt-1" />
-              <div>
-                <h3 className="font-semibold">{t('patient.recordsTitle')}</h3>
-                {currentUser.medicalRecords ? (
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap mt-2">
-                    {currentUser.medicalRecords}
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {t('patient.recordsEmpty')}
-                  </p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      );
-    }
-
     if (currentUser.role === 'admin') {
       const doctorCount = allUsers.filter((u) => u.role === 'doctor').length;
-      const patientCount = allUsers.filter((u) => u.role === 'patient').length;
       const reviewerCount = allUsers.filter((u) => u.role === 'reviewer').length;
       return (
         <Card className="m-auto flex flex-col items-center justify-center p-8 sm:p-12 text-center bg-card/80 animate-fade-in">
@@ -202,7 +170,6 @@ export default function Home() {
             <ul className="list-disc list-inside mt-2 text-muted-foreground">
               <li>{t('admin.doctorCount', { count: doctorCount })}</li>
               <li>{t('admin.reviewerCount', { count: reviewerCount })}</li>
-              <li>{t('admin.patientCount', { count: patientCount })}</li>
             </ul>
           </CardContent>
           <CardFooter className="flex flex-col gap-2 w-full max-w-xs">

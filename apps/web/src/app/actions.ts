@@ -103,7 +103,7 @@ const registerSchema = z.object({
   workplace: z.string().optional(),
   academicDegree: z.string().optional(),
   consentAccepted: z.boolean().optional(),
-  role: z.enum(['ADMIN', 'DOCTOR', 'REVIEWER', 'PATIENT']).optional(),
+  role: z.enum(['ADMIN', 'DOCTOR', 'REVIEWER']).optional(),
 });
 
 export async function registerUser(input: z.infer<typeof registerSchema>): Promise<ActionResult<{ id: string }>> {
@@ -130,7 +130,6 @@ export async function registerUser(input: z.infer<typeof registerSchema>): Promi
       academicDegree: data.academicDegree,
       role: (data.role as Role) ?? 'DOCTOR',
       consentAcceptedAt: data.consentAccepted ? new Date() : null,
-      avatar: `https://i.pravatar.cc/150?u=${encodeURIComponent(data.email.toLowerCase())}`,
     },
     select: { id: true },
   });
@@ -147,10 +146,7 @@ const updateUserSchema = z.object({
   phoneNumber: z.string().optional().nullable(),
   workplace: z.string().optional().nullable(),
   academicDegree: z.string().optional().nullable(),
-  avatar: z.string().optional().nullable(),
   profilePhotoUrl: z.string().optional().nullable(),
-  medicalRecords: z.string().optional().nullable(),
-  patientIds: z.array(z.string()).optional(),
 });
 
 export async function updateUser(input: z.infer<typeof updateUserSchema>): Promise<ActionResult<{ id: string }>> {
@@ -275,39 +271,6 @@ export async function deleteUser(userId: string): Promise<ActionResult<{ id: str
   revalidatePath('/admin/users');
   revalidatePath('/admin/pending');
   return ok({ id: userId });
-}
-
-export async function updateUserStatistics(
-  caseId: string,
-  result: 'solved' | 'unsolved'
-): Promise<ActionResult<{ solvedCount: number; unsolvedCount: number }>> {
-  const user = await requireUserSafe();
-  if (!user) return fail('Требуется авторизация.');
-
-  const solvedSet = new Set(user.solvedCaseIds);
-  const unsolvedSet = new Set(user.unsolvedCaseIds);
-
-  if (result === 'solved') {
-    solvedSet.add(caseId);
-    unsolvedSet.delete(caseId);
-  } else {
-    unsolvedSet.add(caseId);
-    solvedSet.delete(caseId);
-  }
-
-  const updated = await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      solvedCaseIds: Array.from(solvedSet),
-      unsolvedCaseIds: Array.from(unsolvedSet),
-    },
-    select: { solvedCaseIds: true, unsolvedCaseIds: true },
-  });
-
-  return ok({
-    solvedCount: updated.solvedCaseIds.length,
-    unsolvedCount: updated.unsolvedCaseIds.length,
-  });
 }
 
 // ───────────────────────── Cases
@@ -1129,14 +1092,9 @@ export type SerializedUser = {
   phoneNumber: string | null;
   workplace: string | null;
   academicDegree: string | null;
-  avatar: string | null;
   profilePhotoUrl: string | null;
   consentAcceptedAt: string | null;
   approvedAt: string | null;
-  solvedCaseIds: string[];
-  unsolvedCaseIds: string[];
-  medicalRecords: string | null;
-  patientIds: string[];
   createdAt: string;
 };
 
@@ -1201,14 +1159,9 @@ function serializeUser(u: NonNullable<PrismaUser>): SerializedUser {
     phoneNumber: u.phoneNumber,
     workplace: u.workplace,
     academicDegree: u.academicDegree,
-    avatar: u.avatar,
     profilePhotoUrl: u.profilePhotoUrl,
     consentAcceptedAt: u.consentAcceptedAt ? u.consentAcceptedAt.toISOString() : null,
     approvedAt: u.approvedAt ? u.approvedAt.toISOString() : null,
-    solvedCaseIds: u.solvedCaseIds,
-    unsolvedCaseIds: u.unsolvedCaseIds,
-    medicalRecords: u.medicalRecords,
-    patientIds: u.patientIds,
     createdAt: u.createdAt.toISOString(),
   };
 }
