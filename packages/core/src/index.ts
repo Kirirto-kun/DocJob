@@ -10,3 +10,11 @@ export * from './cases/case.mapper';
 // follows this same `export * as <domain> from './<domain>/<domain>.service'`
 // pattern.
 export * as cases from './cases/case.service';
+
+// Flat: mapper types + serializeUser, plus the pure password-reset-token
+// helpers (re-exported here so apps/web/src/lib/password-reset-tokens.ts can
+// re-point its import at @docjob/core instead of duplicating the logic).
+export * from './users/user.mapper';
+export * from './users/password-reset-tokens';
+// Namespaced: service functions, called as `core.users.registerUser(input)`.
+export * as users from './users/user.service';

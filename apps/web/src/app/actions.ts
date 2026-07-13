@@ -86,125 +86,69 @@ export async function handleFileUpload(formData: FormData) {
 }
 
 // ───────────────────────── Auth / users
+//
+// Pure domain logic (validation, auth rules, bcrypt hashing, Prisma calls)
+// lives in @docjob/core's user.service — these are thin transport wrappers:
+// resolve the actor, call core, translate thrown DomainErrors back into
+// ActionResult, and run the Next.js-specific side effects (revalidatePath)
+// that can't live in a transport-agnostic package. Session-reading stays in
+// web (getActor / lib/session); core never touches cookies.
 
-const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-  name: z.string().min(1),
-  fullName: z.string().optional(),
-  region: z.string().optional(),
-  age: z.coerce.number().int().positive().optional(),
-  specialty: z.string().optional(),
-  phoneNumber: z.string().optional(),
-  workplace: z.string().optional(),
-  academicDegree: z.string().optional(),
-  consentAccepted: z.boolean().optional(),
-  role: z.enum(['ADMIN', 'DOCTOR', 'REVIEWER']).optional(),
-});
-
-export async function registerUser(input: z.infer<typeof registerSchema>): Promise<ActionResult<{ id: string }>> {
-  const parsed = registerSchema.safeParse(input);
-  if (!parsed.success) return fail('Проверьте правильность заполнения формы.');
-  const data = parsed.data;
-
-  const existing = await prisma.user.findUnique({ where: { email: data.email.toLowerCase() } });
-  if (existing) return fail('Пользователь с такой почтой уже существует.');
-
-  const passwordHash = await bcrypt.hash(data.password, 10);
-
-  const created = await prisma.user.create({
-    data: {
-      email: data.email.toLowerCase(),
-      passwordHash,
-      name: data.name,
-      fullName: data.fullName,
-      region: data.region,
-      age: data.age,
-      specialty: data.specialty,
-      phoneNumber: data.phoneNumber,
-      workplace: data.workplace,
-      academicDegree: data.academicDegree,
-      role: (data.role as Role) ?? 'DOCTOR',
-      consentAcceptedAt: data.consentAccepted ? new Date() : null,
-    },
-    select: { id: true },
-  });
-  return ok({ id: created.id });
+export async function registerUser(
+  input: core.users.RegisterUserInput,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const data = await core.users.registerUser(input);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
+  }
 }
 
-const updateUserSchema = z.object({
-  id: z.string(),
-  name: z.string().optional(),
-  fullName: z.string().optional().nullable(),
-  region: z.string().optional().nullable(),
-  age: z.number().int().positive().optional().nullable(),
-  specialty: z.string().optional().nullable(),
-  phoneNumber: z.string().optional().nullable(),
-  workplace: z.string().optional().nullable(),
-  academicDegree: z.string().optional().nullable(),
-  profilePhotoUrl: z.string().optional().nullable(),
-});
-
-export async function updateUser(input: z.infer<typeof updateUserSchema>): Promise<ActionResult<{ id: string }>> {
-  const current = await requireUserSafe();
-  if (!current) return fail('Требуется авторизация.');
-  const parsed = updateUserSchema.safeParse(input);
-  if (!parsed.success) return fail('Некорректные данные пользователя.');
-
-  if (current.id !== parsed.data.id && current.role !== 'ADMIN') {
-    return fail('Недостаточно прав.');
+export async function updateUser(
+  input: core.users.UpdateUserInput,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const actor = await getActor();
+    const data = await core.users.updateUser(actor, input);
+    revalidatePath('/');
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-
-  const { id, ...rest } = parsed.data;
-  const data: Prisma.UserUpdateInput = {};
-  for (const [k, v] of Object.entries(rest)) {
-    if (v !== undefined) (data as Record<string, unknown>)[k] = v;
-  }
-  await prisma.user.update({ where: { id }, data });
-  revalidatePath('/');
-  return ok({ id });
 }
 
 export async function getUsers(): Promise<ActionResult<SerializedUser[]>> {
   try {
-    await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.users.listUsers(actor);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const users = await prisma.user.findMany({ orderBy: { createdAt: 'asc' } });
-  return ok(users.map(serializeUser));
 }
 
 // ───────────────────────── Registration approval (admin)
 
 export async function getPendingUsers(): Promise<ActionResult<SerializedUser[]>> {
   try {
-    await requireAdmin();
-  } catch {
-    return fail('Только администратор может видеть заявки.');
+    const actor = await getActor();
+    const data = await core.users.listPendingUsers(actor);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const users = await prisma.user.findMany({
-    where: { approvedAt: null },
-    orderBy: { createdAt: 'asc' },
-  });
-  return ok(users.map(serializeUser));
 }
 
 export async function approveUser(userId: string): Promise<ActionResult<{ id: string }>> {
   try {
-    await requireAdmin();
-  } catch {
-    return fail('Только администратор может одобрять заявки.');
+    const actor = await getActor();
+    const data = await core.users.approveUser(actor, userId);
+    revalidatePath('/admin/pending');
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return fail('Пользователь не найден.');
-  if (user.approvedAt) return fail('Пользователь уже одобрен.');
-  await prisma.user.update({
-    where: { id: userId },
-    data: { approvedAt: new Date() },
-  });
-  revalidatePath('/admin/pending');
-  return ok({ id: userId });
 }
 
 /**
@@ -221,28 +165,18 @@ export async function checkLoginIssue(
   email: string,
   password: string,
 ): Promise<{ status: 'pending' | 'invalid' }> {
-  const user = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
-  });
-  if (!user) return { status: 'invalid' };
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) return { status: 'invalid' };
-  if (!user.approvedAt) return { status: 'pending' };
-  return { status: 'invalid' };
+  return core.users.checkLoginIssue(email, password);
 }
 
 export async function rejectUser(userId: string): Promise<ActionResult<{ id: string }>> {
   try {
-    await requireAdmin();
-  } catch {
-    return fail('Только администратор может отклонять заявки.');
+    const actor = await getActor();
+    const data = await core.users.rejectUser(actor, userId);
+    revalidatePath('/admin/pending');
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return fail('Пользователь не найден.');
-  if (user.approvedAt) return fail('Нельзя отклонить уже одобренного пользователя.');
-  await prisma.user.delete({ where: { id: userId } });
-  revalidatePath('/admin/pending');
-  return ok({ id: userId });
 }
 
 /**
@@ -252,21 +186,15 @@ export async function rejectUser(userId: string): Promise<ActionResult<{ id: str
  * cannot delete their own account.
  */
 export async function deleteUser(userId: string): Promise<ActionResult<{ id: string }>> {
-  let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return fail('Только администратор может удалять пользователей.');
+    const actor = await getActor();
+    const data = await core.users.deleteUser(actor, userId);
+    revalidatePath('/admin/users');
+    revalidatePath('/admin/pending');
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  if (admin.id === userId) {
-    return fail('Нельзя удалить собственную учётную запись администратора.');
-  }
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return fail('Пользователь не найден.');
-  await prisma.user.delete({ where: { id: userId } });
-  revalidatePath('/admin/users');
-  revalidatePath('/admin/pending');
-  return ok({ id: userId });
 }
 
 // ───────────────────────── Cases
@@ -883,8 +811,8 @@ async function requireUserSafe() {
 
 // Current user convenience export for server components
 export async function getSessionUser(): Promise<SerializedUser | null> {
-  const user = await getCurrentUser();
-  return user ? serializeUser(user) : null;
+  const actor = await getActor();
+  return actor ? core.users.getUserById(actor.id) : null;
 }
 
 // ───────────────────────── Saved cases (favourites / bookmarks)
@@ -1589,49 +1517,18 @@ function resetBaseUrl(): string {
 export async function requestPasswordReset(
   email: string,
 ): Promise<ActionResult<{ sent: true }>> {
-  const parsed = z.string().email().safeParse(email);
-  // Malformed email: return the same neutral success (anti-enumeration), not an error.
-  if (!parsed.success) return ok({ sent: true });
-
-  const normalized = parsed.data.toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email: normalized } });
-
-  if (user && user.approvedAt) {
-    const now = new Date();
-    const recent = await prisma.passwordResetToken.findFirst({
-      where: { userId: user.id, usedAt: null },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const throttled =
-      !!recent && recent.expiresAt > now && isWithinResendCooldown(recent.createdAt, now);
-
-    if (!throttled) {
-      const rawToken = generateResetToken();
-      // Invalidate any outstanding tokens and issue a fresh one atomically, so
-      // concurrent requests can't leave two simultaneously-valid tokens.
-      await prisma.$transaction([
-        prisma.passwordResetToken.updateMany({
-          where: { userId: user.id, usedAt: null },
-          data: { usedAt: now },
-        }),
-        prisma.passwordResetToken.create({
-          data: {
-            userId: user.id,
-            tokenHash: hashResetToken(rawToken),
-            expiresAt: resetTokenExpiry(now),
-          },
-        }),
-      ]);
-
-      const resetUrl = `${resetBaseUrl()}/reset-password?token=${rawToken}`;
-      const { subject, html, text } = buildPasswordResetEmail(resetUrl);
-      try {
-        await sendEmail({ to: normalized, subject, html, text });
-      } catch (error) {
-        // Don't leak delivery failures to the client; log for ops.
-        console.error('Failed to send password reset email:', error);
-      }
+  // Core does the token bookkeeping and returns null for malformed / unknown /
+  // unapproved / throttled (anti-enumeration: the client sees the same neutral
+  // success either way). Email delivery is a transport concern and stays here.
+  const issued = await core.users.requestPasswordReset(email);
+  if (issued) {
+    const resetUrl = `${resetBaseUrl()}/reset-password?token=${issued.rawToken}`;
+    const { subject, html, text } = buildPasswordResetEmail(resetUrl);
+    try {
+      await sendEmail({ to: issued.to, subject, html, text });
+    } catch (error) {
+      // Don't leak delivery failures to the client; log for ops.
+      console.error('Failed to send password reset email:', error);
     }
   }
 
@@ -1640,12 +1537,7 @@ export async function requestPasswordReset(
 
 /** Lightweight check so the reset page can show "link expired" before input. */
 export async function checkResetToken(token: string): Promise<{ valid: boolean }> {
-  if (!token) return { valid: false };
-  const record = await prisma.passwordResetToken.findUnique({
-    where: { tokenHash: hashResetToken(token) },
-  });
-  if (!record) return { valid: false };
-  return { valid: isResetTokenUsable(record, new Date()) };
+  return core.users.checkResetToken(token);
 }
 
 const resetPasswordSchema = z.object({
@@ -1656,28 +1548,12 @@ const resetPasswordSchema = z.object({
 export async function resetPassword(
   input: z.infer<typeof resetPasswordSchema>,
 ): Promise<ActionResult<{ id: string }>> {
-  const parsed = resetPasswordSchema.safeParse(input);
-  if (!parsed.success) return fail('Пароль должен быть не короче 6 символов.');
-
-  const now = new Date();
-  const record = await prisma.passwordResetToken.findUnique({
-    where: { tokenHash: hashResetToken(parsed.data.token) },
-  });
-  if (!record || !isResetTokenUsable(record, now)) {
-    return fail('Ссылка устарела или недействительна. Запросите восстановление заново.');
+  try {
+    const data = await core.users.resetPassword(input.token, input.newPassword);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-
-  const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
-  await prisma.$transaction([
-    prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
-    prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: now } }),
-    prisma.passwordResetToken.updateMany({
-      where: { userId: record.userId, usedAt: null },
-      data: { usedAt: now },
-    }),
-  ]);
-
-  return ok({ id: record.userId });
 }
 
 // ───────────────────────── Landing contact form

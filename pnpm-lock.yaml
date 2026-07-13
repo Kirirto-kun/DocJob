@@ -267,10 +267,16 @@ importers:
       '@docjob/types':
         specifier: workspace:*
         version: link:../types
+      bcryptjs:
+        specifier: ^2.4.3
+        version: 2.4.3
       zod:
         specifier: ^3.24.2
         version: 3.25.76
     devDependencies:
+      '@types/bcryptjs':
+        specifier: ^2.4.6
+        version: 2.4.6
       dotenv-cli:
         specifier: ^7.4.4
         version: 7.4.4

@@ -13,9 +13,11 @@
     "@docjob/db": "workspace:*",
     "@docjob/types": "workspace:*",
     "@docjob/config": "workspace:*",
+    "bcryptjs": "^2.4.3",
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "dotenv-cli": "^7.4.4",
     "vitest": "^4.1.9"
   }
