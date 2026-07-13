@@ -32,7 +32,6 @@
     "support": "Техподдержка",
     "news": "Новости",
     "contacts": "Контакты",
-    "uploadReport": "Загрузить отчёт",
     "addDoctor": "Добавить врача",
     "createCase": "Создать кейс",
     "bannerAds": "Баннерная реклама",
@@ -87,10 +86,6 @@
       "rolesDoctor": "Пользователь",
       "rolesReviewer": "Рецензент",
       "rolesPatient": "Пациент"
-    },
-    "patient": {
-      "uploadReport": "Загрузить отчёт",
-      "recordsSaved": "Медицинские записи сохранены."
     }
   },
   "auth": {
@@ -546,73 +541,17 @@
     }
   },
   "case": {
-    "chat": {
-      "title": "Чат-наставник",
-      "phase": {
-        "discussing": "Обсуждение",
-        "diagnosisSubmitted": "Финальный ответ",
-        "done": "Разбор"
-      },
-      "preparing": "Готовим чат…",
-      "greeting": "Наставник готов к диалогу. Задайте первый вопрос по кейсу.",
-      "placeholder": "Сообщение наставнику…",
-      "send": "Отправить",
-      "enterHint": "Enter — отправить, Shift+Enter — перенос строки.",
-      "finalAnswer": "Финальный ответ",
-      "finalAnswerBadge": "Финальный ответ",
-      "replay": "Пройти кейс заново"
-    },
-    "diagnosis": {
-      "title": "Финальный ответ",
-      "description": "Сформулируйте итоговое решение по кейсу. После отправки ответ будет зафиксирован и оценён наставником.",
-      "placeholder": "Опишите диагноз / выводы, разберите ошибки и предложите корректный план действий…",
-      "structureTitle": "Структура ответа",
-      "structureItem1": "Диагноз или ключевые выводы по кейсу.",
-      "structureItem2": "Допущенные ошибки и их последствия.",
-      "structureItem3": "Что бы вы сделали по-другому и почему.",
-      "minLengthHint": "Минимум {min} символов",
-      "tooShort": "Слишком коротко: {current} / {min}",
-      "currentLength": "{current} символов",
-      "warning": "После отправки ответ нельзя изменить. Чтобы пройти кейс заново, потребуется сбросить сессию.",
-      "cancel": "Отмена",
-      "submit": "Отправить ответ",
-      "submitting": "Отправка…"
-    },
-    "solution": {
-      "title": "Разбор кейса",
-      "evaluationCorrect": "Правильно",
-      "evaluationWithRemarks": "Есть замечания",
-      "matchedErrors": "Совпало с эталоном",
-      "missedErrors": "Пропущено",
-      "extraErrors": "Лишнее",
-      "diagnosisLabel": "Диагноз / итог",
-      "errorsLabel": "Ключевые ошибки",
-      "algorithmLabel": "Корректный алгоритм",
-      "preventabilityLabel": "Предотвратимость",
-      "preventability": {
-        "full": "Полностью предотвратимо",
-        "conditional": "Условно предотвратимо",
-        "none": "Не предотвратимо"
-      },
-      "keyInsightsLabel": "Ключевые инсайты",
-      "correctDecisionsLabel": "Верные решения",
-      "lessonsLearnedLabel": "Что вынести из кейса",
-      "referenceLabel": "Эталонное решение"
-    },
     "info": {
       "headerYears": "лет",
       "genderMale": "Мужчина",
       "genderFemale": "Женщина",
       "sectionBody": "Тело кейса",
-      "sectionTask": "Задание студенту",
       "sectionAttachments": "Файлы и материалы",
       "downloadAction": "Скачать",
       "openFileAction": "Открыть файл"
     },
     "page": {
-      "back": "Назад к списку",
-      "tabCase": "Кейс",
-      "tabChat": "Чат"
+      "back": "Назад к списку"
     },
     "banner": {
       "placeholderTitle": "Место для баннерной рекламы №{slot}",
@@ -815,8 +754,7 @@
       "role": {
         "admin": "Администратор",
         "doctor": "Пользователь",
-        "reviewer": "Рецензент",
-        "patient": "Пациент"
+        "reviewer": "Рецензент"
       },
       "toast": {
         "noRightsTitle": "Недостаточно прав",
@@ -874,9 +812,7 @@
       "attachmentRemove": "Удалить файл"
     },
     "news": {},
-    "managePatients": {},
-    "addDoctor": {},
-    "addPatient": {}
+    "addDoctor": {}
   },
   "home": {
     "doctor": {
@@ -898,18 +834,11 @@
       "aiSearch": "AI Поиск",
       "suggestCase": "Предложить кейс"
     },
-    "patient": {
-      "welcome": "Добро пожаловать, {name}",
-      "description": "Здесь вы можете управлять своими медицинскими записями. Они будут доступны вашему врачу для симуляций.",
-      "recordsTitle": "Ваши медицинские записи",
-      "recordsEmpty": "Вы ещё не загрузили медицинских записей. Используйте кнопку «Загрузить отчёт» в боковой панели, чтобы добавить файл."
-    },
     "admin": {
       "welcome": "Добро пожаловать, Администратор",
       "description": "У вас административный доступ к платформе DocJob.",
       "systemState": "Состояние системы:",
       "doctorCount": "{count} Зарегистрированных пользователей",
-      "patientCount": "{count} Профилей пациентов",
       "reviewerCount": "{count} Рецензентов",
       "addDoctor": "Добавить пользователя",
       "aiSearch": "AI Поиск",

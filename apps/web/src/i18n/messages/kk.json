@@ -32,7 +32,6 @@
     "support": "Техникалық қолдау",
     "news": "Жаңалықтар",
     "contacts": "Байланыстар",
-    "uploadReport": "Есеп жүктеу",
     "addDoctor": "Дәрігер қосу",
     "createCase": "Кейс жасау",
     "bannerAds": "Баннерлік жарнама",
@@ -87,10 +86,6 @@
       "rolesDoctor": "Пайдаланушы",
       "rolesReviewer": "Рецензент",
       "rolesPatient": "Пациент"
-    },
-    "patient": {
-      "uploadReport": "Есеп жүктеу",
-      "recordsSaved": "Медициналық жазбалар сақталды."
     }
   },
   "auth": {
@@ -546,73 +541,17 @@
     }
   },
   "case": {
-    "chat": {
-      "title": "Чат-тәлімгер",
-      "phase": {
-        "discussing": "Талқылау",
-        "diagnosisSubmitted": "Қорытынды жауап",
-        "done": "Талдау"
-      },
-      "preparing": "Чатты дайындап жатырмыз…",
-      "greeting": "Тәлімгер диалогқа дайын. Кейс бойынша алғашқы сұрағыңызды қойыңыз.",
-      "placeholder": "Тәлімгерге хабарлама…",
-      "send": "Жіберу",
-      "enterHint": "Enter — жіберу, Shift+Enter — жол ауыстыру.",
-      "finalAnswer": "Қорытынды жауап",
-      "finalAnswerBadge": "Қорытынды жауап",
-      "replay": "Кейсті қайта өту"
-    },
-    "diagnosis": {
-      "title": "Қорытынды жауап",
-      "description": "Кейс бойынша қорытынды шешімді тұжырымдаңыз. Жіберілгеннен кейін жауап тіркеліп, тәлімгер тарапынан бағаланады.",
-      "placeholder": "Диагнозды / қорытындыларды сипаттаңыз, қателерді талдаңыз және дұрыс әрекет жоспарын ұсыныңыз…",
-      "structureTitle": "Жауап құрылымы",
-      "structureItem1": "Кейс бойынша диагноз немесе негізгі қорытындылар.",
-      "structureItem2": "Жіберілген қателер және олардың салдары.",
-      "structureItem3": "Не істер едіңіз және неге.",
-      "minLengthHint": "Кемінде {min} таңба",
-      "tooShort": "Тым қысқа: {current} / {min}",
-      "currentLength": "{current} таңба",
-      "warning": "Жіберілгеннен кейін жауапты өзгертуге болмайды. Кейсті қайта өту үшін сессияны қалпына келтіру қажет.",
-      "cancel": "Бас тарту",
-      "submit": "Жауапты жіберу",
-      "submitting": "Жіберілуде…"
-    },
-    "solution": {
-      "title": "Кейсті талдау",
-      "evaluationCorrect": "Дұрыс",
-      "evaluationWithRemarks": "Ескертулер бар",
-      "matchedErrors": "Эталонмен сәйкес келді",
-      "missedErrors": "Жіберіп алынды",
-      "extraErrors": "Артық",
-      "diagnosisLabel": "Диагноз / қорытынды",
-      "errorsLabel": "Негізгі қателер",
-      "algorithmLabel": "Дұрыс алгоритм",
-      "preventabilityLabel": "Алдын алу мүмкіндігі",
-      "preventability": {
-        "full": "Толық алдын алуға болады",
-        "conditional": "Шартты түрде алдын алуға болады",
-        "none": "Алдын алу мүмкін емес"
-      },
-      "keyInsightsLabel": "Негізгі түйіндер",
-      "correctDecisionsLabel": "Дұрыс шешімдер",
-      "lessonsLearnedLabel": "Кейстен не алуға болады",
-      "referenceLabel": "Эталондық шешім"
-    },
     "info": {
       "headerYears": "жас",
       "genderMale": "Ер кісі",
       "genderFemale": "Әйел кісі",
       "sectionBody": "Кейс мәтіні",
-      "sectionTask": "Студентке тапсырма",
       "sectionAttachments": "Файлдар мен материалдар",
       "downloadAction": "Жүктеп алу",
       "openFileAction": "Файлды ашу"
     },
     "page": {
-      "back": "Тізімге оралу",
-      "tabCase": "Кейс",
-      "tabChat": "Чат"
+      "back": "Тізімге оралу"
     },
     "banner": {
       "placeholderTitle": "№{slot} баннерлік жарнама орны",
@@ -815,8 +754,7 @@
       "role": {
         "admin": "Әкімші",
         "doctor": "Пайдаланушы",
-        "reviewer": "Рецензент",
-        "patient": "Пациент"
+        "reviewer": "Рецензент"
       },
       "toast": {
         "noRightsTitle": "Құқықтар жеткіліксіз",
@@ -874,9 +812,7 @@
       "attachmentRemove": "Файлды жою"
     },
     "news": {},
-    "managePatients": {},
-    "addDoctor": {},
-    "addPatient": {}
+    "addDoctor": {}
   },
   "home": {
     "doctor": {
@@ -898,18 +834,11 @@
       "aiSearch": "AI Іздеу",
       "suggestCase": "Кейс ұсыну"
     },
-    "patient": {
-      "welcome": "Қош келдіңіз, {name}",
-      "description": "Осында өзіңіздің медициналық жазбаларыңызды басқара аласыз. Олар сіздің дәрігеріңізге симуляциялар үшін қолжетімді болады.",
-      "recordsTitle": "Сіздің медициналық жазбаларыңыз",
-      "recordsEmpty": "Сіз әлі медициналық жазбалар жүктеген жоқсыз. Файл қосу үшін бүйір тақтадағы «Есеп жүктеу» түймесін пайдаланыңыз."
-    },
     "admin": {
       "welcome": "Қош келдіңіз, Әкімші",
       "description": "Сізде DocJob платформасына әкімшілік қол жеткізу бар.",
       "systemState": "Жүйе күйі:",
       "doctorCount": "{count} тіркелген пайдаланушы",
-      "patientCount": "{count} пациент профилі",
       "reviewerCount": "{count} рецензент",
       "addDoctor": "Пайдаланушы қосу",
       "aiSearch": "AI Іздеу",
