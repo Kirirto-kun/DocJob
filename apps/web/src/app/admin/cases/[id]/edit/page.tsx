@@ -85,8 +85,6 @@ export default function AdminCaseEditPage({ params }: AdminCaseEditPageProps) {
         name: trimmedName,
         teaser: teaser.trim() || null,
         tags,
-        taskQuestions: [],
-        solution: null,
       });
       if (!result.success) {
         toast({ variant: 'destructive', title: t('errorTitle'), description: result.error });

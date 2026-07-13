@@ -129,8 +129,6 @@ async function main() {
             tags: draft.tags,
             mode: hint.mode as CaseMode,
             body: bodyFromMarkdown(draft.bodyMarkdown),
-            taskQuestions: draft.taskQuestions,
-            solution: draft.solution,
           },
         });
         imported += 1;

@@ -31,11 +31,8 @@ import {
   CASE_MODES,
   EMPTY_BODY,
   caseBodySchema,
-  caseSolutionSchema,
-  expectedSolutionKind,
   type CaseBody,
   type CaseMode,
-  type CaseSolution,
 } from '@/lib/case-schema';
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
@@ -332,23 +329,12 @@ const caseInputSchema = z.object({
   teaser: z.string().optional().nullable(),
   mode: caseModeEnumSchema.optional(),
   body: caseBodySchema.optional(),
-  solution: caseSolutionSchema.nullable().optional(),
-  taskQuestions: z.array(z.string()).optional(),
   imageIds: z.array(z.string()).optional(),
   imageFilenames: z.array(z.object({ filename: z.string(), mimeType: z.string() })).optional(),
   attachmentIds: z.array(z.string()).optional(),
 });
 
 export type CaseInput = z.infer<typeof caseInputSchema>;
-
-function validateSolutionForMode(solution: CaseSolution | null | undefined, mode: CaseMode): string | null {
-  if (!solution) return null;
-  const expected = expectedSolutionKind(mode);
-  if (solution.kind !== expected) {
-    return `Тип «Правильного ответа» не соответствует выбранной подгруппе (ожидалось ${expected}, получено ${solution.kind}).`;
-  }
-  return null;
-}
 
 export async function createCase(input: CaseInput): Promise<ActionResult<SerializedCase>> {
   let author;
@@ -362,8 +348,6 @@ export async function createCase(input: CaseInput): Promise<ActionResult<Seriali
   if (!parsed.success) return fail('Проверьте правильность заполнения формы кейса.');
   const data = parsed.data;
   const mode = (data.mode ?? 'CLINICAL_QUEST') as CaseMode;
-  const solutionError = validateSolutionForMode(data.solution ?? null, mode);
-  if (solutionError) return fail(solutionError);
 
   const created = await prisma.case.create({
     data: {
@@ -382,8 +366,6 @@ export async function createCase(input: CaseInput): Promise<ActionResult<Seriali
       teaser: data.teaser ?? null,
       mode: mode as PrismaCaseMode,
       body: (data.body ?? EMPTY_BODY) as Prisma.InputJsonValue,
-      solution: (data.solution ?? null) as Prisma.InputJsonValue | undefined,
-      taskQuestions: data.taskQuestions ?? [],
       images: data.imageFilenames && data.imageFilenames.length
         ? {
             create: data.imageFilenames.map((img, order) => ({
@@ -433,22 +415,13 @@ export async function updateCase(input: z.infer<typeof updateCaseSchema>): Promi
     imageIds: _discardImageIds,
     attachmentIds,
     body,
-    solution,
     mode,
     ...rest
   } = parsed.data;
 
-  if (mode && solution !== undefined && solution !== null) {
-    const err = validateSolutionForMode(solution, mode);
-    if (err) return fail(err);
-  }
-
   const updateData: Prisma.CaseUpdateInput = { ...(rest as Prisma.CaseUpdateInput) };
   if (mode) updateData.mode = mode as PrismaCaseMode;
   if (body) updateData.body = body as Prisma.InputJsonValue;
-  if (solution !== undefined) {
-    updateData.solution = (solution as Prisma.InputJsonValue) ?? Prisma.JsonNull;
-  }
 
   const updated = await prisma.case.update({
     where: { id },
@@ -527,7 +500,6 @@ export type SerializedCaseListItem = {
   tags: string[];
   teaser: string | null;
   mode: CaseMode;
-  hasSolution: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -596,7 +568,6 @@ export async function getCasesPaged(
         tags: true,
         teaser: true,
         mode: true,
-        solution: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -614,7 +585,6 @@ export async function getCasesPaged(
     tags: row.tags,
     teaser: row.teaser,
     mode: row.mode as CaseMode,
-    hasSolution: row.solution !== null && row.solution !== undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }));
@@ -1209,8 +1179,6 @@ export type SerializedCase = {
   teaser: string | null;
   mode: CaseMode;
   body: CaseBody;
-  taskQuestions: string[];
-  hasSolution: boolean;
   images: SerializedCaseImage[];
   attachments: SerializedCaseAttachment[];
   createdAt: string;
@@ -1266,8 +1234,6 @@ function serializeCase(c: PrismaCaseFull): SerializedCase {
     teaser: c.teaser,
     mode: c.mode as CaseMode,
     body,
-    taskQuestions: c.taskQuestions,
-    hasSolution: c.solution !== null && c.solution !== undefined,
     images: c.images.map((i) => ({
       id: i.id,
       filename: i.filename,
@@ -1380,7 +1346,6 @@ export async function getSavedCases(): Promise<ActionResult<SerializedSavedCase[
           tags: true,
           teaser: true,
           mode: true,
-          solution: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -1401,7 +1366,6 @@ export async function getSavedCases(): Promise<ActionResult<SerializedSavedCase[
       tags: r.case.tags,
       teaser: r.case.teaser,
       mode: r.case.mode as CaseMode,
-      hasSolution: r.case.solution !== null && r.case.solution !== undefined,
       createdAt: r.case.createdAt.toISOString(),
       updatedAt: r.case.updatedAt.toISOString(),
     },

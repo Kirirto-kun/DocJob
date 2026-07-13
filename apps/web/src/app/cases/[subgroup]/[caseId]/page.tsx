@@ -50,8 +50,6 @@ export default async function CasePage({ params }: CasePageParams) {
     teaser: c.teaser,
     mode: c.mode as CaseMode,
     body,
-    taskQuestions: c.taskQuestions,
-    hasSolution: c.solution !== null && c.solution !== undefined,
     images: c.images.map((i) => ({
       id: i.id,
       filename: i.filename,

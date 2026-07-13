@@ -88,14 +88,14 @@ export function MarkdownImportDialog({
         <DialogHeader>
           <DialogTitle>Импорт кейса из markdown</DialogTitle>
           <DialogDescription>
-            Вставьте полный текст кейса. ИИ разделит его на тело, задание и правильный ответ.
+            Вставьте полный текст кейса. ИИ извлечёт тело кейса и метаданные (название, специальность, теги).
           </DialogDescription>
         </DialogHeader>
         <Textarea
           value={markdown}
           onChange={(e) => setMarkdown(e.target.value)}
           rows={14}
-          placeholder="# Название кейса&#10;&#10;Жалобы, анамнез, исследования…&#10;&#10;## ЗАДАНИЕ ПО ДАННОМУ КЕЙСУ&#10;1. …&#10;&#10;## ОТВЕТ&#10;…"
+          placeholder="# Название кейса&#10;&#10;Жалобы, анамнез, исследования…"
           disabled={isParsing}
         />
         <DialogFooter>

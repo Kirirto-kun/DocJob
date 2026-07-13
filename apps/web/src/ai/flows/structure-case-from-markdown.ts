@@ -2,9 +2,7 @@ import { z } from "zod";
 import { runChat } from "@/ai/runChat";
 import {
   caseModeSchema,
-  expectedSolutionKind,
   structuredCaseDraftSchema,
-  type CaseMode,
   type StructuredCaseDraft,
 } from "@/lib/case-schema";
 
@@ -16,18 +14,13 @@ export const structureCaseInputSchema = z.object({
 });
 export type StructureCaseInput = z.infer<typeof structureCaseInputSchema>;
 
-const SYSTEM_PROMPT = (mode: CaseMode) =>
+const SYSTEM_PROMPT = () =>
   [
     "Ты разбираешь учебный медицинский/санэпид/менеджерский кейс из markdown в структурированный JSON для платформы DocJob.",
     "Выходи строго по схеме structured_case_draft.",
     "",
     "ПРАВИЛА:",
-    "- В bodyMarkdown оставь полное «видимое» тело кейса: жалобы, анамнез, течение, исход, лабораторные показатели, картинки/таблицы (как markdown). НЕ включай туда блок «ОТВЕТ» / «РАЗБОР» / «ПРАВИЛЬНЫЙ ДИАГНОЗ».",
-    "- В taskQuestions перенеси нумерованный список вопросов из секции «ЗАДАНИЕ ПО ДАННОМУ КЕЙСУ».",
-    "- В solution перенеси скрытый эталон.",
-    `- Для текущего mode (${mode}) ожидаемый kind = ${expectedSolutionKind(mode)}. Используй именно эту дискриминанту в solution.kind.`,
-    "  • incident (для CLINICAL_QUEST/SANEPID_INVESTIGATION): diagnosis (МКБ-10 + полный текст), errors[] (список допущенных ошибок), correctAlgorithm (markdown с протоколом), preventability ('full' | 'conditional' | 'none').",
-    "  • reflection (для BEST_PRACTICE/MANAGEMENT): keyInsights[] (что нового/правильного), correctDecisions[] (правильные решения), lessonsLearned (markdown).",
+    "- В bodyMarkdown оставь полное «видимое» тело кейса: жалобы, анамнез, течение, исход, лабораторные показатели, картинки/таблицы (как markdown). НЕ включай туда блок «ОТВЕТ» / «РАЗБОР» / «ПРАВИЛЬНЫЙ ДИАГНОЗ» / «ЗАДАНИЕ ПО ДАННОМУ КЕЙСУ», если они есть в исходном тексте — это служебные секции, они платформе не нужны.",
     "- name: краткое название кейса. age/gender — null если не указаны (например для эпидемии или менеджмента).",
     "- specialty: специальность (например «Акушерство-гинекология»).",
     "- tags: 3–6 коротких тегов из текста.",
@@ -46,7 +39,7 @@ export async function structureCaseFromMarkdown(
   ].filter(Boolean) as string[];
 
   return runChat(structuredCaseDraftSchema, [
-    { role: "system", content: SYSTEM_PROMPT(input.mode) },
+    { role: "system", content: SYSTEM_PROMPT() },
     { role: "user", content: userParts.join("\n\n") },
   ], {
     schemaName: "structured_case_draft",
