@@ -11,7 +11,6 @@ enum Role {
   ADMIN
   DOCTOR
   REVIEWER
-  PATIENT
 }
 
 enum CaseMode {
@@ -34,17 +33,13 @@ model User {
   phoneNumber       String?
   workplace         String?
   academicDegree    String?
-  avatar            String?
   profilePhotoUrl   String?
   consentAcceptedAt DateTime?
   approvedAt        DateTime?
-  solvedCaseIds     String[] @default([])
-  unsolvedCaseIds   String[] @default([])
-  medicalRecords    String?
-  patientIds        String[] @default([])
   createdCases      Case[]   @relation("CaseAuthor")
   savedCases        SavedCase[]
   passwordResetTokens PasswordResetToken[]
+  refreshTokens     RefreshToken[]
   reviews           Review[]
   caseSubmissions   CaseSubmission[]            @relation("SubmissionAuthor")
   submissionMessages CaseSubmissionMessage[]    @relation("SubmissionMessageSender")
@@ -73,12 +68,10 @@ model Case {
   teaser              String?
   mode                CaseMode    @default(CLINICAL_QUEST)
   body                Json        @default("{\"blocks\":[]}")
-  solution            Json?
-  taskQuestions       String[]    @default([])
+  embeddingDirty      Boolean     @default(true)
   embedding           Unsupported("vector(1536)")?
   images              CaseImage[]
   attachments         CaseAttachment[]
-  chatSessions        ChatSession[]
   reviews             Review[]
   savedBy             SavedCase[]
   createdAt           DateTime    @default(now())
@@ -123,24 +116,6 @@ model CaseAttachment {
 
   @@index([caseId])
   @@index([uploaderId])
-}
-
-model ChatSession {
-  id          String    @id @default(cuid())
-  userId      String
-  caseId      String
-  case        Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  phase       String    @default("discussing")
-  messages    Json      @default("[]")
-  finalAnswer String?
-  evaluation  Json?
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@unique([userId, caseId])
-  @@index([userId])
-  @@index([caseId])
 }
 
 model NewsItem {
@@ -244,4 +219,22 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId     String
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  rotatedToId  String?
+  replacedAt   DateTime?
+  revokedAt    DateTime?
+  revokeReason String?
+  deviceLabel  String?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
 }
