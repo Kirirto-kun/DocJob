@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
-import { CaseMode as PrismaCaseMode, Prisma, Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@docjob/db';
 import { getPublicNewsItems } from '@/lib/news';
@@ -27,13 +27,9 @@ import {
 } from '@/ai/flows/structure-case-from-markdown';
 import { embedText, toVectorLiteral, upsertCaseEmbedding } from '@/lib/embeddings';
 import { runChat } from '@/ai/runChat';
-import {
-  CASE_MODES,
-  EMPTY_BODY,
-  caseBodySchema,
-  type CaseBody,
-  type CaseMode,
-} from '@/lib/case-schema';
+import { type CaseMode } from '@/lib/case-schema';
+import * as core from '@docjob/core';
+import { getActor, toActionResult } from '@/lib/action-helpers';
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -274,367 +270,115 @@ export async function deleteUser(userId: string): Promise<ActionResult<{ id: str
 }
 
 // ───────────────────────── Cases
+//
+// Pure domain logic (validation, auth rules, Prisma calls) lives in
+// @docjob/core's case.service — these are thin transport wrappers: resolve
+// the actor, call core, translate thrown DomainErrors back into
+// ActionResult, and run the Next.js-specific side effects (revalidatePath,
+// the fire-and-forget embedding upsert, attachment-file deletion) that
+// can't live in a transport-agnostic package.
 
-const caseModeEnumSchema = z.enum(CASE_MODES);
-
-const caseInputSchema = z.object({
-  name: z.string().min(1),
-  age: z.coerce.number().int().optional().nullable(),
-  gender: z.string().optional().nullable(),
-  primaryCondition: z.string().optional().nullable(),
-  history: z.string().optional().nullable(),
-  scenarioDescription: z.string().optional().nullable(),
-  learningObjectives: z.array(z.string()).optional(),
-  comorbidities: z.string().optional().nullable(),
-  subgroup: z.string().optional().nullable(),
-  specialty: z.string().optional().nullable(),
-  tags: z.array(z.string()).optional(),
-  teaser: z.string().optional().nullable(),
-  mode: caseModeEnumSchema.optional(),
-  body: caseBodySchema.optional(),
-  imageIds: z.array(z.string()).optional(),
-  imageFilenames: z.array(z.object({ filename: z.string(), mimeType: z.string() })).optional(),
-  attachmentIds: z.array(z.string()).optional(),
-});
-
-export type CaseInput = z.infer<typeof caseInputSchema>;
+export type CaseInput = core.cases.CreateCaseInput;
 
 export async function createCase(input: CaseInput): Promise<ActionResult<SerializedCase>> {
-  let author;
   try {
-    author = await requireAdmin();
-  } catch {
-    return fail('Создавать кейсы может только администратор.');
+    const actor = await getActor();
+    const data = await core.cases.createCase(actor, input);
+    revalidatePath('/');
+    revalidatePath('/cases/[subgroup]', 'page');
+    // Fire-and-forget: never block or break case creation on embedding.
+    void upsertCaseEmbedding(data.id).catch(() => {});
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-
-  const parsed = caseInputSchema.safeParse(input);
-  if (!parsed.success) return fail('Проверьте правильность заполнения формы кейса.');
-  const data = parsed.data;
-  const mode = (data.mode ?? 'CLINICAL_QUEST') as CaseMode;
-
-  const created = await prisma.case.create({
-    data: {
-      authorId: author.id,
-      name: data.name,
-      age: data.age ?? null,
-      gender: data.gender ?? null,
-      primaryCondition: data.primaryCondition ?? null,
-      history: data.history ?? null,
-      scenarioDescription: data.scenarioDescription ?? null,
-      learningObjectives: data.learningObjectives ?? [],
-      comorbidities: data.comorbidities ?? null,
-      subgroup: data.subgroup ?? null,
-      specialty: data.specialty ?? null,
-      tags: data.tags ?? [],
-      teaser: data.teaser ?? null,
-      mode: mode as PrismaCaseMode,
-      body: (data.body ?? EMPTY_BODY) as Prisma.InputJsonValue,
-      images: data.imageFilenames && data.imageFilenames.length
-        ? {
-            create: data.imageFilenames.map((img, order) => ({
-              filename: img.filename,
-              mimeType: img.mimeType,
-              order,
-            })),
-          }
-        : undefined,
-    },
-    include: { images: true, attachments: true },
-  });
-
-  if (data.attachmentIds && data.attachmentIds.length) {
-    await prisma.caseAttachment.updateMany({
-      where: { id: { in: data.attachmentIds }, caseId: null },
-      data: { caseId: created.id },
-    });
-  }
-
-  const refreshed = await prisma.case.findUnique({
-    where: { id: created.id },
-    include: { images: true, attachments: { orderBy: { createdAt: 'asc' } } },
-  });
-
-  revalidatePath('/');
-  revalidatePath('/cases/[subgroup]', 'page');
-  // Fire-and-forget: never block or break case creation on embedding.
-  void upsertCaseEmbedding(created.id).catch(() => {});
-  return ok(serializeCase(refreshed!));
 }
 
-const updateCaseSchema = caseInputSchema.partial().extend({ id: z.string() });
-
-export async function updateCase(input: z.infer<typeof updateCaseSchema>): Promise<ActionResult<SerializedCase>> {
+export async function updateCase(input: core.cases.UpdateCaseInput): Promise<ActionResult<SerializedCase>> {
   try {
-    await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.cases.updateCase(actor, input);
+    revalidatePath('/');
+    revalidatePath(`/cases/${data.subgroup ?? ''}/${data.id}`);
+    // Fire-and-forget: re-embed on edit without blocking the update.
+    void upsertCaseEmbedding(data.id).catch(() => {});
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-
-  const parsed = updateCaseSchema.safeParse(input);
-  if (!parsed.success) return fail('Некорректные данные кейса.');
-  const {
-    id,
-    imageFilenames,
-    imageIds: _discardImageIds,
-    attachmentIds,
-    body,
-    mode,
-    ...rest
-  } = parsed.data;
-
-  const updateData: Prisma.CaseUpdateInput = { ...(rest as Prisma.CaseUpdateInput) };
-  if (mode) updateData.mode = mode as PrismaCaseMode;
-  if (body) updateData.body = body as Prisma.InputJsonValue;
-
-  const updated = await prisma.case.update({
-    where: { id },
-    data: {
-      ...updateData,
-      ...(imageFilenames
-        ? {
-            images: {
-              deleteMany: {},
-              create: imageFilenames.map((img, order) => ({
-                filename: img.filename,
-                mimeType: img.mimeType,
-                order,
-              })),
-            },
-          }
-        : {}),
-    },
-    include: { images: true, attachments: { orderBy: { createdAt: 'asc' } } },
-  });
-
-  if (attachmentIds && attachmentIds.length) {
-    await prisma.caseAttachment.updateMany({
-      where: { id: { in: attachmentIds }, caseId: null },
-      data: { caseId: id },
-    });
-  }
-
-  revalidatePath('/');
-  revalidatePath(`/cases/${updated.subgroup ?? ''}/${id}`);
-  // Fire-and-forget: re-embed on edit without blocking the update.
-  void upsertCaseEmbedding(updated.id).catch(() => {});
-  return ok(serializeCase(updated));
 }
 
 export async function deleteCase(id: string): Promise<ActionResult<{ id: string }>> {
   try {
-    await requireAdmin();
-  } catch {
-    return fail('Удалять кейсы может только администратор.');
+    const actor = await getActor();
+    const data = await core.cases.deleteCase(actor, id);
+    revalidatePath('/');
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  await prisma.case.delete({ where: { id } });
-  revalidatePath('/');
-  return ok({ id });
 }
 
 export async function getCases(filters?: { subgroup?: string; specialty?: string }): Promise<ActionResult<SerializedCase[]>> {
   try {
-    await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.cases.listCases(actor, filters);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const where: Prisma.CaseWhereInput = {};
-  if (filters?.subgroup) where.subgroup = filters.subgroup;
-  if (filters?.specialty) where.specialty = filters.specialty;
-  const cases = await prisma.case.findMany({
-    where,
-    include: {
-      images: { orderBy: { order: 'asc' } },
-      attachments: { orderBy: { createdAt: 'asc' } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-  return ok(cases.map(serializeCase));
 }
 
 // ───────────────────────── Paginated cases listing (admin catalog / search)
 
-export type SerializedCaseListItem = {
-  id: string;
-  authorId: string;
-  name: string;
-  primaryCondition: string | null;
-  subgroup: string | null;
-  specialty: string | null;
-  tags: string[];
-  teaser: string | null;
-  mode: CaseMode;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type CasesPage = {
-  items: SerializedCaseListItem[];
-  total: number;
-  page: number;
-  pageSize: number;
-  pageCount: number;
-};
-
-const getCasesPagedSchema = z.object({
-  subgroup: z.string().optional(),
-  specialty: z.string().optional(),
-  mode: caseModeEnumSchema.optional(),
-  search: z.string().optional(),
-  page: z.number().int().optional(),
-  pageSize: z.number().int().optional(),
-});
+export type SerializedCaseListItem = core.SerializedCaseListItem;
+export type CasesPage = core.CasesPage;
 
 export async function getCasesPaged(
-  input?: z.infer<typeof getCasesPagedSchema>,
+  input?: core.cases.ListCasesPagedInput,
 ): Promise<ActionResult<CasesPage>> {
   try {
-    await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.cases.listCasesPaged(actor, input);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-
-  const parsed = getCasesPagedSchema.safeParse(input ?? {});
-  if (!parsed.success) return fail('Некорректные параметры запроса.');
-  const { subgroup, specialty, mode, search } = parsed.data;
-
-  const page = Math.max(1, parsed.data.page ?? 1);
-  const pageSize = Math.min(100, Math.max(1, parsed.data.pageSize ?? 20));
-
-  const where: Prisma.CaseWhereInput = {};
-  if (subgroup) where.subgroup = subgroup;
-  if (specialty) where.specialty = specialty;
-  if (mode) where.mode = mode as PrismaCaseMode;
-
-  const trimmedSearch = search?.trim();
-  if (trimmedSearch) {
-    where.OR = [
-      { name: { contains: trimmedSearch, mode: 'insensitive' } },
-      { teaser: { contains: trimmedSearch, mode: 'insensitive' } },
-      { primaryCondition: { contains: trimmedSearch, mode: 'insensitive' } },
-      { tags: { has: trimmedSearch } },
-    ];
-  }
-
-  const [rows, total] = await prisma.$transaction([
-    prisma.case.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      select: {
-        id: true,
-        authorId: true,
-        name: true,
-        primaryCondition: true,
-        subgroup: true,
-        specialty: true,
-        tags: true,
-        teaser: true,
-        mode: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    }),
-    prisma.case.count({ where }),
-  ]);
-
-  const items: SerializedCaseListItem[] = rows.map((row) => ({
-    id: row.id,
-    authorId: row.authorId,
-    name: row.name,
-    primaryCondition: row.primaryCondition,
-    subgroup: row.subgroup,
-    specialty: row.specialty,
-    tags: row.tags,
-    teaser: row.teaser,
-    mode: row.mode as CaseMode,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  }));
-
-  return ok({
-    items,
-    total,
-    page,
-    pageSize,
-    pageCount: Math.max(1, Math.ceil(total / pageSize)),
-  });
 }
 
 export async function getCaseById(id: string): Promise<ActionResult<SerializedCase>> {
   try {
-    await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.cases.getCase(actor, id);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const c = await prisma.case.findUnique({
-    where: { id },
-    include: {
-      images: { orderBy: { order: 'asc' } },
-      attachments: { orderBy: { createdAt: 'asc' } },
-    },
-  });
-  if (!c) return fail('Кейс не найден.');
-  return ok(serializeCase(c));
 }
 
 // ───────────────────────── Case attachments (admin)
 
-const updateAttachmentSchema = z.object({
-  id: z.string(),
-  title: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-  order: z.number().int().optional(),
-});
-
 export async function updateCaseAttachment(
-  input: z.infer<typeof updateAttachmentSchema>,
+  input: core.cases.UpdateCaseAttachmentInput,
 ): Promise<ActionResult<SerializedCaseAttachment>> {
   try {
-    await requireAdmin();
-  } catch {
-    return fail('Редактировать вложения может только администратор.');
+    const actor = await getActor();
+    const data = await core.cases.updateCaseAttachment(actor, input);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const parsed = updateAttachmentSchema.safeParse(input);
-  if (!parsed.success) return fail('Некорректные данные вложения.');
-
-  const data: Prisma.CaseAttachmentUpdateInput = {};
-  if (parsed.data.title !== undefined) data.title = parsed.data.title?.trim() || null;
-  if (parsed.data.description !== undefined) data.description = parsed.data.description?.trim() || null;
-  if (parsed.data.order !== undefined) data.order = parsed.data.order;
-
-  const updated = await prisma.caseAttachment.update({
-    where: { id: parsed.data.id },
-    data,
-  });
-
-  return ok({
-    id: updated.id,
-    filename: updated.filename,
-    originalName: updated.originalName,
-    title: updated.title,
-    description: updated.description,
-    mimeType: updated.mimeType,
-    size: updated.size,
-    kind: updated.kind,
-    order: updated.order,
-    url: `/api/attachments/${updated.filename}`,
-    createdAt: updated.createdAt.toISOString(),
-  });
 }
 
 export async function deleteCaseAttachment(id: string): Promise<ActionResult<{ id: string }>> {
   try {
-    await requireAdmin();
-  } catch {
-    return fail('Удалять вложения может только администратор.');
+    const actor = await getActor();
+    const data = await core.cases.deleteCaseAttachment(actor, id);
+    await deleteAttachmentFile(data.filename);
+    return ok({ id: data.id });
+  } catch (e) {
+    return toActionResult(e);
   }
-  const existing = await prisma.caseAttachment.findUnique({ where: { id } });
-  if (!existing) return fail('Вложение не найдено.');
-
-  await prisma.caseAttachment.delete({ where: { id } });
-  await deleteAttachmentFile(existing.filename);
-  return ok({ id });
 }
 
 // ───────────────────────── Markdown structuring (admin)
@@ -1098,53 +842,16 @@ export type SerializedUser = {
   createdAt: string;
 };
 
-export type SerializedCaseImage = {
-  id: string;
-  filename: string;
-  mimeType: string;
-  order: number;
-  url: string;
-};
-
-export type SerializedCaseAttachment = {
-  id: string;
-  filename: string;
-  originalName: string | null;
-  title: string | null;
-  description: string | null;
-  mimeType: string;
-  size: number;
-  kind: string;
-  order: number;
-  url: string;
-  createdAt: string;
-};
-
-export type SerializedCase = {
-  id: string;
-  authorId: string;
-  name: string;
-  age: number | null;
-  gender: string | null;
-  primaryCondition: string | null;
-  history: string | null;
-  scenarioDescription: string | null;
-  learningObjectives: string[];
-  comorbidities: string | null;
-  subgroup: string | null;
-  specialty: string | null;
-  tags: string[];
-  teaser: string | null;
-  mode: CaseMode;
-  body: CaseBody;
-  images: SerializedCaseImage[];
-  attachments: SerializedCaseAttachment[];
-  createdAt: string;
-  updatedAt: string;
-};
+// Case-shaped serialized types + serializeCase itself now live in
+// @docjob/core (packages/core/src/cases/case.mapper.ts). Re-exported here so
+// every existing `import type { SerializedCase } from '@/app/actions'` (and
+// friends) across the web app keeps working unchanged.
+export type SerializedCaseImage = core.SerializedCaseImage;
+export type SerializedCaseAttachment = core.SerializedCaseAttachment;
+export type SerializedCase = core.SerializedCase;
+const { serializeCase } = core;
 
 type PrismaUser = Awaited<ReturnType<typeof prisma.user.findFirst>>;
-type PrismaCaseFull = Prisma.CaseGetPayload<{ include: { images: true; attachments: true } }>;
 
 function serializeUser(u: NonNullable<PrismaUser>): SerializedUser {
   return {
@@ -1163,52 +870,6 @@ function serializeUser(u: NonNullable<PrismaUser>): SerializedUser {
     consentAcceptedAt: u.consentAcceptedAt ? u.consentAcceptedAt.toISOString() : null,
     approvedAt: u.approvedAt ? u.approvedAt.toISOString() : null,
     createdAt: u.createdAt.toISOString(),
-  };
-}
-
-function serializeCase(c: PrismaCaseFull): SerializedCase {
-  const bodyParse = caseBodySchema.safeParse(c.body);
-  const body: CaseBody = bodyParse.success ? bodyParse.data : EMPTY_BODY;
-
-  return {
-    id: c.id,
-    authorId: c.authorId,
-    name: c.name,
-    age: c.age,
-    gender: c.gender,
-    primaryCondition: c.primaryCondition,
-    history: c.history,
-    scenarioDescription: c.scenarioDescription,
-    learningObjectives: c.learningObjectives,
-    comorbidities: c.comorbidities,
-    subgroup: c.subgroup,
-    specialty: c.specialty,
-    tags: c.tags,
-    teaser: c.teaser,
-    mode: c.mode as CaseMode,
-    body,
-    images: c.images.map((i) => ({
-      id: i.id,
-      filename: i.filename,
-      mimeType: i.mimeType,
-      order: i.order,
-      url: `/api/images/${i.filename}`,
-    })),
-    attachments: c.attachments.map((a) => ({
-      id: a.id,
-      filename: a.filename,
-      originalName: a.originalName,
-      title: a.title,
-      description: a.description,
-      mimeType: a.mimeType,
-      size: a.size,
-      kind: a.kind,
-      order: a.order,
-      url: `/api/attachments/${a.filename}`,
-      createdAt: a.createdAt.toISOString(),
-    })),
-    createdAt: c.createdAt.toISOString(),
-    updatedAt: c.updatedAt.toISOString(),
   };
 }
 
