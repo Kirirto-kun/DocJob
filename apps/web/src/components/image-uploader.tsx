@@ -5,6 +5,7 @@ import { Upload, Loader2, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { authFetch } from '@/lib/auth-client';
 
 export type UploadedImage = {
   filename: string;
@@ -55,7 +56,7 @@ export function ImageUploader({
       formData.append('file', file);
 
       try {
-        const res = await fetch('/api/images/upload', {
+        const res = await authFetch('/api/images/upload', {
           method: 'POST',
           body: formData,
         });

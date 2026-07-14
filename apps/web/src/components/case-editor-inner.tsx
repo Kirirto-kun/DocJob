@@ -9,6 +9,7 @@ import { ru } from '@blocknote/core/locales';
 import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/mantine';
 
+import { authFetch } from '@/lib/auth-client';
 import type { CaseBody } from '@/lib/case-schema';
 import { cn } from '@/lib/utils';
 
@@ -21,7 +22,7 @@ export type CaseEditorInnerProps = {
 async function uploadAttachment(file: File): Promise<string> {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await fetch('/api/attachments/upload', {
+  const response = await authFetch('/api/attachments/upload', {
     method: 'POST',
     body: formData,
   });

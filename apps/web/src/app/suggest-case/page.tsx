@@ -37,6 +37,7 @@ import {
   type SerializedCaseSubmission,
   type SerializedSubmissionAttachment,
 } from '@/app/actions';
+import { authFetch } from '@/lib/auth-client';
 import { SUBGROUPS, subgroupLabel } from '@/lib/case-taxonomy';
 import { cn } from '@/lib/utils';
 
@@ -229,7 +230,7 @@ function NewSubmissionForm({
       for (const file of Array.from(files)) {
         const fd = new FormData();
         fd.append('file', file);
-        const res = await fetch('/api/attachments/upload', { method: 'POST', body: fd });
+        const res = await authFetch('/api/attachments/upload', { method: 'POST', body: fd });
         if (!res.ok) {
           onError(`${file.name}: ${res.status}`);
           continue;
@@ -453,7 +454,7 @@ function ThreadView({
     for (const file of Array.from(files)) {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch('/api/attachments/upload', { method: 'POST', body: fd });
+      const res = await authFetch('/api/attachments/upload', { method: 'POST', body: fd });
       if (!res.ok) {
         onError(`${file.name}: ${res.status}`);
         continue;

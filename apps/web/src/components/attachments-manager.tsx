@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { deleteCaseAttachment, updateCaseAttachment } from '@/app/actions';
+import { authFetch } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 
 export type ManagedAttachment = {
@@ -60,7 +61,7 @@ export function AttachmentsManager({ attachments, onChange, className }: Attachm
         try {
           const fd = new FormData();
           fd.append('file', file);
-          const res = await fetch('/api/attachments/upload', { method: 'POST', body: fd });
+          const res = await authFetch('/api/attachments/upload', { method: 'POST', body: fd });
           if (!res.ok) {
             const err = (await res.json().catch(() => null)) as { error?: string } | null;
             throw new Error(err?.error ?? `Не удалось загрузить ${file.name}`);

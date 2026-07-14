@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { authFetch } from '@/lib/auth-client';
 import {
   createAnnouncement,
   updateAnnouncement,
@@ -58,7 +59,7 @@ export function AnnouncementEditor({ mode, initial }: Props) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('/api/images/upload', { method: 'POST', body: formData });
+      const res = await authFetch('/api/images/upload', { method: 'POST', body: formData });
       if (!res.ok) throw new Error('upload failed');
       const data = await res.json();
       setImageUrl(data.url);

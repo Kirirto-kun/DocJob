@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
+import { authFetch } from '@/lib/auth-client';
 import {
   BANNER_SLOT_SPECS,
   type BannerInfo,
@@ -48,7 +49,7 @@ export default function AdminBannersPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/banners')
+    authFetch('/api/banners')
       .then((r) => r.json())
       .then((data: BannerManifest) => {
         if (!cancelled) setManifest(data);
@@ -148,7 +149,7 @@ function BannerSlotCard({ slot, info, loading, onChange }: BannerSlotCardProps) 
       fd.append('slot', String(slot));
       fd.append('file', file);
       if (linkDraft.trim()) fd.append('linkUrl', linkDraft.trim());
-      const res = await fetch('/api/banners', { method: 'POST', body: fd });
+      const res = await authFetch('/api/banners', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? t('toast.uploadFailedFallback'));
       onChange(data.manifest as BannerManifest);
@@ -169,7 +170,7 @@ function BannerSlotCard({ slot, info, loading, onChange }: BannerSlotCardProps) 
     if (!info) return;
     setBusy(true);
     try {
-      const res = await fetch('/api/banners', {
+      const res = await authFetch('/api/banners', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ slot, linkUrl: linkDraft.trim() || null }),
@@ -192,7 +193,7 @@ function BannerSlotCard({ slot, info, loading, onChange }: BannerSlotCardProps) 
   const clearBanner = async () => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/banners?slot=${slot}`, { method: 'DELETE' });
+      const res = await authFetch(`/api/banners?slot=${slot}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? t('toast.errorFallback'));
       onChange(data.manifest as BannerManifest);

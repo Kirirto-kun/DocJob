@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { authFetch } from '@/lib/auth-client';
 import { File as FileIcon, Loader2, Mail, Paperclip, X } from 'lucide-react';
 
 type UploadedFile = {
@@ -75,7 +76,7 @@ export default function SupportPage() {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch('/api/support/upload', { method: 'POST', body: fd });
+      const res = await authFetch('/api/support/upload', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? 'Upload failed');
       setUploadedFiles((prev) => [

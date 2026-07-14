@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore, type UserRole } from '@/hooks/use-user-store';
 import { getMyReviews, getSavedCaseIds } from '@/app/actions';
+import { authFetch } from '@/lib/auth-client';
 
 export default function ProfilePage() {
   const { currentUser, isInitialized, updateUser } = useUserStore();
@@ -92,7 +93,7 @@ export default function ProfilePage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('/api/images/upload', {
+      const res = await authFetch('/api/images/upload', {
         method: 'POST',
         body: formData,
       });
