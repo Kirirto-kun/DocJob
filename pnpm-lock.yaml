@@ -26,6 +26,9 @@ importers:
       '@dataconnect/generated':
         specifier: file:src/dataconnect-generated
         version: file:apps/web/src/dataconnect-generated(@tanstack-query-firebase/react@2.1.1(@tanstack/react-query@5.101.2(react@18.3.1))(firebase@11.10.0))(firebase@11.10.0)
+      '@docjob/api':
+        specifier: workspace:*
+        version: link:../../packages/api
       '@docjob/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -116,6 +119,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.1.8
         version: 1.2.12(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@trpc/server':
+        specifier: ^11.0.0
+        version: 11.18.0(typescript@5.9.3)
       '@vercel/analytics':
         specifier: ^1.5.0
         version: 1.6.1(next@15.3.3(@opentelemetry/api@1.9.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)

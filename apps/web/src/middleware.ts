@@ -73,6 +73,23 @@ export default async function middleware(req: NextRequest) {
     return ensureLocaleCookie(req, NextResponse.next());
   }
 
+  // `/api/trpc/*` (SP-1d, see packages/api) is deliberately NOT added to
+  // `isPublic` above: every procedure that needs a caller still requires
+  // one. But unauthenticated tRPC calls must reach the tRPC handler itself
+  // so it replies with its own typed `UNAUTHORIZED` error — the JSON shape
+  // an `@trpc/client` caller parses — rather than this middleware's generic
+  // `{error:'Unauthorized'}` 401 (fine for the REST-style routes below, but
+  // not what a tRPC client expects) or, for a page navigation, a redirect to
+  // `/login`. `protectedProcedure`/`reviewerProcedure`/`adminProcedure` (see
+  // packages/api/src/trpc.ts) do the actual gating per procedure from
+  // `ctx.actor`, which `createContext` resolves independently of this
+  // middleware's own (Edge-only, access-cookie-only) `isAuthenticated`
+  // check — so this bypass only skips the middleware-level short-circuit,
+  // never auth itself.
+  if (pathname.startsWith('/api/trpc/')) {
+    return ensureLocaleCookie(req, NextResponse.next());
+  }
+
   if (!authenticated) {
     // API callers get a 401 they can act on programmatically; page
     // navigations get redirected to the login form with a callbackUrl.
