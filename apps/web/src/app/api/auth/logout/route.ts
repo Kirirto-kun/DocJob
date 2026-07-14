@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   const csrfFailure = assertSameOrigin(req);
   if (csrfFailure) return csrfFailure;
 
-  const raw = getRefreshToken(req);
+  const raw = getRefreshToken(req.cookies);
   if (raw) {
     // Plain lookup by hash (not `rotateRefresh` — logout must not mint a
     // new token, just kill the family the presented one belongs to).

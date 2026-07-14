@@ -8,7 +8,7 @@
  * functions each open/commit their own Prisma calls.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import bcrypt from 'bcryptjs';
+import { verifyPassword } from '@docjob/auth';
 import { prisma } from '@docjob/db';
 import { ForbiddenError, UnauthorizedError } from '../shared/errors';
 import type { Actor } from '../shared/actor';
@@ -42,7 +42,7 @@ describe('user.service (integration, real Postgres)', () => {
     await prisma.user.delete({ where: { id: adminUserId } });
   });
 
-  it('registerUser creates an unapproved user (approvedAt=null) with a bcrypt-hashed password', async () => {
+  it('registerUser creates an unapproved user (approvedAt=null) with an argon2id-hashed password', async () => {
     const email = `core-register-${Date.now()}@test.local`;
     const { id } = await userService.registerUser({
       email,
@@ -56,9 +56,11 @@ describe('user.service (integration, real Postgres)', () => {
     expect(row!.email).toBe(email.toLowerCase());
     expect(row!.approvedAt).toBeNull();
     expect(row!.role).toBe('DOCTOR');
-    // Password is hashed, never stored in plaintext, and verifies via bcrypt.
+    // Password is hashed (argon2id, via @docjob/auth's hashPassword), never
+    // stored in plaintext.
     expect(row!.passwordHash).not.toBe('secret123');
-    expect(await bcrypt.compare('secret123', row!.passwordHash)).toBe(true);
+    expect(row!.passwordHash.startsWith('$argon2id$')).toBe(true);
+    expect(await verifyPassword(row!.passwordHash, 'secret123')).toBe(true);
   });
 
   it('registerUser rejects a duplicate email (ConflictError → Russian message)', async () => {

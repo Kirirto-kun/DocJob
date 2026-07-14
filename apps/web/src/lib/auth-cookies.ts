@@ -1,4 +1,13 @@
-import type { NextRequest, NextResponse } from 'next/server';
+import type { NextResponse } from 'next/server';
+
+/**
+ * The minimal cookie-jar shape `getAccessToken`/`getRefreshToken` need to
+ * read a cookie by name. Both `NextRequest['cookies']` (route handlers,
+ * middleware) and the `ReadonlyRequestCookies` returned by `next/headers`'s
+ * `cookies()` (Server Components/Actions — see `@/lib/session.ts`) satisfy
+ * this shape, so the same two helpers work from either call site.
+ */
+type CookieJar = { get(name: string): { value: string } | undefined };
 
 /** Access-token cookie lifetime: matches the JWT's own ~15m TTL (see packages/auth/src/tokens.ts's DEFAULT_TTL_SECONDS). */
 const ACCESS_COOKIE_MAX_AGE_SECONDS = 15 * 60;
@@ -84,12 +93,12 @@ export function clearAuthCookies(res: NextResponse): void {
   });
 }
 
-/** Reads the access-token cookie off an incoming request, if present. */
-export function getAccessToken(req: NextRequest): string | undefined {
-  return req.cookies.get(accessCookieName())?.value;
+/** Reads the access-token cookie out of any `CookieJar` (request or `next/headers` store), if present. */
+export function getAccessToken(cookies: CookieJar): string | undefined {
+  return cookies.get(accessCookieName())?.value;
 }
 
-/** Reads the refresh-token cookie off an incoming request, if present. */
-export function getRefreshToken(req: NextRequest): string | undefined {
-  return req.cookies.get(refreshCookieName())?.value;
+/** Reads the refresh-token cookie out of any `CookieJar` (request or `next/headers` store), if present. */
+export function getRefreshToken(cookies: CookieJar): string | undefined {
+  return cookies.get(refreshCookieName())?.value;
 }

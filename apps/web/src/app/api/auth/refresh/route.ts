@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   const csrfFailure = assertSameOrigin(req);
   if (csrfFailure) return csrfFailure;
 
-  const raw = getRefreshToken(req);
+  const raw = getRefreshToken(req.cookies);
   if (!raw) {
     const res = NextResponse.json({ error: 'No refresh token' }, { status: 401 });
     clearAuthCookies(res);

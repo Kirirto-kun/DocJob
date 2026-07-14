@@ -16,12 +16,13 @@ import { useToast } from '@/hooks/use-toast';
 import { DocJobLogo } from '@/components/icons';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { Loader2 } from 'lucide-react';
-import { signInWithCredentials } from '@/hooks/use-user-store';
+import { useUserStore } from '@/hooks/use-user-store';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { login } = useUserStore();
   const t = useTranslations('auth.login');
   const [isLoading, setIsLoading] = useState(false);
   const justRegistered = searchParams.get('pending') === '1';
@@ -42,7 +43,7 @@ function LoginForm() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
-    const res = await signInWithCredentials(data.email, data.password);
+    const res = await login(data.email, data.password);
     setIsLoading(false);
 
     if (res.ok) {

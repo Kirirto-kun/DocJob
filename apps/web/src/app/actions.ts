@@ -1,7 +1,6 @@
 'use server';
 
 import { z } from 'zod';
-import bcrypt from 'bcryptjs';
 import { Prisma, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@docjob/db';
@@ -141,23 +140,6 @@ export async function approveUser(userId: string): Promise<ActionResult<{ id: st
   } catch (e) {
     return toActionResult(e);
   }
-}
-
-/**
- * Diagnose why a sign-in failed without itself granting a session.
- * Used by the login form when next-auth's signIn returned an error — the
- * generic NextAuth response can't tell "wrong password" from "account
- * still pending approval", so we look it up explicitly here.
- *
- * Returns:
- *   - 'pending'   — credentials match but admin hasn't approved yet
- *   - 'invalid'   — wrong email or password
- */
-export async function checkLoginIssue(
-  email: string,
-  password: string,
-): Promise<{ status: 'pending' | 'invalid' }> {
-  return core.users.checkLoginIssue(email, password);
 }
 
 export async function rejectUser(userId: string): Promise<ActionResult<{ id: string }>> {

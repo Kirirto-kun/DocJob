@@ -1,7 +1,6 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { useSession, signIn, signOut } from 'next-auth/react';
 import {
   getUsers,
   updateUser as updateUserAction,
@@ -47,9 +46,16 @@ function serializedToUser(s: SerializedUser): User {
   };
 }
 
+export type LoginResult = {
+  ok: boolean;
+  error?: string;
+  reason?: 'pending' | 'invalid' | 'network';
+};
+
 type UserStore = {
   currentUser: User | null;
   updateUser: (user: User) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
   allUsers: User[];
   addUser: (user: User & { password?: string }) => Promise<void>;
@@ -60,7 +66,15 @@ type UserStore = {
 const UserContext = createContext<UserStore | null>(null);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession();
+  // `meUser` mirrors what NextAuth's `session.user` used to carry: just the
+  // identity/role, refreshed from `GET /api/auth/me` on mount (and on
+  // login/logout). `currentUser` below re-derives the richer profile from
+  // `allUsers` once that's loaded, same as the pre-cutover `useMemo` did off
+  // `session` + `allUsers` — this is what makes a self `updateUser` call
+  // show up in `currentUser` immediately (via `refreshUsers`) without a
+  // re-login.
+  const [meUser, setMeUser] = useState<User | null>(null);
+  const [isMeLoaded, setIsMeLoaded] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isUsersLoaded, setIsUsersLoaded] = useState(false);
 
@@ -72,27 +86,41 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setIsUsersLoaded(true);
   }, []);
 
+  const loadMe = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
+      const data = (await res.json()) as { user: SerializedUser | null };
+      setMeUser(data.user ? serializedToUser(data.user) : null);
+    } catch {
+      setMeUser(null);
+    } finally {
+      setIsMeLoaded(true);
+    }
+  }, []);
+
   useEffect(() => {
-    if (status === 'authenticated') {
+    void loadMe();
+  }, [loadMe]);
+
+  useEffect(() => {
+    if (!isMeLoaded) return;
+    if (meUser) {
       void refreshUsers();
-    } else if (status === 'unauthenticated') {
+    } else {
       setAllUsers([]);
       setIsUsersLoaded(true);
     }
-  }, [status, refreshUsers]);
+    // Only re-run when the *identity* changes, not on every meUser object
+    // reference — refreshUsers is stable (useCallback([])) so this only
+    // fires on mount and on login/logout.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMeLoaded, meUser?.id, refreshUsers]);
 
   const currentUser = useMemo<User | null>(() => {
-    if (!session?.user?.id) return null;
-    const found = allUsers.find((u) => u.id === session.user.id);
-    if (found) return found;
-    return {
-      id: session.user.id,
-      name: session.user.name ?? '',
-      email: session.user.email ?? '',
-      specialty: '',
-      role: (session.user.role?.toLowerCase() as UserRole) ?? 'doctor',
-    };
-  }, [session, allUsers]);
+    if (!meUser) return null;
+    const found = allUsers.find((u) => u.id === meUser.id);
+    return found ?? meUser;
+  }, [meUser, allUsers]);
 
   const addUser = useCallback(
     async (user: User & { password?: string }) => {
@@ -131,15 +159,58 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     [refreshUsers]
   );
 
+  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (res.ok) {
+        // `POST /api/auth/login`'s success payload is only `{ id, role,
+        // approvedAt }` (see `packages/auth/src/login.service.ts`'s
+        // `LoginResult` — `@docjob/auth` can't depend on `@docjob/core`'s
+        // richer `SerializedUser`, by the one-way package boundary). Re-fetch
+        // `/api/auth/me` for the authoritative full profile rather than
+        // fabricating one from that minimal shape.
+        await loadMe();
+        return { ok: true };
+      }
+
+      const body = (await res.json().catch(() => ({}))) as {
+        status?: 'pending' | 'invalid' | 'locked';
+        retryAfterSeconds?: number;
+      };
+
+      if (body.status === 'pending') {
+        return { ok: false, error: 'PendingApproval', reason: 'pending' };
+      }
+      if (body.status === 'locked') {
+        const wait = body.retryAfterSeconds ?? 60;
+        return {
+          ok: false,
+          error: `Слишком много попыток входа. Повторите через ${wait} сек.`,
+          reason: 'invalid',
+        };
+      }
+      return { ok: false, error: 'Неверные учётные данные.', reason: 'invalid' };
+    } catch {
+      return { ok: false, error: 'Ошибка сети.', reason: 'network' };
+    }
+  }, [loadMe]);
+
   const logout = useCallback(async () => {
-    await signOut({ redirect: false });
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+    setMeUser(null);
   }, []);
 
-  const isInitialized = status !== 'loading' && (status === 'unauthenticated' || isUsersLoaded);
+  const isInitialized = isMeLoaded && (!meUser || isUsersLoaded);
 
   return (
     <UserContext.Provider
-      value={{ currentUser, updateUser, logout, allUsers, addUser, refreshUsers, isInitialized }}
+      value={{ currentUser, updateUser, login, logout, allUsers, addUser, refreshUsers, isInitialized }}
     >
       {children}
     </UserContext.Provider>
@@ -152,32 +223,4 @@ export function useUserStore() {
     throw new Error('useUserStore must be used within a UserProvider');
   }
   return context;
-}
-
-export async function signInWithCredentials(
-  email: string,
-  password: string,
-): Promise<{ ok: boolean; error?: string; reason?: 'pending' | 'invalid' | 'network' }> {
-  const res = await signIn('credentials', {
-    email,
-    password,
-    redirect: false,
-  });
-  if (!res) return { ok: false, error: 'Ошибка сети.', reason: 'network' };
-  if (res.error) {
-    // NextAuth surfaces "wrong creds" and "pending approval" with the same
-    // generic error code. Disambiguate by looking up the account directly.
-    try {
-      const { checkLoginIssue } = await import('@/app/actions');
-      const diag = await checkLoginIssue(email, password);
-      return {
-        ok: false,
-        error: diag.status === 'pending' ? 'PendingApproval' : 'Неверные учётные данные.',
-        reason: diag.status,
-      };
-    } catch {
-      return { ok: false, error: 'Неверные учётные данные.', reason: 'invalid' };
-    }
-  }
-  return { ok: true };
 }

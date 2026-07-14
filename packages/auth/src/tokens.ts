@@ -1,6 +1,27 @@
-import { randomBytes, createHash } from 'node:crypto';
-import { SignJWT, jwtVerify, decodeProtectedHeader } from 'jose';
+// Deliberately importing jose's granular JWS-only subpaths (`jose/jwt/sign`,
+// `jose/jwt/verify`, `jose/decode/protected_header`) instead of the `jose`
+// barrel. The barrel's index also re-exports the JWE (encryption) code path,
+// whose deflate support (`jose/dist/webapi/lib/deflate.js`) references
+// `CompressionStream`/`DecompressionStream` — APIs Next.js's Edge Runtime
+// build flags as unsupported. This app only ever signs/verifies (JWS), never
+// encrypts, so the granular imports avoid dragging that unused code (and the
+// build warning it causes) into `apps/web/src/middleware.ts`'s Edge bundle.
+import { SignJWT } from 'jose/jwt/sign';
+import { jwtVerify } from 'jose/jwt/verify';
+import { decodeProtectedHeader } from 'jose/decode/protected_header';
 import type { Role } from '@docjob/db';
+
+// Also deliberately NOT importing `node:crypto` (or anything else Node-only)
+// in this file: `signAccessToken`/`verifyAccessToken` below must stay
+// Edge-safe, because `apps/web/src/middleware.ts` imports `verifyAccessToken`
+// straight from the `@docjob/auth/tokens` subpath (never the package's `.`
+// barrel — that barrel also re-exports `login.service.ts` and
+// `refresh.service.ts`, which pull in Prisma and the native
+// `@node-rs/argon2` binding, neither of which can be bundled for the Edge
+// runtime). The opaque-refresh-token helpers that DO need `node:crypto`
+// (`generateRefreshToken`/`hashRefreshToken`) live in
+// `refresh-token-crypto.ts` instead, specifically so importing them here
+// couldn't accidentally drag `node:crypto` into this Edge-safe module.
 
 /** Default access-token lifetime: 15 minutes. */
 const DEFAULT_TTL_SECONDS = 900;
@@ -80,17 +101,5 @@ export async function verifyAccessToken(token: string, keys: SigningKey[]): Prom
   return null;
 }
 
-/**
- * A fresh, high-entropy opaque refresh token (32 bytes, base64url-encoded) —
- * the raw value handed to the client. Mirrors `generateResetToken` in
- * @docjob/core's password-reset-tokens.ts, but base64url (more compact in a
- * cookie) rather than hex.
- */
-export function generateRefreshToken(): string {
-  return randomBytes(32).toString('base64url');
-}
-
-/** SHA-256 hex digest of the raw refresh token. Only this hash is stored. */
-export function hashRefreshToken(raw: string): string {
-  return createHash('sha256').update(raw).digest('hex');
-}
+// `generateRefreshToken`/`hashRefreshToken` moved to `refresh-token-crypto.ts`
+// (node:crypto-based) — see the file-header comment above for why.

@@ -2,12 +2,13 @@ import { DomainError, type Actor } from '@docjob/core';
 import { getCurrentUser } from '@/lib/session';
 
 /**
- * Resolve the current NextAuth session into the transport-agnostic `Actor`
- * shape `@docjob/core` domain services expect.
+ * Resolve the current `@docjob/auth` JWT session into the transport-agnostic
+ * `Actor` shape `@docjob/core` domain services expect.
  *
- * `getCurrentUser()` (from `@/lib/session`) already does a single
- * `prisma.user.findUnique` and returns the full `User` row — including
- * `approvedAt` — so no extra DB query is needed here.
+ * `getCurrentUser()` (from `@/lib/session`) already verifies the access
+ * cookie and does a single `prisma.user.findUnique` — re-reading `role`/
+ * `approvedAt` from Postgres rather than trusting the JWT's own claims — and
+ * returns the full `User` row, so no extra DB query is needed here.
  */
 export async function getActor(): Promise<Actor | null> {
   const user = await getCurrentUser();

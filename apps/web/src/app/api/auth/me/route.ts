@@ -11,7 +11,7 @@ import { verificationKeys } from '@/lib/auth-keys';
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
-  const token = getAccessToken(req);
+  const token = getAccessToken(req.cookies);
   if (!token) {
     return NextResponse.json({ user: null });
   }

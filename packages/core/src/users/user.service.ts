@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '@docjob/auth';
 import { prisma, Prisma, Role } from '@docjob/db';
 import { assertAdmin, assertApproved, type Actor } from '../shared/actor';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../shared/errors';
@@ -69,7 +69,7 @@ export async function registerUser(input: RegisterUserInput): Promise<{ id: stri
   const existing = await prisma.user.findUnique({ where: { email: data.email.toLowerCase() } });
   if (existing) throw new ConflictError('Пользователь с такой почтой уже существует.');
 
-  const passwordHash = await bcrypt.hash(data.password, 10);
+  const passwordHash = await hashPassword(data.password);
 
   const created = await prisma.user.create({
     data: {
@@ -180,41 +180,17 @@ export async function deleteUser(actor: Actor | null, userId: string): Promise<{
   return { id: userId };
 }
 
-// ───────────────────────── Login diagnostics
-//
-// Kept as a thin, unauthenticated lookup for now — SP-1c folds this into a
-// reworked login flow. Preserves the exact response shape/logic of the
-// original `checkLoginIssue` server action.
-
-/**
- * Diagnose why a sign-in failed without itself granting a session. Used by
- * the login form when next-auth's signIn returned an error — the generic
- * NextAuth response can't tell "wrong password" from "account still
- * pending approval", so this looks it up explicitly.
- *
- * Returns:
- *   - 'pending'   — credentials match but admin hasn't approved yet
- *   - 'invalid'   — wrong email or password
- */
-export async function checkLoginIssue(
-  email: string,
-  password: string,
-): Promise<{ status: 'pending' | 'invalid' }> {
-  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-  if (!user) return { status: 'invalid' };
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) return { status: 'invalid' };
-  if (!user.approvedAt) return { status: 'pending' };
-  return { status: 'invalid' };
-}
-
 // ───────────────────────── Password reset
 //
-// `bcrypt` hashing stays as-is here (argon2id migration is SP-1c — out of
-// scope for this extraction). Email sending is a transport/infra concern
-// (uses the `resend` package + env vars) and stays in the web wrapper;
-// these functions only do the DB/token bookkeeping and hand back what the
-// wrapper needs to build and send the email.
+// SP-1c folded the login-diagnostics oracle (`checkLoginIssue`) into
+// `@docjob/auth`'s `login()` — see `packages/auth/src/login.service.ts`'s
+// doc comment for why (it was a pre-auth, unauthenticated oracle that leaked
+// "pending vs invalid" without gating on a successful password check).
+// Password hashing here now goes through `@docjob/auth`'s `hashPassword`
+// (argon2id) rather than bcrypt directly. Email sending is a
+// transport/infra concern (uses the `resend` package + env vars) and stays
+// in the web wrapper; these functions only do the DB/token bookkeeping and
+// hand back what the wrapper needs to build and send the email.
 
 export type PasswordResetIssued = { userId: string; to: string; rawToken: string };
 
@@ -285,7 +261,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
     throw new ValidationError('Ссылка устарела или недействительна. Запросите восстановление заново.');
   }
 
-  const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  const passwordHash = await hashPassword(parsed.data.newPassword);
   await prisma.$transaction([
     prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
     prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: now } }),

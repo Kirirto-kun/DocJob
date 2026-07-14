@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@docjob/db';
-import { generateRefreshToken, hashRefreshToken } from './tokens';
+import { generateRefreshToken, hashRefreshToken } from './refresh-token-crypto';
 
 /** Refresh-token family lifetime: 60 days. */
 const REFRESH_TTL_MS = 60 * 24 * 60 * 60 * 1000;

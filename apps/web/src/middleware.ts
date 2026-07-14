@@ -1,10 +1,15 @@
-import NextAuth from 'next-auth';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { authConfig } from '@/lib/auth.config';
+// Edge-safe subpath: `verifyAccessToken` (jose-only) — NEVER import the
+// `@docjob/auth` barrel here. That barrel also re-exports `login.service.ts`
+// / `refresh.service.ts`, which pull in Prisma and the native
+// `@node-rs/argon2` binding, neither of which can be bundled for the Edge
+// runtime this middleware compiles to. See `packages/auth/src/tokens.ts`'s
+// file-header comment.
+import { verifyAccessToken } from '@docjob/auth/tokens';
+import { getAccessToken } from '@/lib/auth-cookies';
+import { verificationKeys } from '@/lib/auth-keys';
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale } from '@/i18n/config';
-
-const { auth: edgeAuth } = NextAuth(authConfig);
 
 const PUBLIC_PATHS = ['/login', '/register', '/landing', '/news', '/forgot-password', '/reset-password'];
 const PUBLIC_ASSET_FILE = /\.(?:avif|gif|jpg|jpeg|png|svg|webp)$/i;
@@ -37,25 +42,49 @@ function ensureLocaleCookie(req: NextRequest, res: NextResponse): NextResponse {
   return res;
 }
 
-export default edgeAuth((req: NextRequest & { auth: unknown }) => {
+/**
+ * Edge-only authentication check: verifies the access-token cookie's
+ * signature/expiry (jose, no DB round trip). Deliberately does NOT consult
+ * the refresh cookie or attempt a rotation here — if the access token is
+ * missing/expired, this always resolves to "unauthenticated" even when a
+ * live refresh token exists. Client-side navigations recover from that via
+ * `@/lib/auth-client.ts`'s single-flight refresh-then-retry interceptor;
+ * doing the refresh (Prisma + a fresh JWT sign) inside middleware itself
+ * would require Node APIs this Edge runtime can't run.
+ */
+async function isAuthenticated(req: NextRequest): Promise<boolean> {
+  const token = getAccessToken(req.cookies);
+  if (!token) return false;
+  const claims = await verifyAccessToken(token, verificationKeys());
+  return claims !== null;
+}
+
+export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const authenticated = await isAuthenticated(req);
 
   // Unauthenticated visitors hitting the bare domain see the landing page,
   // not the login form. Authenticated users continue to the dashboard.
-  if (pathname === '/' && !req.auth) {
+  if (pathname === '/' && !authenticated) {
     return ensureLocaleCookie(req, NextResponse.redirect(new URL('/landing', req.url)));
   }
 
   if (isPublic(pathname)) {
     return ensureLocaleCookie(req, NextResponse.next());
   }
-  if (!req.auth) {
+
+  if (!authenticated) {
+    // API callers get a 401 they can act on programmatically; page
+    // navigations get redirected to the login form with a callbackUrl.
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const loginUrl = new URL('/login', req.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
     return ensureLocaleCookie(req, NextResponse.redirect(loginUrl));
   }
   return ensureLocaleCookie(req, NextResponse.next());
-});
+}
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
