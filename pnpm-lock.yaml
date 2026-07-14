@@ -29,6 +29,9 @@ importers:
       '@dataconnect/generated':
         specifier: file:src/dataconnect-generated
         version: file:apps/web/src/dataconnect-generated(@tanstack-query-firebase/react@2.1.1(@tanstack/react-query@5.101.2(react@18.3.1))(firebase@11.10.0))(firebase@11.10.0)
+      '@docjob/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@docjob/config':
         specifier: workspace:*
         version: link:../../packages/config
