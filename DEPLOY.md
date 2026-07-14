@@ -169,10 +169,14 @@ cat > .env <<EOF
 # --- Postgres ---
 POSTGRES_PASSWORD=$(openssl rand -hex 16)
 
-# --- Auth ---
-NEXTAUTH_SECRET=$(openssl rand -base64 32)
-NEXTAUTH_URL=https://docjob.kz
-AUTH_TRUST_HOST=true
+# --- Auth (custom JWT, @docjob/auth — NextAuth was removed) ---
+AUTH_SECRET=$(openssl rand -base64 32)
+AUTH_URL=https://docjob.kz
+# Optional, only during a secret rotation: set AUTH_SECRET_PREVIOUS to the
+# OLD AUTH_SECRET after rotating AUTH_SECRET to a new value, so access
+# tokens signed with the old secret keep verifying until they expire
+# (~15m) instead of instantly logging everyone out. Remove it afterwards.
+# AUTH_SECRET_PREVIOUS=
 
 # --- OpenAI (рабочий ключ с балансом) ---
 OPENAI_API_KEY=""

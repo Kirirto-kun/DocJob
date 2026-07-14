@@ -26,9 +26,12 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://docjob:${POSTGRES_PASSWORD:-docjob_dev}@postgres:5432/docjob?schema=public
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-me-in-production}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-      AUTH_TRUST_HOST: "true"
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
+      # Optional: previous AUTH_SECRET during a rotation window, so access
+      # tokens signed before the rotation keep verifying until they expire
+      # (~15m). Leave unset outside of an active rotation.
+      AUTH_SECRET_PREVIOUS: ${AUTH_SECRET_PREVIOUS:-}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
       UPLOAD_DIR: /app/storage/uploads
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1}

@@ -837,7 +837,7 @@ export async function searchCases(query: string): Promise<ActionResult<Serialize
 // ───────────────────────── Password reset
 
 function resetBaseUrl(): string {
-  return process.env.NEXTAUTH_URL?.replace(/\/$/, '') ?? 'http://localhost:3000';
+  return process.env.AUTH_URL?.replace(/\/$/, '') ?? 'http://localhost:3000';
 }
 
 /**
