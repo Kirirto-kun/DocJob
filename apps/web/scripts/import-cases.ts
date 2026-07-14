@@ -6,7 +6,7 @@ import {
   type CaseMode as CaseModeLiteral,
 } from '../src/lib/case-schema';
 import type { SubgroupSlug } from '../src/lib/case-taxonomy';
-import { structureCaseFromMarkdown } from '../src/ai/flows/structure-case-from-markdown';
+import * as core from '@docjob/core';
 
 const CASES_DIR = path.resolve(process.cwd(), 'cases');
 const DEFAULT_MODE: CaseModeLiteral = 'CLINICAL_QUEST';
@@ -89,6 +89,7 @@ async function main() {
       console.error('В базе нет пользователя с ролью ADMIN. Сначала запустите npm run db:seed.');
       process.exit(1);
     }
+    const actor: core.Actor = { id: admin.id, role: admin.role, approvedAt: admin.approvedAt };
 
     let imported = 0;
     let skipped = 0;
@@ -111,7 +112,7 @@ async function main() {
       console.log(`[import] ${file}: mode=${hint.mode}, subgroup=${hint.subgroup}`);
 
       try {
-        const draft = await structureCaseFromMarkdown({
+        const draft = await core.cases.structureCaseFromMarkdown(actor, {
           markdown,
           mode: hint.mode,
           hintedSubgroup: hint.subgroup,

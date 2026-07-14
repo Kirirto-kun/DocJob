@@ -350,3 +350,12 @@ export async function deleteCaseAttachment(
   await prisma.caseAttachment.delete({ where: { id } });
   return { id, filename: existing.filename };
 }
+
+// ───────────────────────── Markdown import (admin)
+//
+// Re-exported here (same convention search.service.ts uses for
+// ./search/embeddings) so `core.cases.structureCaseFromMarkdown(...)` works
+// via the single `export * as cases from './cases/case.service'` barrel
+// entry in index.ts, while the implementation itself lives in its own file
+// (case-import.service.ts) per the SP-1b Task 8 brief.
+export { structureCaseFromMarkdown, type StructureCaseInput } from './case-import.service';

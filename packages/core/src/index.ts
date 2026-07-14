@@ -84,3 +84,9 @@ export * as contact from './contact/contact.service';
 // client bundle. See task-7-report.md.
 export * from './banners/banner.service';
 export * as banners from './banners/banner.service';
+
+// Flat: MediaStorage interface + local-disk adapter (SP-1b Task 8 scaffold).
+// Not wired into any action yet — apps/web's `/api/attachments/*` and
+// `/api/images/*` routes keep calling `@/lib/storage` directly. This is the
+// seam future domain services (and an eventual S3 adapter, SP-5) plug into.
+export * from './media/storage';

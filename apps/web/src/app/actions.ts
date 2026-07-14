@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import { Prisma, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@docjob/db';
-import { requireUser, requireAdmin } from '@/lib/session';
+import { requireUser } from '@/lib/session';
 import { analyzeStudentQuestion, AnalyzeStudentQuestionInput } from '@/ai/flows/analyze-student-question';
 import { generatePersonalizedScenario, GeneratePersonalizedScenarioInput } from '@/ai/flows/generate-personalized-scenario';
 import { simulateComorbidities, SimulateComorbiditiesInput } from '@/ai/flows/simulate-comorbidities';
@@ -20,10 +20,6 @@ import {
 } from '@/lib/password-reset-tokens';
 import { sendEmail, buildPasswordResetEmail, buildContactEmail } from '@/lib/email';
 import { SITE_EMAIL } from '@/lib/site';
-import {
-  structureCaseFromMarkdown,
-  structureCaseInputSchema,
-} from '@/ai/flows/structure-case-from-markdown';
 import * as core from '@docjob/core';
 import { getActor, toActionResult } from '@/lib/action-helpers';
 
@@ -308,22 +304,14 @@ export async function deleteCaseAttachment(id: string): Promise<ActionResult<{ i
 // ───────────────────────── Markdown structuring (admin)
 
 export async function handleStructureCaseFromMarkdown(
-  input: z.infer<typeof structureCaseInputSchema>,
+  input: core.cases.StructureCaseInput,
 ) {
   try {
-    await requireAdmin();
-  } catch {
-    return fail('Импорт markdown — только для администратора.');
-  }
-  const parsed = structureCaseInputSchema.safeParse(input);
-  if (!parsed.success) return fail('Слишком короткий markdown для разбора.');
-
-  try {
-    const draft = await structureCaseFromMarkdown(parsed.data);
+    const actor = await getActor();
+    const draft = await core.cases.structureCaseFromMarkdown(actor, input);
     return ok(draft);
-  } catch (error) {
-    console.error('[handleStructureCaseFromMarkdown] error', error);
-    return fail('Не удалось разобрать markdown через OpenAI.');
+  } catch (e) {
+    return toActionResult(e);
   }
 }
 
