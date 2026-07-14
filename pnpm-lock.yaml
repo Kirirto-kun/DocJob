@@ -264,6 +264,9 @@ importers:
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
+      jose:
+        specifier: ^6.2.3
+        version: 6.2.3
       zod:
         specifier: ^3.24.2
         version: 3.25.76
