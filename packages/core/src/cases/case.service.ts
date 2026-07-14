@@ -233,15 +233,15 @@ export async function createCase(actor: Actor | null, input: CreateCaseInput): P
 }
 
 /**
- * Update an existing case. NOTE: preserves the original behavior exactly —
- * this only requires an approved (logged-in) actor, not an admin. That
- * matches the pre-refactor `updateCase` server action, which called
- * `requireUser()` rather than `requireAdmin()`. Not fixed here; flagged in
- * the task report as a pre-existing authorization gap, out of scope for a
- * behavior-preserving refactor.
+ * Update an existing case. Admin only — matches `createCase`. (Previously
+ * only required an approved/logged-in actor, mirroring the pre-refactor
+ * `updateCase` server action's `requireUser()` gate; tightened to
+ * `assertAdmin` as a security-hardening fix since every real caller —
+ * `admin/cases/[id]/edit`, `admin/case-submissions`,
+ * `attachments-manager` — is already admin-only.)
  */
 export async function updateCase(actor: Actor | null, input: UpdateCaseInput): Promise<SerializedCase> {
-  assertApproved(actor, 'Требуется авторизация.');
+  assertAdmin(actor, 'Редактировать кейсы может только администратор.');
 
   const parsed = updateCaseSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError('Некорректные данные кейса.');

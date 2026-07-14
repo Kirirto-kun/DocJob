@@ -116,9 +116,16 @@ export async function updateUser(actor: Actor | null, input: UpdateUserInput): P
   return { id };
 }
 
-/** List all users, newest-last. Requires any logged-in (approved) actor. */
+/**
+ * List all users, newest-last. Admin only — this returns every user's full
+ * profile (including email), so an open `assertApproved` gate let any
+ * approved doctor/reviewer enumerate the entire user directory. Tightened
+ * as a security-hardening fix; see `apps/web/src/hooks/use-user-store.tsx`
+ * for the corresponding client-side refactor (non-admins no longer fetch
+ * this list).
+ */
 export async function listUsers(actor: Actor | null): Promise<SerializedUser[]> {
-  assertApproved(actor, 'Требуется авторизация.');
+  assertAdmin(actor, 'Список пользователей доступен только администратору.');
   const users = await prisma.user.findMany({ orderBy: { createdAt: 'asc' } });
   return users.map(serializeUser);
 }

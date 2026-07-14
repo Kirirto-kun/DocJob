@@ -6,10 +6,9 @@
  * bypassing `createContext`'s own token verification (that's
  * context.test.ts's job).
  *
- * Note `list` is asserted as protectedProcedure (any approved actor, admin
- * or not) — it matches core's `listUsers`, which calls `assertApproved`, not
- * `assertAdmin` (see users.ts's doc comment for why this is zero-divergence,
- * not the deliberate stricter-than-core policy `tags.add` uses).
+ * Note `list` is asserted as adminProcedure — it matches core's `listUsers`,
+ * which calls `assertAdmin` (tightened from `assertApproved` in a
+ * security-hardening pass; see user.service.ts's doc comment on `listUsers`).
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { TRPCError } from '@trpc/server';
@@ -118,7 +117,7 @@ describe('users router (integration, real Postgres)', () => {
     expect(err.code).toBe('UNAUTHORIZED');
   });
 
-  // ───────────────────────── list (protectedProcedure — matches core's assertApproved)
+  // ───────────────────────── list (adminProcedure — matches core's assertAdmin)
 
   it('list throws TRPCError UNAUTHORIZED for no actor', async () => {
     const caller = createCaller({ actor: null });
@@ -126,11 +125,10 @@ describe('users router (integration, real Postgres)', () => {
     expect(err.code).toBe('UNAUTHORIZED');
   });
 
-  it('list succeeds for an approved non-admin actor (matches core: assertApproved, not assertAdmin)', async () => {
+  it('list rejects with TRPCError FORBIDDEN for a non-admin (approved) actor', async () => {
     const caller = createCaller({ actor: doctorActor });
-    const list = await caller.users.list();
-    expect(Array.isArray(list)).toBe(true);
-    expect(list.some((u) => u.id === doctorUserId)).toBe(true);
+    const err = await captureTRPCError(() => caller.users.list());
+    expect(err.code).toBe('FORBIDDEN');
   });
 
   it('list succeeds for an admin actor', async () => {

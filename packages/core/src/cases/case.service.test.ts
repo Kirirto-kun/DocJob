@@ -76,6 +76,26 @@ describe('case.service (integration, real Postgres)', () => {
     expect(fetched.id).toBe(result.id);
   });
 
+  it('updateCase throws ForbiddenError for a non-admin actor', async () => {
+    const created = await caseService.createCase(adminActor, { name: 'Core Test Update-Gate Case' });
+    createdCaseIds.push(created.id);
+
+    await expect(
+      caseService.updateCase(nonAdminActor, { id: created.id, name: 'should not apply' }),
+    ).rejects.toThrow(ForbiddenError);
+  });
+
+  it('updateCase as admin persists a field change', async () => {
+    const created = await caseService.createCase(adminActor, { name: 'Core Test Update Case' });
+    createdCaseIds.push(created.id);
+
+    const updated = await caseService.updateCase(adminActor, {
+      id: created.id,
+      name: 'Core Test Update Case (updated)',
+    });
+    expect(updated.name).toBe('Core Test Update Case (updated)');
+  });
+
   it('listCases filters by subgroup', async () => {
     const created = await caseService.createCase(adminActor, {
       name: 'Core Test Filter Case',

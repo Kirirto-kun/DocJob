@@ -6,21 +6,16 @@ import { protectedProcedure, adminProcedure, router } from '../trpc';
  * `tags` tRPC router — thin wire wrappers over `@docjob/core`'s `tags.*`
  * domain functions (packages/core/src/tags/tag.service.ts).
  *
- * Auth tier per procedure — INTENTIONAL DIVERGENCE on `add`:
+ * Auth tier per procedure:
  * - `list` = protectedProcedure, matching core's `getTags` (`assertApproved`
- *   — any approved user).
- * - `add` = adminProcedure. Core's `addTag` itself only calls
- *   `assertApproved` (any approved user, same as the pre-existing
- *   `addTag` Server Action — see apps/web/src/app/actions.ts), so this
- *   router is DELIBERATELY stricter than core at the procedure tier, the
- *   same pattern cases.ts uses for case mutations (see that router's doc
- *   comment). This is a new-surface policy choice, not a bug: the shared
- *   tag taxonomy is easy to pollute if any approved doctor/reviewer can add
- *   arbitrary labels, so the tRPC surface requires admin while core's
- *   underlying rule (and the legacy Server Action) stays looser. Flagged in
- *   the Task 3 report per the SP-1d brief's request to call out any
- *   procedure-level vs core-level auth divergence rather than silently
- *   "fixing" it.
+ *   — any approved user; the tag pool must stay readable by all approved
+ *   users for the tag-picker UI).
+ * - `add` = adminProcedure, matching core's `addTag` (`assertAdmin` — tag
+ *   creation was tightened from `assertApproved` in a security-hardening
+ *   pass, since the tag-picker's add flow only ever lives in the admin
+ *   case-authoring UI and an open gate let any approved doctor/reviewer
+ *   pollute the shared tag taxonomy). This router now matches core 1:1 —
+ *   no divergence.
  */
 export const tagsRouter = router({
   list: protectedProcedure.query(({ ctx }) => core.tags.getTags(ctx.actor)),

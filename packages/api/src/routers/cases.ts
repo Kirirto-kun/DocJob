@@ -14,12 +14,11 @@ import { protectedProcedure, adminProcedure, router } from '../trpc';
  * Auth tier per procedure (enforced at the tRPC layer, on top of whatever
  * core itself asserts): list/listPaged/byId = protectedProcedure (any
  * approved user); create/update/delete/updateAttachment/deleteAttachment/
- * structureFromMarkdown = adminProcedure. This is a deliberate SP-1d
- * decision, not a 1:1 mirror of every pre-existing Server Action's own
- * (looser) gate — e.g. core's `updateCase` only calls `assertApproved`
- * internally (a pre-existing, previously-flagged gap — see SP-1b Task 2
- * follow-up in .superpowers/sdd/progress.md), but this NEW tRPC surface
- * requires admin for all case mutations regardless.
+ * structureFromMarkdown = adminProcedure. Core's `updateCase` was tightened
+ * to `assertAdmin` in a security-hardening pass (previously only
+ * `assertApproved`, a pre-existing gap — see SP-1b Task 2 follow-up in
+ * .superpowers/sdd/progress.md), so this router now matches core 1:1 for
+ * every case mutation, same as `create`/`delete` already did.
  *
  * Input schemas: where core already owns field-level validation via its own
  * internal zod schema (create/update/updateAttachment/structureFromMarkdown),

@@ -96,6 +96,19 @@ describe('user.service (integration, real Postgres)', () => {
     expect(row!.approvedAt).not.toBeNull();
   });
 
+  it('listUsers throws ForbiddenError for a non-admin actor', async () => {
+    await expect(userService.listUsers(nonAdminActor)).rejects.toThrow(ForbiddenError);
+  });
+
+  it('listUsers throws UnauthorizedError when there is no actor', async () => {
+    await expect(userService.listUsers(null)).rejects.toThrow(UnauthorizedError);
+  });
+
+  it('listUsers as admin returns the full user list', async () => {
+    const users = await userService.listUsers(adminActor);
+    expect(users.some((u) => u.id === adminUserId)).toBe(true);
+  });
+
   it('requestPasswordReset returns null neutrally for an unknown email (anti-enumeration)', async () => {
     const result = await userService.requestPasswordReset(`no-such-user-${Date.now()}@test.local`);
     expect(result).toBeNull();

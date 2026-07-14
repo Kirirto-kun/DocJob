@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
   getUsers,
   updateUser as updateUserAction,
@@ -68,20 +68,29 @@ const UserContext = createContext<UserStore | null>(null);
 export function UserProvider({ children }: { children: React.ReactNode }) {
   // `meUser` mirrors what NextAuth's `session.user` used to carry: just the
   // identity/role, refreshed from `GET /api/auth/me` on mount (and on
-  // login/logout). `currentUser` below re-derives the richer profile from
-  // `allUsers` once that's loaded, same as the pre-cutover `useMemo` did off
-  // `session` + `allUsers` — this is what makes a self `updateUser` call
-  // show up in `currentUser` immediately (via `refreshUsers`) without a
-  // re-login.
+  // login/logout). `/api/auth/me` already returns the full current-user
+  // profile (`SerializedUser`), so `currentUser` is derived directly from
+  // `meUser` — it no longer needs `allUsers` (core's `listUsers` now
+  // requires an admin actor, a security-hardening fix, so a non-admin
+  // fetching it would 403). A self `updateUser` call shows up in
+  // `currentUser` immediately by re-fetching `/api/auth/me` (`loadMe()`)
+  // after the update, instead of via `refreshUsers`.
   const [meUser, setMeUser] = useState<User | null>(null);
   const [isMeLoaded, setIsMeLoaded] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isUsersLoaded, setIsUsersLoaded] = useState(false);
 
+  // Admin-only: `getUsers()` -> core's `listUsers` now asserts admin. For
+  // non-admins this would 403 (TRPCError/ActionResult failure), so we don't
+  // even attempt it — `allUsers` just stays `[]` for them. If a fetch does
+  // fail for an admin (network blip, etc.) we still swallow it to `[]`
+  // rather than surfacing an error, same as before.
   const refreshUsers = useCallback(async () => {
     const res = await getUsers();
     if (res.success) {
       setAllUsers(res.data.map(serializedToUser));
+    } else {
+      setAllUsers([]);
     }
     setIsUsersLoaded(true);
   }, []);
@@ -104,23 +113,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isMeLoaded) return;
-    if (meUser) {
+    if (meUser?.role === 'admin') {
       void refreshUsers();
     } else {
       setAllUsers([]);
       setIsUsersLoaded(true);
     }
-    // Only re-run when the *identity* changes, not on every meUser object
-    // reference — refreshUsers is stable (useCallback([])) so this only
-    // fires on mount and on login/logout.
+    // Only re-run when the *identity*/role changes, not on every meUser
+    // object reference — refreshUsers is stable (useCallback([])) so this
+    // only fires on mount and on login/logout/role-change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMeLoaded, meUser?.id, refreshUsers]);
+  }, [isMeLoaded, meUser?.id, meUser?.role, refreshUsers]);
 
-  const currentUser = useMemo<User | null>(() => {
-    if (!meUser) return null;
-    const found = allUsers.find((u) => u.id === meUser.id);
-    return found ?? meUser;
-  }, [meUser, allUsers]);
+  const currentUser = meUser;
 
   const addUser = useCallback(
     async (user: User & { password?: string }) => {
@@ -154,9 +159,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         profilePhotoUrl: user.profilePhotoUrl ?? null,
       });
       if (!res.success) throw new Error(res.error);
-      await refreshUsers();
+      // `updateUser` in this store is only ever called for a self-update
+      // (see profile/page.tsx, its one caller) — re-fetch `/api/auth/me` so
+      // `currentUser` (now derived directly from `meUser`, not `allUsers`)
+      // reflects the change immediately, without a re-login.
+      await loadMe();
     },
-    [refreshUsers]
+    [loadMe]
   );
 
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {

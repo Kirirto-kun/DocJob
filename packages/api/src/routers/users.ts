@@ -24,15 +24,11 @@ import { publicProcedure, protectedProcedure, adminProcedure, router } from '../
  *   `assertApproved`, then does its own fine-grained "self or admin" check
  *   inline (`ForbiddenError` for anyone editing someone else while not
  *   admin) — that finer check stays in core, not duplicated here.
- * - `list`          = protectedProcedure. Core's `listUsers` calls
- *   `assertApproved` (any approved user, any role) — **note this diverges
- *   from an earlier draft of this task that pencilled `list` in as
- *   admin-only; the actual `user.service.ts` assert is `assertApproved`,
- *   not `assertAdmin`, so matching it exactly (the brief's explicit,
- *   emphasized instruction) makes this protectedProcedure, same as `cases`/
- *   `reviews`/`submissions` list-style reads. This is NOT the same kind of
- *   deliberate stricter-than-core divergence `tags.add` uses — there is
- *   zero divergence here, by design.**
+ * - `list`          = adminProcedure. Core's `listUsers` calls `assertAdmin`
+ *   (tightened from `assertApproved` in a security-hardening pass — it
+ *   returns every user's full profile including email, so any approved
+ *   doctor/reviewer could previously enumerate the whole user directory).
+ *   This router matches core 1:1, same as `cases.update`/`tags.add`.
  * - `pending`       = adminProcedure. Core's `listPendingUsers` calls
  *   `assertAdmin`.
  * - `approve` / `reject` / `delete` = adminProcedure. Core's `approveUser` /
@@ -62,7 +58,7 @@ export const usersRouter = router({
     .input(z.custom<core.users.UpdateUserInput>(isPlainObject))
     .mutation(({ ctx, input }) => core.users.updateUser(ctx.actor, input)),
 
-  list: protectedProcedure.query(({ ctx }) => core.users.listUsers(ctx.actor)),
+  list: adminProcedure.query(({ ctx }) => core.users.listUsers(ctx.actor)),
 
   pending: adminProcedure.query(({ ctx }) => core.users.listPendingUsers(ctx.actor)),
 
