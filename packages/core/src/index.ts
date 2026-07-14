@@ -44,3 +44,12 @@ export * as saved from './saved/saved.service';
 
 // Tiny CRUD domain, no mapper needed — plain string[] / { label } shapes.
 export * as tags from './tags/tag.service';
+
+// Flat: mapper types + serializeSubmission (embeds two user rows — author +
+// message sender — via inline `fullName || name` mapping, same convention
+// as reviews/review.mapper; no case embed since CaseSubmission has no `caseId`).
+export * from './submissions/submission.mapper';
+// Namespaced: service functions, called as `core.submissions.createCaseSubmission(actor, input)`.
+// Function names intentionally match the web action names 1:1 (same
+// convention as reviews/saved) so actions.ts wrappers need no renaming.
+export * as submissions from './submissions/submission.service';

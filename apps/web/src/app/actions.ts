@@ -901,281 +901,86 @@ export async function getMyReviews(): Promise<ActionResult<SerializedReviewWithC
 }
 
 // ───────────────────────── Case submissions (author -> admin discussion)
+//
+// Pure domain logic (validation, auth rules, message-thread persistence,
+// status workflow) lives in @docjob/core's submission.service — these are
+// thin transport wrappers: resolve the actor, call core, translate thrown
+// DomainErrors back into ActionResult, and run the Next.js-specific side
+// effects (revalidatePath).
 
-export type SerializedSubmissionAttachment = {
-  attachmentId: string;
-  filename: string;
-  originalName: string | null;
-  url: string;
-  mimeType: string;
-  size: number;
-};
-
-export type SerializedSubmissionMessage = {
-  id: string;
-  submissionId: string;
-  senderId: string;
-  senderName: string;
-  senderRole: Role;
-  body: string;
-  attachments: SerializedSubmissionAttachment[];
-  createdAt: string;
-};
-
-export type SerializedCaseSubmission = {
-  id: string;
-  authorUserId: string;
-  authorName: string;
-  authorEmail: string;
-  title: string;
-  description: string;
-  authors: string[];
-  subgroup: string | null;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  messages: SerializedSubmissionMessage[];
-  messageCount: number;
-};
-
-const createSubmissionSchema = z.object({
-  title: z.string().min(3, 'Название слишком короткое.').max(200),
-  description: z.string().min(10, 'Опишите кейс подробнее.').max(20000),
-  authors: z.array(z.string().min(1)).default([]),
-  subgroup: z.string().optional().nullable(),
-  attachmentIds: z.array(z.string()).optional(),
-});
-
-const sendSubmissionMessageSchema = z.object({
-  submissionId: z.string().min(1),
-  body: z.string().min(1, 'Сообщение не может быть пустым.').max(5000),
-  attachmentIds: z.array(z.string()).optional(),
-});
-
-async function attachmentsForIds(ids: string[]): Promise<SerializedSubmissionAttachment[]> {
-  if (!ids.length) return [];
-  const rows = await prisma.caseAttachment.findMany({ where: { id: { in: ids } } });
-  return rows.map((a) => ({
-    attachmentId: a.id,
-    filename: a.filename,
-    originalName: a.originalName,
-    url: `/api/attachments/${a.filename}`,
-    mimeType: a.mimeType,
-    size: a.size,
-  }));
-}
+export type SerializedSubmissionAttachment = core.SerializedSubmissionAttachment;
+export type SerializedSubmissionMessage = core.SerializedSubmissionMessage;
+export type SerializedCaseSubmission = core.SerializedCaseSubmission;
 
 export async function createCaseSubmission(
-  input: z.infer<typeof createSubmissionSchema>,
+  input: core.submissions.CreateCaseSubmissionInput,
 ): Promise<ActionResult<SerializedCaseSubmission>> {
-  let user;
   try {
-    user = await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.submissions.createCaseSubmission(actor, input);
+    revalidatePath('/admin/case-submissions');
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const parsed = createSubmissionSchema.safeParse(input);
-  if (!parsed.success) {
-    return fail(parsed.error.issues[0]?.message ?? 'Некорректные данные предложения.');
-  }
-  const authors = parsed.data.authors.map((a) => a.trim()).filter(Boolean);
-  const attachments = await attachmentsForIds(parsed.data.attachmentIds ?? []);
-
-  const created = await prisma.$transaction(async (tx) => {
-    const submission = await tx.caseSubmission.create({
-      data: {
-        authorUserId: user.id,
-        title: parsed.data.title.trim(),
-        description: parsed.data.description.trim(),
-        authors,
-        subgroup: parsed.data.subgroup ?? null,
-      },
-    });
-
-    const messageId = await tx.caseSubmissionMessage.create({
-      data: {
-        submissionId: submission.id,
-        senderId: user.id,
-        body: parsed.data.description.trim(),
-        attachments: attachments as unknown as Prisma.InputJsonValue,
-      },
-      select: { id: true },
-    });
-
-    if (parsed.data.attachmentIds?.length) {
-      await tx.caseAttachment.updateMany({
-        where: { id: { in: parsed.data.attachmentIds }, caseId: null },
-        data: { uploaderId: user.id },
-      });
-    }
-
-    return { submissionId: submission.id, messageId: messageId.id };
-  });
-
-  revalidatePath('/admin/case-submissions');
-  const full = await getCaseSubmissionById(created.submissionId);
-  if (!full.success) return fail(full.error);
-  return full;
 }
 
 export async function sendCaseSubmissionMessage(
-  input: z.infer<typeof sendSubmissionMessageSchema>,
+  input: core.submissions.SendCaseSubmissionMessageInput,
 ): Promise<ActionResult<SerializedSubmissionMessage>> {
-  let user;
   try {
-    user = await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.submissions.sendCaseSubmissionMessage(actor, input);
+    revalidatePath('/admin/case-submissions');
+    revalidatePath('/suggest-case');
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const parsed = sendSubmissionMessageSchema.safeParse(input);
-  if (!parsed.success) {
-    return fail(parsed.error.issues[0]?.message ?? 'Некорректные данные сообщения.');
-  }
-  const submission = await prisma.caseSubmission.findUnique({
-    where: { id: parsed.data.submissionId },
-    select: { id: true, authorUserId: true },
-  });
-  if (!submission) return fail('Предложение не найдено.');
-  if (submission.authorUserId !== user.id && user.role !== 'ADMIN') {
-    return fail('Недостаточно прав для отправки сообщения.');
-  }
-
-  const attachments = await attachmentsForIds(parsed.data.attachmentIds ?? []);
-  const created = await prisma.caseSubmissionMessage.create({
-    data: {
-      submissionId: parsed.data.submissionId,
-      senderId: user.id,
-      body: parsed.data.body.trim(),
-      attachments: attachments as unknown as Prisma.InputJsonValue,
-    },
-    include: { sender: { select: { id: true, name: true, fullName: true, role: true } } },
-  });
-
-  await prisma.caseSubmission.update({
-    where: { id: parsed.data.submissionId },
-    data: { updatedAt: new Date() },
-  });
-
-  revalidatePath('/admin/case-submissions');
-  revalidatePath('/suggest-case');
-  return ok({
-    id: created.id,
-    submissionId: created.submissionId,
-    senderId: created.senderId,
-    senderName: created.sender.fullName || created.sender.name,
-    senderRole: created.sender.role,
-    body: created.body,
-    attachments: attachments,
-    createdAt: created.createdAt.toISOString(),
-  });
 }
 
 export async function getMyCaseSubmissions(): Promise<ActionResult<SerializedCaseSubmission[]>> {
-  let user;
   try {
-    user = await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.submissions.getMyCaseSubmissions(actor);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const rows = await prisma.caseSubmission.findMany({
-    where: { authorUserId: user.id },
-    orderBy: { updatedAt: 'desc' },
-    include: {
-      author: true,
-      messages: { include: { sender: true }, orderBy: { createdAt: 'asc' } },
-    },
-  });
-  return ok(rows.map(serializeSubmission));
 }
 
 export async function getAllCaseSubmissions(): Promise<ActionResult<SerializedCaseSubmission[]>> {
   try {
-    await requireAdmin();
-  } catch {
-    return fail('Только администратор может видеть предложенные кейсы.');
+    const actor = await getActor();
+    const data = await core.submissions.getAllCaseSubmissions(actor);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const rows = await prisma.caseSubmission.findMany({
-    orderBy: { updatedAt: 'desc' },
-    include: {
-      author: true,
-      messages: { include: { sender: true }, orderBy: { createdAt: 'asc' } },
-    },
-  });
-  return ok(rows.map(serializeSubmission));
 }
 
 export async function getCaseSubmissionById(id: string): Promise<ActionResult<SerializedCaseSubmission>> {
-  let user;
   try {
-    user = await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.submissions.getCaseSubmissionById(actor, id);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const row = await prisma.caseSubmission.findUnique({
-    where: { id },
-    include: {
-      author: true,
-      messages: { include: { sender: true }, orderBy: { createdAt: 'asc' } },
-    },
-  });
-  if (!row) return fail('Предложение не найдено.');
-  if (row.authorUserId !== user.id && user.role !== 'ADMIN') {
-    return fail('Недостаточно прав для просмотра предложения.');
-  }
-  return ok(serializeSubmission(row));
 }
 
 export async function updateCaseSubmissionStatus(
   submissionId: string,
-  status: 'new' | 'in_review' | 'accepted' | 'rejected' | 'done',
+  status: core.submissions.CaseSubmissionStatus,
 ): Promise<ActionResult<{ id: string; status: string }>> {
   try {
-    await requireAdmin();
-  } catch {
-    return fail('Менять статус может только администратор.');
+    const actor = await getActor();
+    const data = await core.submissions.updateCaseSubmissionStatus(actor, submissionId, status);
+    revalidatePath('/admin/case-submissions');
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  await prisma.caseSubmission.update({
-    where: { id: submissionId },
-    data: { status },
-  });
-  revalidatePath('/admin/case-submissions');
-  return ok({ id: submissionId, status });
-}
-
-type SubmissionFull = Prisma.CaseSubmissionGetPayload<{
-  include: {
-    author: true;
-    messages: { include: { sender: true } };
-  };
-}>;
-
-function serializeSubmission(s: SubmissionFull): SerializedCaseSubmission {
-  return {
-    id: s.id,
-    authorUserId: s.authorUserId,
-    authorName: s.author.fullName || s.author.name,
-    authorEmail: s.author.email,
-    title: s.title,
-    description: s.description,
-    authors: s.authors,
-    subgroup: s.subgroup,
-    status: s.status,
-    createdAt: s.createdAt.toISOString(),
-    updatedAt: s.updatedAt.toISOString(),
-    messageCount: s.messages.length,
-    messages: s.messages.map((m) => ({
-      id: m.id,
-      submissionId: m.submissionId,
-      senderId: m.senderId,
-      senderName: m.sender.fullName || m.sender.name,
-      senderRole: m.sender.role,
-      body: m.body,
-      attachments: Array.isArray(m.attachments)
-        ? (m.attachments as unknown as SerializedSubmissionAttachment[])
-        : [],
-      createdAt: m.createdAt.toISOString(),
-    })),
-  };
 }
 
 // ───────────────────────── Search
