@@ -2,8 +2,8 @@ export * from './shared/errors';
 export * from './shared/actor';
 export * from './shared/pagination';
 
-// Flat: mapper types + serializeCase (other domains, e.g. the search flow
-// still living in apps/web/src/app/actions.ts, reuse serializeCase directly).
+// Flat: mapper types + serializeCase (other domains, e.g. search.service,
+// reuse serializeCase directly).
 export * from './cases/case.mapper';
 // Namespaced: service functions, called as `core.cases.createCase(actor, input)`
 // from the web wrapper. Every later domain (users, search, reviews, ...)
@@ -18,3 +18,13 @@ export * from './users/user.mapper';
 export * from './users/password-reset-tokens';
 // Namespaced: service functions, called as `core.users.registerUser(input)`.
 export * as users from './users/user.service';
+
+// Flat: pure embedding helpers (EMBEDDING_MODEL, EMBEDDING_DIMS, embedText,
+// buildCaseEmbeddingText, toVectorLiteral, upsertCaseEmbedding) — reused
+// directly as `core.upsertCaseEmbedding(...)`, same convention as
+// case.mapper's serializeCase.
+export * from './search/embeddings';
+// Namespaced: service functions, called as `core.search.searchCases(actor, query)`.
+// search.service.ts also re-exports the embedding helpers, so
+// `core.search.upsertCaseEmbedding(...)` works equally well.
+export * as search from './search/search.service';

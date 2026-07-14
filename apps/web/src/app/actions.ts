@@ -25,8 +25,6 @@ import {
   structureCaseFromMarkdown,
   structureCaseInputSchema,
 } from '@/ai/flows/structure-case-from-markdown';
-import { embedText, toVectorLiteral, upsertCaseEmbedding } from '@/lib/embeddings';
-import { runChat } from '@/ai/runChat';
 import { type CaseMode } from '@/lib/case-schema';
 import * as core from '@docjob/core';
 import { getActor, toActionResult } from '@/lib/action-helpers';
@@ -215,7 +213,7 @@ export async function createCase(input: CaseInput): Promise<ActionResult<Seriali
     revalidatePath('/');
     revalidatePath('/cases/[subgroup]', 'page');
     // Fire-and-forget: never block or break case creation on embedding.
-    void upsertCaseEmbedding(data.id).catch(() => {});
+    void core.search.upsertCaseEmbedding(data.id).catch(() => {});
     return ok(data);
   } catch (e) {
     return toActionResult(e);
@@ -229,7 +227,7 @@ export async function updateCase(input: core.cases.UpdateCaseInput): Promise<Act
     revalidatePath('/');
     revalidatePath(`/cases/${data.subgroup ?? ''}/${data.id}`);
     // Fire-and-forget: re-embed on edit without blocking the update.
-    void upsertCaseEmbedding(data.id).catch(() => {});
+    void core.search.upsertCaseEmbedding(data.id).catch(() => {});
     return ok(data);
   } catch (e) {
     return toActionResult(e);
@@ -777,7 +775,6 @@ export type SerializedUser = {
 export type SerializedCaseImage = core.SerializedCaseImage;
 export type SerializedCaseAttachment = core.SerializedCaseAttachment;
 export type SerializedCase = core.SerializedCase;
-const { serializeCase } = core;
 
 type PrismaUser = Awaited<ReturnType<typeof prisma.user.findFirst>>;
 
@@ -1330,176 +1327,20 @@ function serializeSubmission(s: SubmissionFull): SerializedCaseSubmission {
   };
 }
 
-// ============================================================================
-// RAG hybrid case search (additive section — keep self-contained)
-// ============================================================================
+// ───────────────────────── Search
+//
+// Pure domain logic (LLM intent extraction, embedding, pgvector KNN,
+// substring fallback) lives in @docjob/core's search.service — this is a
+// thin transport wrapper: resolve the actor, call core, translate thrown
+// DomainErrors back into ActionResult.
 
-const searchIntentSchema = z.object({
-  refinedQuery: z
-    .string()
-    .describe('A concise medical paraphrase of the query, optimized for semantic search.'),
-  tags: z
-    .array(z.string())
-    .describe('Up to ~6 clinical keywords/tags extracted from the query (symptoms, conditions, procedures).'),
-  specialty: z
-    .string()
-    .nullable()
-    .describe('The most relevant medical specialty in Russian, or null if unclear.'),
-  subgroup: z
-    .string()
-    .nullable()
-    .describe('One of: clinical, sanepid, best_practices, management — or null if unclear.'),
-});
-
-type SearchIntent = z.infer<typeof searchIntentSchema>;
-
-const SEARCH_INCLUDE = { images: true, attachments: true } as const;
-
-function normSearch(s: string): string {
-  return s.toLowerCase().trim();
-}
-
-/**
- * Substring fallback search over name/teaser/primaryCondition/specialty/tags.
- * Used when there is no API key or no embedded cases yet.
- */
-async function fallbackSearchCases(query: string): Promise<SerializedCase[]> {
-  const q = query.trim();
-  const where: Prisma.CaseWhereInput = q
-    ? {
-        OR: [
-          { name: { contains: q, mode: 'insensitive' } },
-          { teaser: { contains: q, mode: 'insensitive' } },
-          { primaryCondition: { contains: q, mode: 'insensitive' } },
-          { specialty: { contains: q, mode: 'insensitive' } },
-          { tags: { hasSome: [q] } },
-        ],
-      }
-    : {};
-  const rows = await prisma.case.findMany({
-    where,
-    include: SEARCH_INCLUDE,
-    orderBy: { updatedAt: 'desc' },
-    take: 12,
-  });
-  return rows.map(serializeCase);
-}
-
-/**
- * Hybrid RAG search: LLM extracts intent (tags/specialty/subgroup), we embed
- * the refined query, run a pgvector KNN over Case.embedding, then boost rows
- * whose tags/specialty/subgroup overlap the extracted intent. Falls back to a
- * substring search when embeddings or the API key are unavailable.
- */
-export async function searchCases(
-  query: string,
-): Promise<ActionResult<SerializedCase[]>> {
+export async function searchCases(query: string): Promise<ActionResult<SerializedCase[]>> {
   try {
-    await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
-  }
-
-  const trimmed = query.trim();
-  if (!trimmed) return ok([]);
-
-  // No API key → graceful substring fallback.
-  if (!process.env.OPENAI_API_KEY) {
-    try {
-      return ok(await fallbackSearchCases(trimmed));
-    } catch (error) {
-      console.error('searchCases fallback failed', error);
-      return fail('Не удалось выполнить поиск.');
-    }
-  }
-
-  try {
-    // 1. Extract structured intent from the natural-language query.
-    let intent: SearchIntent;
-    try {
-      intent = await runChat(
-        searchIntentSchema,
-        [
-          {
-            role: 'system',
-            content:
-              "You extract structured search intent from a clinician's natural-language query about medical teaching cases. " +
-              'Return a refined query suitable for semantic search, relevant clinical tags, and (if clear) a specialty and subgroup. ' +
-              'Subgroup must be one of: clinical, sanepid, best_practices, management.',
-          },
-          { role: 'user', content: trimmed },
-        ],
-        { schemaName: 'search_intent', temperature: 0.2 },
-      );
-    } catch (error) {
-      console.error('searchCases intent extraction failed, using raw query', error);
-      intent = { refinedQuery: trimmed, tags: [], specialty: null, subgroup: null };
-    }
-
-    // 2. Embed the refined query.
-    const queryVector = await embedText(intent.refinedQuery || trimmed);
-    const literal = toVectorLiteral(queryVector);
-
-    // 3. pgvector KNN over embedded cases.
-    const knn = await prisma.$queryRaw<Array<{ id: string; distance: number }>>`
-      SELECT id, (embedding <=> ${literal}::vector) AS distance
-      FROM "Case"
-      WHERE embedding IS NOT NULL
-      ORDER BY embedding <=> ${literal}::vector
-      LIMIT 20
-    `;
-
-    // No embedded cases yet → fall back to substring search.
-    if (knn.length === 0) {
-      return ok(await fallbackSearchCases(trimmed));
-    }
-
-    const ids = knn.map((r) => r.id);
-    const rows = await prisma.case.findMany({
-      where: { id: { in: ids } },
-      include: SEARCH_INCLUDE,
-    });
-    const byId = new Map(rows.map((r) => [r.id, r]));
-
-    // 4. Rank: combine semantic similarity with tag/specialty/subgroup boosts.
-    const wantTags = new Set(intent.tags.map(normSearch).filter(Boolean));
-    const wantSpecialty = intent.specialty ? normSearch(intent.specialty) : null;
-    const wantSubgroup = intent.subgroup ? normSearch(intent.subgroup) : null;
-
-    const scored = knn
-      .map((r) => {
-        const row = byId.get(r.id);
-        if (!row) return null;
-        // distance is cosine distance in [0,2]; similarity in roughly [-1,1].
-        const similarity = 1 - Number(r.distance);
-        let boost = 0;
-        if (wantTags.size) {
-          const rowTags = new Set((row.tags ?? []).map(normSearch));
-          let overlap = 0;
-          for (const t of wantTags) if (rowTags.has(t)) overlap += 1;
-          boost += overlap * 0.15;
-        }
-        if (wantSpecialty && row.specialty && normSearch(row.specialty) === wantSpecialty) {
-          boost += 0.2;
-        }
-        if (wantSubgroup && row.subgroup && normSearch(row.subgroup) === wantSubgroup) {
-          boost += 0.1;
-        }
-        return { row, score: similarity + boost };
-      })
-      .filter((x): x is { row: (typeof rows)[number]; score: number } => x !== null)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 12);
-
-    return ok(scored.map((s) => serializeCase(s.row)));
-  } catch (error) {
-    console.error('searchCases failed, attempting fallback', error);
-    try {
-      return ok(await fallbackSearchCases(trimmed));
-    } catch (fallbackError) {
-      console.error('searchCases fallback also failed', fallbackError);
-      return fail('Не удалось выполнить поиск.');
-    }
+    const actor = await getActor();
+    const data = await core.search.searchCases(actor, query);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
 }
 

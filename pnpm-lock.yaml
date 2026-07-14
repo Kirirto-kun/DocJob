@@ -270,6 +270,9 @@ importers:
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
+      openai:
+        specifier: ^6.34.0
+        version: 6.46.0(ws@8.21.0)(zod@3.25.76)
       zod:
         specifier: ^3.24.2
         version: 3.25.76
