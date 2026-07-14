@@ -25,7 +25,6 @@ import {
   structureCaseFromMarkdown,
   structureCaseInputSchema,
 } from '@/ai/flows/structure-case-from-markdown';
-import { type CaseMode } from '@/lib/case-schema';
 import * as core from '@docjob/core';
 import { getActor, toActionResult } from '@/lib/action-helpers';
 
@@ -416,28 +415,22 @@ function inlineContentToText(content: unknown): string {
 
 export async function getTags(): Promise<ActionResult<string[]>> {
   try {
-    await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.tags.getTags(actor);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const tags = await prisma.tag.findMany({ orderBy: { label: 'asc' } });
-  return ok(tags.map((t) => t.label));
 }
 
 export async function addTag(label: string): Promise<ActionResult<{ label: string }>> {
   try {
-    await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.tags.addTag(actor, label);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const trimmed = label.trim();
-  if (!trimmed) return fail('Пустой тег.');
-  await prisma.tag.upsert({
-    where: { label: trimmed },
-    update: {},
-    create: { label: trimmed },
-  });
-  return ok({ label: trimmed });
 }
 
 // ───────────────────────── News
@@ -814,239 +807,97 @@ export async function getSessionUser(): Promise<SerializedUser | null> {
 
 // ───────────────────────── Saved cases (favourites / bookmarks)
 
-export type SerializedSavedCase = {
-  id: string;
-  caseId: string;
-  createdAt: string;
-  case: SerializedCaseListItem;
-};
+export type SerializedSavedCase = core.saved.SerializedSavedCase;
 
 export async function toggleSavedCase(
   caseId: string,
 ): Promise<ActionResult<{ saved: boolean }>> {
-  let user;
   try {
-    user = await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
-  }
-
-  const existing = await prisma.savedCase.findUnique({
-    where: { userId_caseId: { userId: user.id, caseId } },
-  });
-
-  if (existing) {
-    await prisma.savedCase.delete({ where: { id: existing.id } });
+    const actor = await getActor();
+    const data = await core.saved.toggleSavedCase(actor, caseId);
     revalidatePath('/saved-cases');
-    return ok({ saved: false });
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-
-  const c = await prisma.case.findUnique({ where: { id: caseId }, select: { id: true } });
-  if (!c) return fail('Кейс не найден.');
-
-  await prisma.savedCase.create({ data: { userId: user.id, caseId } });
-  revalidatePath('/saved-cases');
-  return ok({ saved: true });
 }
 
 export async function isCaseSaved(caseId: string): Promise<ActionResult<{ saved: boolean }>> {
-  let user;
   try {
-    user = await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.saved.isCaseSaved(actor, caseId);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const existing = await prisma.savedCase.findUnique({
-    where: { userId_caseId: { userId: user.id, caseId } },
-    select: { id: true },
-  });
-  return ok({ saved: existing !== null });
 }
 
 export async function getSavedCases(): Promise<ActionResult<SerializedSavedCase[]>> {
-  let user;
   try {
-    user = await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.saved.getSavedCases(actor);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const rows = await prisma.savedCase.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: 'desc' },
-    include: {
-      case: {
-        select: {
-          id: true,
-          authorId: true,
-          name: true,
-          primaryCondition: true,
-          subgroup: true,
-          specialty: true,
-          tags: true,
-          teaser: true,
-          mode: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      },
-    },
-  });
-  const items: SerializedSavedCase[] = rows.map((r) => ({
-    id: r.id,
-    caseId: r.caseId,
-    createdAt: r.createdAt.toISOString(),
-    case: {
-      id: r.case.id,
-      authorId: r.case.authorId,
-      name: r.case.name,
-      primaryCondition: r.case.primaryCondition,
-      subgroup: r.case.subgroup,
-      specialty: r.case.specialty,
-      tags: r.case.tags,
-      teaser: r.case.teaser,
-      mode: r.case.mode as CaseMode,
-      createdAt: r.case.createdAt.toISOString(),
-      updatedAt: r.case.updatedAt.toISOString(),
-    },
-  }));
-  return ok(items);
 }
 
 export async function getSavedCaseIds(): Promise<ActionResult<string[]>> {
-  let user;
   try {
-    user = await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.saved.getSavedCaseIds(actor);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const rows = await prisma.savedCase.findMany({
-    where: { userId: user.id },
-    select: { caseId: true },
-  });
-  return ok(rows.map((r) => r.caseId));
 }
 
 // ───────────────────────── Reviews
 
-export type SerializedReview = {
-  id: string;
-  caseId: string;
-  reviewerId: string;
-  reviewerName: string;
-  reviewerSpecialty: string | null;
-  reviewerAcademicDegree: string | null;
-  reviewerWorkplace: string | null;
-  body: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type SerializedReviewWithCase = SerializedReview & {
-  case: { id: string; name: string; subgroup: string | null };
-};
-
-const createReviewSchema = z.object({
-  caseId: z.string().min(1),
-  body: z.string().min(10, 'Текст рецензии должен содержать минимум 10 символов.'),
-});
-
-function serializeReview(r: Prisma.ReviewGetPayload<{ include: { reviewer: true } }>): SerializedReview {
-  return {
-    id: r.id,
-    caseId: r.caseId,
-    reviewerId: r.reviewerId,
-    reviewerName: r.reviewer.fullName || r.reviewer.name,
-    reviewerSpecialty: r.reviewer.specialty,
-    reviewerAcademicDegree: r.reviewer.academicDegree,
-    reviewerWorkplace: r.reviewer.workplace,
-    body: r.body,
-    createdAt: r.createdAt.toISOString(),
-    updatedAt: r.updatedAt.toISOString(),
-  };
-}
+export type SerializedReview = core.SerializedReview;
+export type SerializedReviewWithCase = core.SerializedReviewWithCase;
 
 export async function createReview(
-  input: z.infer<typeof createReviewSchema>,
+  input: core.reviews.CreateReviewInput,
 ): Promise<ActionResult<SerializedReview>> {
-  let user;
   try {
-    user = await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.reviews.createReview(actor, input);
+    revalidatePath(`/cases`);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  if (user.role !== 'REVIEWER' && user.role !== 'ADMIN') {
-    return fail('Оставлять рецензии могут только рецензенты.');
-  }
-  const parsed = createReviewSchema.safeParse(input);
-  if (!parsed.success) {
-    return fail(parsed.error.issues[0]?.message ?? 'Некорректные данные рецензии.');
-  }
-  const c = await prisma.case.findUnique({ where: { id: parsed.data.caseId }, select: { id: true } });
-  if (!c) return fail('Кейс не найден.');
-
-  const created = await prisma.review.create({
-    data: {
-      caseId: parsed.data.caseId,
-      reviewerId: user.id,
-      body: parsed.data.body.trim(),
-    },
-    include: { reviewer: true },
-  });
-  revalidatePath(`/cases`);
-  return ok(serializeReview(created));
 }
 
 export async function deleteReview(reviewId: string): Promise<ActionResult<{ id: string }>> {
-  let user;
   try {
-    user = await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.reviews.deleteReview(actor, reviewId);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const review = await prisma.review.findUnique({ where: { id: reviewId } });
-  if (!review) return fail('Рецензия не найдена.');
-  if (review.reviewerId !== user.id && user.role !== 'ADMIN') {
-    return fail('Удалять рецензию может только её автор или администратор.');
-  }
-  await prisma.review.delete({ where: { id: reviewId } });
-  return ok({ id: reviewId });
 }
 
 export async function getReviewsForCase(caseId: string): Promise<ActionResult<SerializedReview[]>> {
   try {
-    await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.reviews.getReviewsForCase(actor, caseId);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const rows = await prisma.review.findMany({
-    where: { caseId },
-    include: { reviewer: true },
-    orderBy: { createdAt: 'desc' },
-  });
-  return ok(rows.map(serializeReview));
 }
 
 export async function getMyReviews(): Promise<ActionResult<SerializedReviewWithCase[]>> {
-  let user;
   try {
-    user = await requireUser();
-  } catch {
-    return fail('Требуется авторизация.');
+    const actor = await getActor();
+    const data = await core.reviews.getMyReviews(actor);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
-  const rows = await prisma.review.findMany({
-    where: { reviewerId: user.id },
-    include: {
-      reviewer: true,
-      case: { select: { id: true, name: true, subgroup: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-  return ok(
-    rows.map((r) => ({
-      ...serializeReview(r),
-      case: { id: r.case.id, name: r.case.name, subgroup: r.case.subgroup },
-    })),
-  );
 }
 
 // ───────────────────────── Case submissions (author -> admin discussion)

@@ -28,3 +28,19 @@ export * from './search/embeddings';
 // search.service.ts also re-exports the embedding helpers, so
 // `core.search.upsertCaseEmbedding(...)` works equally well.
 export * as search from './search/search.service';
+
+// Flat: mapper types + serializeReview (small domain, but follows the same
+// mapper/service split as cases and users for consistency).
+export * from './reviews/review.mapper';
+// Namespaced: service functions, called as `core.reviews.createReview(actor, input)`.
+export * as reviews from './reviews/review.service';
+
+// No dedicated mapper file — `SerializedSavedCase` lives directly in
+// saved.service.ts (reuses cases/case.mapper's SerializedCaseListItem for
+// its nested case field) and is accessed namespaced as
+// `core.saved.SerializedSavedCase`, same convention case.service.ts uses for
+// its own input types (e.g. `core.cases.CreateCaseInput`).
+export * as saved from './saved/saved.service';
+
+// Tiny CRUD domain, no mapper needed — plain string[] / { label } shapes.
+export * as tags from './tags/tag.service';
