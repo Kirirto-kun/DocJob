@@ -53,3 +53,34 @@ export * from './submissions/submission.mapper';
 // Function names intentionally match the web action names 1:1 (same
 // convention as reviews/saved) so actions.ts wrappers need no renaming.
 export * as submissions from './submissions/submission.service';
+
+// Flat: mapper types + serializeNewsItem. `listPublicNews` (unauthenticated
+// read) is reused directly by both the `getNews` web action and
+// apps/web/src/lib/news.ts's `getPublicNewsItems`, which the public
+// landing/news pages and sitemap import directly (no Server Action).
+export * from './news/news.mapper';
+// Namespaced: service functions, called as `core.news.createNews(actor, input)`.
+export * as news from './news/news.service';
+
+// Flat: mapper types + serializeAnnouncement.
+export * from './announcements/announcement.mapper';
+// Namespaced: service functions, called as
+// `core.announcements.getActiveAnnouncements(actor)`. Note
+// `getActiveAnnouncements`/`dismissAnnouncement` deliberately do not use
+// `assertApproved` — the original actions gated only on "logged in at all"
+// (guest -> `[]`, not an error), preserved verbatim.
+export * as announcements from './announcements/announcement.service';
+
+// No mapper — pure validation + honeypot check, no DB, no email transport
+// (that stays in the web wrapper, same split as users.requestPasswordReset).
+export * as contact from './contact/contact.service';
+
+// Flat + namespaced (same module, same convention as search/embeddings):
+// pure banner types/constants plus the filesystem-manifest I/O primitives.
+// NOTE: apps/web's banner files (lib/banners.ts, lib/banners-server.ts,
+// api/banners/route.ts) are intentionally left untouched/duplicated rather
+// than repointed here — those are imported by 'use client' components, and
+// this module pulls in Node's `fs`/`path`, which must not leak into a
+// client bundle. See task-7-report.md.
+export * from './banners/banner.service';
+export * as banners from './banners/banner.service';

@@ -5,8 +5,7 @@ import bcrypt from 'bcryptjs';
 import { Prisma, Role } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@docjob/db';
-import { getPublicNewsItems } from '@/lib/news';
-import { getCurrentUser, requireUser, requireAdmin } from '@/lib/session';
+import { requireUser, requireAdmin } from '@/lib/session';
 import { analyzeStudentQuestion, AnalyzeStudentQuestionInput } from '@/ai/flows/analyze-student-question';
 import { generatePersonalizedScenario, GeneratePersonalizedScenarioInput } from '@/ai/flows/generate-personalized-scenario';
 import { simulateComorbidities, SimulateComorbiditiesInput } from '@/ai/flows/simulate-comorbidities';
@@ -434,43 +433,17 @@ export async function addTag(label: string): Promise<ActionResult<{ label: strin
 }
 
 // ───────────────────────── News
+//
+// Pure domain logic (validation, admin gating, CRUD) lives in
+// @docjob/core's news.service — these are thin transport wrappers: resolve
+// the actor, call core, translate thrown DomainErrors back into
+// ActionResult, and run the Next.js-specific side effect (revalidatePath).
+// The public feed itself (`getNews`) delegates to the same
+// `core.news.listPublicNews` that `@/lib/news.ts#getPublicNewsItems` uses
+// directly (that one is imported by Server Components, not this action).
 
-export async function getNews(): Promise<ActionResult<Array<{ id: string; title: string; body: string; date: string }>>> {
-  try {
-    return ok(await getPublicNewsItems());
-  } catch (error) {
-    console.error('getNews failed', error);
-    return fail('Не удалось загрузить новости.');
-  }
-}
-
-type NewsInput = { title: string; body: string; date?: string };
-
-const NEWS_ADMIN_ONLY = 'Управлять новостями может только администратор.';
-
-async function ensureNewsAdmin(): Promise<{ success: false; error: string } | null> {
-  try {
-    await requireAdmin();
-    return null;
-  } catch {
-    return fail(NEWS_ADMIN_ONLY);
-  }
-}
-
-function validateNewsInput(
-  input: NewsInput,
-): { success: false; error: string } | { success: true; data: { title: string; body: string; date: Date | null } } {
-  const title = input.title?.trim();
-  const body = input.body?.trim();
-  if (!title || title.length > 200) return fail('Заголовок обязателен и не более 200 символов.');
-  if (!body || body.length > 10000) return fail('Текст обязателен и не более 10000 символов.');
-  if (input.date) {
-    const date = new Date(input.date);
-    if (Number.isNaN(date.getTime())) return fail('Некорректная дата.');
-    return ok({ title, body, date });
-  }
-  return ok({ title, body, date: null });
-}
+export type SerializedNewsItem = core.SerializedNewsItem;
+export type NewsInput = core.news.NewsInput;
 
 function revalidateNewsPaths() {
   revalidatePath('/landing');
@@ -478,166 +451,73 @@ function revalidateNewsPaths() {
   revalidatePath('/admin/news');
 }
 
-export async function getNewsItem(
-  id: string,
-): Promise<ActionResult<{ id: string; title: string; body: string; date: string }>> {
-  const denied = await ensureNewsAdmin();
-  if (denied) return denied;
-  const item = await prisma.newsItem.findUnique({ where: { id } });
-  if (!item) return fail('Новость не найдена.');
-  return ok({ id: item.id, title: item.title, body: item.body, date: item.date.toISOString() });
+export async function getNews(): Promise<ActionResult<SerializedNewsItem[]>> {
+  try {
+    return ok(await core.news.listPublicNews());
+  } catch (error) {
+    console.error('getNews failed', error);
+    return fail('Не удалось загрузить новости.');
+  }
+}
+
+export async function getNewsItem(id: string): Promise<ActionResult<SerializedNewsItem>> {
+  try {
+    const actor = await getActor();
+    const data = await core.news.getNewsItem(actor, id);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
+  }
 }
 
 export async function createNews(input: NewsInput): Promise<ActionResult<{ id: string }>> {
-  const denied = await ensureNewsAdmin();
-  if (denied) return denied;
-  const validation = validateNewsInput(input);
-  if (!validation.success) return validation;
-  const { title, body, date } = validation.data;
-  const created = await prisma.newsItem.create({
-    data: { title, body, date: date ?? new Date() },
-  });
-  revalidateNewsPaths();
-  return ok({ id: created.id });
+  try {
+    const actor = await getActor();
+    const data = await core.news.createNews(actor, input);
+    revalidateNewsPaths();
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
+  }
 }
 
 export async function updateNews(
   id: string,
   input: NewsInput,
 ): Promise<ActionResult<{ id: string }>> {
-  const denied = await ensureNewsAdmin();
-  if (denied) return denied;
-  const validation = validateNewsInput(input);
-  if (!validation.success) return validation;
-  const { title, body, date } = validation.data;
-  await prisma.newsItem.update({
-    where: { id },
-    data: { title, body, ...(date ? { date } : {}) },
-  });
-  revalidateNewsPaths();
-  return ok({ id });
+  try {
+    const actor = await getActor();
+    const data = await core.news.updateNews(actor, id, input);
+    revalidateNewsPaths();
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
+  }
 }
 
 export async function deleteNews(id: string): Promise<ActionResult<{ id: string }>> {
-  const denied = await ensureNewsAdmin();
-  if (denied) return denied;
-  await prisma.newsItem.delete({ where: { id } });
-  revalidateNewsPaths();
-  return ok({ id });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Announcements (admin advertisement popups) — additive section
-// ═══════════════════════════════════════════════════════════════════════════
-
-export type SerializedAnnouncement = {
-  id: string;
-  title: string;
-  body: string;
-  imageUrl: string | null;
-  linkUrl: string | null;
-  linkLabel: string | null;
-  active: boolean;
-  expiresAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type AnnouncementInput = {
-  id?: string;
-  title: string;
-  body: string;
-  imageUrl?: string;
-  linkUrl?: string;
-  linkLabel?: string;
-  active?: boolean;
-  expiresAt?: string;
-};
-
-const ANNOUNCEMENT_ADMIN_ONLY = 'Управлять объявлениями может только администратор.';
-
-function serializeAnnouncement(item: {
-  id: string;
-  title: string;
-  body: string;
-  imageUrl: string | null;
-  linkUrl: string | null;
-  linkLabel: string | null;
-  active: boolean;
-  expiresAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): SerializedAnnouncement {
-  return {
-    id: item.id,
-    title: item.title,
-    body: item.body,
-    imageUrl: item.imageUrl,
-    linkUrl: item.linkUrl,
-    linkLabel: item.linkLabel,
-    active: item.active,
-    expiresAt: item.expiresAt ? item.expiresAt.toISOString() : null,
-    createdAt: item.createdAt.toISOString(),
-    updatedAt: item.updatedAt.toISOString(),
-  };
-}
-
-async function ensureAnnouncementAdmin(): Promise<{ success: false; error: string } | null> {
   try {
-    await requireAdmin();
-    return null;
-  } catch {
-    return fail(ANNOUNCEMENT_ADMIN_ONLY);
+    const actor = await getActor();
+    const data = await core.news.deleteNews(actor, id);
+    revalidateNewsPaths();
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
 }
 
-function validateAnnouncementInput(
-  input: AnnouncementInput,
-):
-  | { success: false; error: string }
-  | {
-      success: true;
-      data: {
-        title: string;
-        body: string;
-        imageUrl: string | null;
-        linkUrl: string | null;
-        linkLabel: string | null;
-        active: boolean;
-        expiresAt: Date | null;
-      };
-    } {
-  const title = input.title?.trim();
-  const body = input.body?.trim();
-  if (!title || title.length > 200) return fail('Заголовок обязателен и не более 200 символов.');
-  if (!body || body.length > 5000) return fail('Текст обязателен и не более 5000 символов.');
+// ═══════════════════════════════════════════════════════════════════════════
+// Announcements (admin advertisement popups)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Pure domain logic (validation, admin gating, dismissal bookkeeping) lives
+// in @docjob/core's announcement.service — these are thin transport
+// wrappers. `getActiveAnnouncements`/`dismissAnnouncement` still resolve the
+// actor via `getActor()` (which itself calls `getCurrentUser()`) — behavior
+// is unchanged, just routed through the actor shape instead of raw prisma.
 
-  const linkUrl = input.linkUrl?.trim() || null;
-  if (linkUrl) {
-    try {
-      new URL(linkUrl);
-    } catch {
-      return fail('Некорректная ссылка.');
-    }
-  }
-
-  let expiresAt: Date | null = null;
-  if (input.expiresAt) {
-    const date = new Date(input.expiresAt);
-    if (Number.isNaN(date.getTime())) return fail('Некорректная дата окончания.');
-    expiresAt = date;
-  }
-
-  return ok({
-    title,
-    body,
-    imageUrl: input.imageUrl?.trim() || null,
-    linkUrl,
-    linkLabel: input.linkLabel?.trim() || null,
-    active: input.active ?? true,
-    expiresAt,
-  });
-}
+export type SerializedAnnouncement = core.SerializedAnnouncement;
+export type AnnouncementInput = core.announcements.AnnouncementInput;
 
 function revalidateAnnouncementPaths() {
   revalidatePath('/admin/announcements');
@@ -647,98 +527,82 @@ function revalidateAnnouncementPaths() {
 // --- Public (per logged-in user) ---
 
 export async function getActiveAnnouncements(): Promise<ActionResult<SerializedAnnouncement[]>> {
-  const user = await getCurrentUser();
-  if (!user) return ok([]);
   try {
-    const now = new Date();
-    const dismissals = await prisma.announcementDismissal.findMany({
-      where: { userId: user.id },
-      select: { announcementId: true },
-    });
-    const dismissedIds = dismissals.map((d) => d.announcementId);
-    const items = await prisma.announcement.findMany({
-      where: {
-        active: true,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-        ...(dismissedIds.length > 0 ? { id: { notIn: dismissedIds } } : {}),
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    return ok(items.map(serializeAnnouncement));
-  } catch (error) {
-    console.error('getActiveAnnouncements failed', error);
-    return fail('Не удалось загрузить объявления.');
+    const actor = await getActor();
+    const data = await core.announcements.getActiveAnnouncements(actor);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
 }
 
 export async function dismissAnnouncement(announcementId: string): Promise<ActionResult<{ id: string }>> {
-  const user = await getCurrentUser();
-  if (!user) return fail('Требуется авторизация.');
-  if (!announcementId) return fail('Некорректные данные.');
   try {
-    await prisma.announcementDismissal.upsert({
-      where: { userId_announcementId: { userId: user.id, announcementId } },
-      create: { userId: user.id, announcementId },
-      update: {},
-    });
-    return ok({ id: announcementId });
-  } catch (error) {
-    console.error('dismissAnnouncement failed', error);
-    return fail('Не удалось скрыть объявление.');
+    const actor = await getActor();
+    const data = await core.announcements.dismissAnnouncement(actor, announcementId);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
   }
 }
 
 // --- Admin CRUD ---
 
 export async function getAnnouncements(): Promise<ActionResult<SerializedAnnouncement[]>> {
-  const denied = await ensureAnnouncementAdmin();
-  if (denied) return denied;
-  const items = await prisma.announcement.findMany({ orderBy: { createdAt: 'desc' } });
-  return ok(items.map(serializeAnnouncement));
+  try {
+    const actor = await getActor();
+    const data = await core.announcements.getAnnouncements(actor);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
+  }
 }
 
 export async function getAnnouncement(id: string): Promise<ActionResult<SerializedAnnouncement>> {
-  const denied = await ensureAnnouncementAdmin();
-  if (denied) return denied;
-  const item = await prisma.announcement.findUnique({ where: { id } });
-  if (!item) return fail('Объявление не найдено.');
-  return ok(serializeAnnouncement(item));
+  try {
+    const actor = await getActor();
+    const data = await core.announcements.getAnnouncement(actor, id);
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
+  }
 }
 
 export async function createAnnouncement(
   input: AnnouncementInput,
 ): Promise<ActionResult<SerializedAnnouncement>> {
-  const denied = await ensureAnnouncementAdmin();
-  if (denied) return denied;
-  const validation = validateAnnouncementInput(input);
-  if (!validation.success) return validation;
-  const created = await prisma.announcement.create({ data: validation.data });
-  revalidateAnnouncementPaths();
-  return ok(serializeAnnouncement(created));
+  try {
+    const actor = await getActor();
+    const data = await core.announcements.createAnnouncement(actor, input);
+    revalidateAnnouncementPaths();
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
+  }
 }
 
 export async function updateAnnouncement(
   input: AnnouncementInput & { id: string },
 ): Promise<ActionResult<SerializedAnnouncement>> {
-  const denied = await ensureAnnouncementAdmin();
-  if (denied) return denied;
-  if (!input.id) return fail('Некорректные данные.');
-  const validation = validateAnnouncementInput(input);
-  if (!validation.success) return validation;
-  const updated = await prisma.announcement.update({
-    where: { id: input.id },
-    data: validation.data,
-  });
-  revalidateAnnouncementPaths();
-  return ok(serializeAnnouncement(updated));
+  try {
+    const actor = await getActor();
+    const data = await core.announcements.updateAnnouncement(actor, input);
+    revalidateAnnouncementPaths();
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
+  }
 }
 
 export async function deleteAnnouncement(id: string): Promise<ActionResult<{ id: string }>> {
-  const denied = await ensureAnnouncementAdmin();
-  if (denied) return denied;
-  await prisma.announcement.delete({ where: { id } });
-  revalidateAnnouncementPaths();
-  return ok({ id });
+  try {
+    const actor = await getActor();
+    const data = await core.announcements.deleteAnnouncement(actor, id);
+    revalidateAnnouncementPaths();
+    return ok(data);
+  } catch (e) {
+    return toActionResult(e);
+  }
 }
 
 // ───────────────────────── Serialization helpers
@@ -1054,13 +918,13 @@ export async function resetPassword(
 }
 
 // ───────────────────────── Landing contact form
+//
+// Validation + honeypot logic lives in @docjob/core's contact.service (pure,
+// no DB). Building/sending the email is a transport/infra concern (uses the
+// `resend` package + env vars) and stays here, same split as
+// `requestPasswordReset` above.
 
-const contactMessageSchema = z.object({
-  name: z.string().trim().min(1).max(100),
-  email: z.string().trim().email().max(200),
-  message: z.string().trim().min(1).max(2000),
-  company: z.string().optional(), // honeypot — real users never fill this
-});
+export type ContactMessageInput = core.contact.ContactMessageInput;
 
 /**
  * Send a contact-form message to the site inbox. Bots that fill the hidden
@@ -1068,17 +932,24 @@ const contactMessageSchema = z.object({
  * so we don't reveal the trap.
  */
 export async function sendContactMessage(
-  input: z.infer<typeof contactMessageSchema>,
+  input: ContactMessageInput,
 ): Promise<ActionResult<{ sent: true }>> {
-  const parsed = contactMessageSchema.safeParse(input);
-  if (!parsed.success) return fail('Проверьте правильность заполнения формы.');
-
-  const { name, email, message, company } = parsed.data;
-  if (company && company.trim().length > 0) return ok({ sent: true });
-
-  const { subject, html, text } = buildContactEmail({ name, email, message });
+  let parsed: core.contact.ParsedContactMessage;
   try {
-    await sendEmail({ to: SITE_EMAIL, subject, html, text, replyTo: email });
+    parsed = core.contact.parseContactMessage(input);
+  } catch (e) {
+    return toActionResult(e);
+  }
+
+  if (parsed.isHoneypot) return ok({ sent: true });
+
+  const { subject, html, text } = buildContactEmail({
+    name: parsed.name,
+    email: parsed.email,
+    message: parsed.message,
+  });
+  try {
+    await sendEmail({ to: SITE_EMAIL, subject, html, text, replyTo: parsed.email });
   } catch (error) {
     console.error('Failed to send contact message:', error);
     return fail('Не удалось отправить сообщение. Попробуйте позже.');
