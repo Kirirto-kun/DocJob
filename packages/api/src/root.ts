@@ -5,6 +5,7 @@ import { reviewsRouter } from './routers/reviews';
 import { savedRouter } from './routers/saved';
 import { tagsRouter } from './routers/tags';
 import { submissionsRouter } from './routers/submissions';
+import { usersRouter } from './routers/users';
 
 /**
  * Root tRPC router. Domain routers (cases, search, reviews, saved, tags,
@@ -13,7 +14,10 @@ import { submissionsRouter } from './routers/submissions';
  * packages/core/src/index.ts). `cases` + `search` landed in Task 2; `reviews`
  * + `saved` + `tags` landed in Task 3 (see packages/api/src/routers/
  * {reviews,saved,tags}.ts); `submissions` lands in Task 4 (see
- * packages/api/src/routers/submissions.ts) — the rest follow in Tasks 5-6.
+ * packages/api/src/routers/submissions.ts); `users` lands in Task 5 (see
+ * packages/api/src/routers/users.ts — login/refresh/logout stay the
+ * dedicated `POST /api/auth/*` cookie-setting routes from SP-1c, not tRPC)
+ * — the rest follow in Task 6.
  */
 export const appRouter = router({
   health: publicProcedure.query(() => ({ ok: true as const })),
@@ -23,6 +27,7 @@ export const appRouter = router({
   saved: savedRouter,
   tags: tagsRouter,
   submissions: submissionsRouter,
+  users: usersRouter,
 });
 
 export type AppRouter = typeof appRouter;
