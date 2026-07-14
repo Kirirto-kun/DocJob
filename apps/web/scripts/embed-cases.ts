@@ -1,6 +1,6 @@
 import { config } from 'dotenv';
 import { PrismaClient } from '@prisma/client';
-import { buildCaseEmbeddingText, embedText, toVectorLiteral } from '../src/lib/embeddings';
+import { buildCaseEmbeddingText, embedText, toVectorLiteral } from '@docjob/core';
 
 // Load env the same way the app does (.env.local then .env).
 config({ path: '.env.local' });
