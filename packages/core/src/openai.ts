@@ -32,6 +32,14 @@ export function getOpenAI(): OpenAI {
   if (!globalForOpenAI.__docjobCoreOpenAI) {
     globalForOpenAI.__docjobCoreOpenAI = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      // Fail fast on errors (notably 429 insufficient_quota, whose retry-after
+      // backoff makes the default 2 retries hang callers for tens of seconds).
+      // search.service already degrades to a substring fallback on any OpenAI
+      // error, so retrying buys nothing but latency here — no retries keeps
+      // search responsive when OpenAI is rate-limited/down, and a bounded
+      // per-request timeout caps a single slow call.
+      maxRetries: 0,
+      timeout: 30_000,
     });
   }
   return globalForOpenAI.__docjobCoreOpenAI;

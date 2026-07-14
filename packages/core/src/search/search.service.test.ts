@@ -40,6 +40,9 @@ describe('search.service (integration, real Postgres)', () => {
         expect(c).not.toHaveProperty('solution');
       }
     },
-    30_000,
+    // Generous cap: when OpenAI is rate-limited/unavailable the service still
+    // returns an array via the substring fallback, but the (now bounded) retry
+    // on each OpenAI call adds a little latency before the fallback engages.
+    45_000,
   );
 });
