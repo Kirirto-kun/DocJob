@@ -1,0 +1,24 @@
+{
+  "name": "@docjob/api",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "dotenv -e ../../.env.local -e ../../.env -- vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@docjob/auth": "workspace:*",
+    "@docjob/core": "workspace:*",
+    "@docjob/db": "workspace:*",
+    "@docjob/types": "workspace:*",
+    "@trpc/server": "^11.0.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^7.4.4",
+    "vitest": "^4.1.9"
+  }
+}
