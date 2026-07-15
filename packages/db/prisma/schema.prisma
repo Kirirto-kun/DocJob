@@ -68,8 +68,10 @@ model Case {
   teaser              String?
   mode                CaseMode    @default(CLINICAL_QUEST)
   body                Json        @default("{\"blocks\":[]}")
+  bodyHash            String?
   embeddingDirty      Boolean     @default(true)
   embedding           Unsupported("vector(1536)")?
+  searchDoc           Unsupported("tsvector")?
   images              CaseImage[]
   attachments         CaseAttachment[]
   reviews             Review[]
