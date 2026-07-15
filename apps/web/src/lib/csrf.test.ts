@@ -1,16 +1,18 @@
 /**
- * Unit tests for `assertSameOrigin` (SP-4a T5). No DB/Postgres needed — this
- * guard only inspects request headers.
+ * Unit tests for `assertSameOrigin` (SP-4a T5, corrected). No DB/Postgres
+ * needed — this guard only inspects request headers.
  *
- * The exemption was relaxed from "Bearer header present AND no cookie" to
- * simply "no `cookie` header present" (see `./csrf.ts`'s doc comment): CSRF
- * only works because a browser automatically attaches a victim's cookies to
- * a cross-site request, so any request with no cookie header at all — with
- * or without a Bearer header, with or without a refresh-token body/header —
- * carries no ambient credential and cannot be a forgery. This is what makes
- * the cookieless mobile-transport refresh/logout calls (which carry neither
- * a cookie nor a Bearer header — the refresh token travels in the body)
- * pass through unblocked.
+ * The exemption is keyed on Origin/Referer **presence**, not on whether a
+ * `cookie` header is attached (see `./csrf.ts`'s doc comment for the full
+ * rationale): a cookie-absence-only exemption is sound against forgeries on
+ * an *existing* session (which need an ambient cookie to ride), but not
+ * against forgeries that *create* a session — a cross-origin, cookieless
+ * `/api/auth/login` POST would mint a session under the attacker's identity
+ * in the victim's browser (login CSRF), and a cross-origin, cookieless
+ * `/api/auth/logout` POST would clear the victim's cookies (forced-logout).
+ * Both must be blocked whenever a mismatched Origin/Referer is present,
+ * regardless of cookie status. Only a request with NEITHER an Origin/Referer
+ * NOR a cookie — the native/mobile-client shape — is exempt.
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { assertSameOrigin } from './csrf';
@@ -62,21 +64,34 @@ describe('assertSameOrigin', () => {
     expect(result!.status).toBe(403);
   });
 
-  it('exempts a cookieless cross-origin POST even with a mismatched/absent Origin (mobile refresh/logout, token-in-body)', () => {
+  it('blocks a cookieless cross-origin POST with a mismatched Origin (e.g. login CSRF / forced-logout)', () => {
     process.env.AUTH_URL = 'https://docjob.example';
-    const req = new Request('https://docjob.example/api/auth/refresh', {
+    const req = new Request('https://docjob.example/api/auth/login', {
       method: 'POST',
       headers: {
         origin: 'https://evil.example',
         'content-type': 'application/json',
       },
+      body: JSON.stringify({ email: 'victim@example.com', password: 'attacker-controlled' }),
+    });
+
+    const result = assertSameOrigin(req);
+    expect(result).not.toBeNull();
+    expect(result!.status).toBe(403);
+  });
+
+  it('exempts a cookieless request with NO Origin/Referer at all (native/mobile client)', () => {
+    process.env.AUTH_URL = 'https://docjob.example';
+    const req = new Request('https://docjob.example/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ refresh: 'some-raw-refresh-token' }),
     });
 
     expect(assertSameOrigin(req)).toBeNull();
   });
 
-  it('exempts a cookieless request carrying a Bearer header (unchanged prior behavior)', () => {
+  it('exempts a cookieless request carrying a Bearer header and no Origin (unchanged prior behavior)', () => {
     process.env.AUTH_URL = 'https://docjob.example';
     const req = new Request('https://docjob.example/api/auth/me', {
       headers: { authorization: 'Bearer some.jwt.token' },

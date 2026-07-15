@@ -33,47 +33,59 @@ function allowedOrigin(req: Request): string | null {
 }
 
 /**
- * Same-origin guard for cookie-authenticated, state-changing (POST) routes.
+ * Same-origin guard for state-changing (POST) auth routes.
  * Browsers always attach an `Origin` header to cross-site POSTs (falling
  * back to `Referer` for older/edge-case clients that omit `Origin`), so a
  * request forged from another site's page — which rides on the victim's
- * cookies automatically — is rejected here before it ever reaches
- * `auth.login`/`auth.rotateRefresh`.
+ * cookies automatically, or which mints a *new* session the victim's
+ * browser will then hold (login CSRF) — is rejected here before it ever
+ * reaches `auth.login`/`auth.rotateRefresh`.
  *
- * Requests that carry NO `cookie` header at all are exempt from this check.
- * CSRF is only possible because a browser *automatically* attaches a
- * victim's cookies to a cross-site request without the forging page ever
- * seeing or choosing them; a request with no cookie header carries no such
- * ambient credential, so it cannot be a CSRF forgery no matter what other
- * headers/body it does or doesn't carry. This covers both:
- *  - a Bearer-authenticated request (a malicious page has no way to read or
- *    attach an `Authorization` header to a cross-origin request either), and
- *  - a cookieless mobile-transport refresh/logout call (SP-4a T5), which
- *    presents its refresh token via the JSON body or an `X-Refresh-Token`
- *    header instead of a cookie, and so — same as login — never has a
- *    `cookie` header to exploit in the first place.
- * A native/mobile client authenticates itself explicitly on every request
- * and never relies on the browser/OS to attach anything ambient, so the
- * "no cookie" test alone correctly captures every such caller without
- * needing to special-case Bearer vs. body/header tokens.
+ * The exemption is keyed on Origin/Referer **presence**, not on whether the
+ * request happens to carry a `cookie` header. That distinction matters
+ * because CSRF isn't only "ride an existing session's ambient cookie" — it
+ * also covers *session creation*: `/api/auth/login` mints a session with no
+ * ambient credential at all, so a cookie-based exemption would let a
+ * cross-origin, cookieless page silently log the victim's browser into an
+ * attacker-chosen account (login CSRF), and would let a cross-origin,
+ * cookieless page clear the victim's cookies via `/api/auth/logout`
+ * (forced-logout). Any real browser navigation/fetch/form-post — whether or
+ * not it happens to carry a cookie — attaches `Origin` (or `Referer`), so:
+ *  - Origin/Referer present => always enforce the match, cookie or not.
+ *    This blocks both classic cookie-riding CSRF and cookieless
+ *    login/logout CSRF.
+ *  - Origin/Referer absent entirely => not a browser page navigation; this
+ *    is how a native/mobile client (Expo, curl, server-to-server) looks,
+ *    since it never sets these browser-only headers. Exempt it, but only
+ *    when it *also* carries no `cookie` header — a request with no cookie
+ *    has no ambient credential to steal, so it cannot be a CSRF forgery no
+ *    matter what other headers/body it does or doesn't carry (Bearer
+ *    header, or a cookieless mobile-transport refresh/logout call (SP-4a
+ *    T5) presenting its refresh token via the JSON body or an
+ *    `X-Refresh-Token` header).
  *
- * The web flow always sends its httpOnly auth cookies, so it keeps getting
- * the full Origin/Referer check below, completely unchanged.
+ * The web flow always sends both its httpOnly auth cookies AND an
+ * Origin/Referer header, so it's unconditionally covered by the first
+ * branch — completely unchanged from before.
  *
  * Returns a `403` `NextResponse` to short-circuit the caller when the check
  * fails, or `null` when the request should proceed.
  */
 export function assertSameOrigin(req: Request): NextResponse | null {
-  const hasCookie = !!req.headers.get('cookie');
-  if (!hasCookie) {
-    return null;
-  }
-
   const origin = req.headers.get('origin') ?? originFromReferer(req.headers.get('referer'));
-  const expected = allowedOrigin(req);
 
-  if (!origin || !expected || origin !== expected) {
+  if (origin) {
+    const expected = allowedOrigin(req);
+    if (expected && origin === expected) {
+      return null;
+    }
     return NextResponse.json({ error: 'CSRF check failed' }, { status: 403 });
   }
-  return null;
+
+  // No Origin/Referer at all => a native (mobile/server) client, not a web
+  // page. Exempt only when it also carries no ambient cookie.
+  if (!req.headers.get('cookie')) {
+    return null;
+  }
+  return NextResponse.json({ error: 'CSRF check failed' }, { status: 403 });
 }
