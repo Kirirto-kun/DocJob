@@ -33,12 +33,18 @@ function walk(dir: string): string[] {
   return out;
 }
 
-// Strip `//` line comments before scanning for import specifiers, so a doc
-// comment that merely *mentions* '@docjob/core' or '@docjob/api' (like the
-// ones in this very file, or in src/lib/api-types.ts) can't be mistaken for
-// a real import statement.
+// Strip `/* */` block comments (including multi-line ones) and then `//`
+// line comments before scanning for import specifiers, so a doc comment
+// that merely *mentions* '@docjob/core' or '@docjob/api' (like the ones in
+// this very file, or in src/lib/api-types.ts) can't be mistaken for a real
+// import statement. Note: this is a textual grep, not a parser — it does
+// NOT cover `require('@docjob/api')` or dynamic `import('@docjob/api')`
+// value usage. ESLint's `no-restricted-imports` backstops @docjob/core|db|auth
+// for those exotic forms too; a value `require('@docjob/api')` specifically
+// is an accepted gap here.
 function stripLineComments(src: string): string {
   return src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
     .split('\n')
     .map((line) => line.replace(/\/\/.*$/, ''))
     .join('\n');

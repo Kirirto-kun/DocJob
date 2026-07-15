@@ -16,5 +16,10 @@
   },
   "devDependencies": {
     "turbo": "^2.1.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "typescript": "~5.9.3"
+    }
   }
 }
