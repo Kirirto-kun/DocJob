@@ -90,8 +90,10 @@ export * from './announcements/announcement.mapper';
 // (guest -> `[]`, not an error), preserved verbatim.
 export * as announcements from './announcements/announcement.service';
 
-// No mapper — pure validation + honeypot check, no DB, no email transport
-// (that stays in the web wrapper, same split as users.requestPasswordReset).
+// No mapper. `parseContactMessage` is pure validation + honeypot; delivery
+// now lives here too via `sendContactMessage(input, { email })` using the
+// injected `EmailSender` port (SP-4a) — the Resend adapter is supplied by the
+// web tRPC mount, so core still imports no email infra.
 export * as contact from './contact/contact.service';
 
 // Flat + namespaced (same module, same convention as search/embeddings):
