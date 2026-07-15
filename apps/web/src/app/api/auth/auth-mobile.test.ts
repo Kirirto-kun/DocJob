@@ -14,6 +14,17 @@
  * Web cookie behavior is asserted to be unaffected by spot-checking that a
  * successful login/refresh still sets the httpOnly cookies via `Set-Cookie`
  * — the mobile-transport additions are additive, not a replacement.
+ *
+ * SP-4a-followup (security fix): raw tokens in the JSON body are now
+ * native-only. The discriminators are XSS-safe by construction — an
+ * `Origin` header is browser-set and cannot be forged/stripped by page JS,
+ * and an XSS cannot read the httpOnly refresh cookie to relay it in a
+ * body/header refresh call. The mobile requests below deliberately carry no
+ * `Origin` header and present the refresh token via body/header (not
+ * cookie), so they stay on the native path and keep getting body tokens.
+ * The new "web transport" tests below add the other half: an `Origin`
+ * header on login, and a cookie-sourced token on refresh, must each yield
+ * `{ user }` only, with the httpOnly cookies still rotating.
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -26,14 +37,20 @@ import { GET as mePOST } from './me/route';
 
 const PASSWORD = 'auth-mobile-test-password-123!';
 
+// Matches AUTH_URL as loaded from repo-root .env.local for this test run
+// (see apps/web/package.json's `test` script) — `assertSameOrigin`/
+// `allowedOrigin` in `@/lib/csrf` compare an incoming `Origin` header
+// against `new URL(AUTH_URL).origin`.
+const WEB_ORIGIN = 'http://localhost:3000';
+
 function uniqueEmail(tag: string): string {
   return `auth-mobile-${tag}-${Date.now()}-${Math.random().toString(36).slice(2)}@test.local`;
 }
 
-function jsonRequest(url: string, body: unknown): NextRequest {
+function jsonRequest(url: string, body: unknown, headers?: Record<string, string>): NextRequest {
   return new NextRequest(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -112,6 +129,67 @@ describe('mobile-transport auth endpoints (integration, real Postgres)', () => {
       where: { tokenHash: hashRefreshToken(body.refresh) },
     });
     expect(row?.deviceLabel).toBe('integration-test-device');
+  });
+
+  it('login with an Origin header (web transport) returns only { user } in the body — no raw tokens — while still setting cookies', async () => {
+    const user = await makeApprovedUser();
+    const req = jsonRequest(
+      'https://example.test/api/auth/login',
+      { email: user.email, password: PASSWORD },
+      { origin: WEB_ORIGIN },
+    );
+    const res = await loginPOST(req);
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect((body.user as { id: string }).id).toBe(user.id);
+    expect(body.access).toBeUndefined();
+    expect(body.refresh).toBeUndefined();
+    expect(body.refreshExpiresAt).toBeUndefined();
+
+    // The cookies still get set — only the JSON body's raw-token fields are
+    // withheld for the web transport.
+    const setCookie = res.headers.get('set-cookie') ?? '';
+    expect(setCookie).toMatch(/docjob-access=/);
+    expect(setCookie).toMatch(/docjob-refresh=/);
+  });
+
+  it('refresh presented via the cookie (web transport) returns only { user } in the body — no raw tokens — while still rotating cookies', async () => {
+    const user = await makeApprovedUser();
+    const loginReq = jsonRequest(
+      'https://example.test/api/auth/login',
+      { email: user.email, password: PASSWORD },
+      { origin: WEB_ORIGIN },
+    );
+    const loginRes = await loginPOST(loginReq);
+    expect(loginRes.status).toBe(200);
+    const refreshCookieValue = loginRes.cookies.get('docjob-refresh')?.value;
+    expect(refreshCookieValue).toBeTruthy();
+
+    // Presented via the `cookie` header (no body token at all) plus a
+    // matching `Origin`, exactly like a real browser's same-origin fetch —
+    // this is the shape an XSS'd page cannot forge, since it can't read the
+    // httpOnly cookie value to relay elsewhere.
+    const refreshReq = new NextRequest('https://example.test/api/auth/refresh', {
+      method: 'POST',
+      headers: {
+        cookie: `docjob-refresh=${refreshCookieValue}`,
+        origin: WEB_ORIGIN,
+      },
+    });
+    const refreshRes = await refreshPOST(refreshReq);
+
+    expect(refreshRes.status).toBe(200);
+    const data = (await refreshRes.json()) as Record<string, unknown>;
+    expect((data.user as { id: string }).id).toBe(user.id);
+    expect(data.access).toBeUndefined();
+    expect(data.refresh).toBeUndefined();
+    expect(data.refreshExpiresAt).toBeUndefined();
+
+    const setCookie = refreshRes.headers.get('set-cookie') ?? '';
+    expect(setCookie).toMatch(/docjob-access=/);
+    expect(setCookie).toMatch(/docjob-refresh=/);
   });
 
   it('GET /api/auth/me resolves the user from Authorization: Bearer <access from login>', async () => {

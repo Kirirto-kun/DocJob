@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { rotateRefresh, revokeFamily, signAccessToken } from '@docjob/auth';
 import * as core from '@docjob/core';
 import { assertSameOrigin } from '@/lib/csrf';
-import { getRefreshTokenFromRequest, setAuthCookies, clearAuthCookies } from '@/lib/auth-cookies';
+import {
+  getRefreshToken,
+  getRefreshTokenFromRequest,
+  setAuthCookies,
+  clearAuthCookies,
+} from '@/lib/auth-cookies';
 import { signingKey } from '@/lib/auth-keys';
 
 // Node runtime: rotates the refresh token in Postgres and (on success)
@@ -12,6 +17,13 @@ export const runtime = 'nodejs';
 export async function POST(req: NextRequest) {
   const csrfFailure = assertSameOrigin(req);
   if (csrfFailure) return csrfFailure;
+
+  // The token SOURCE (not just its value) determines the transport: a web
+  // client's refresh token always comes from the httpOnly cookie, which an
+  // XSS'd page cannot read — so it can never assemble a body/header
+  // request. Checked from the cookie jar directly (no body read), so this
+  // is safe to evaluate before consuming the request body below.
+  const fromCookie = Boolean(getRefreshToken(req.cookies));
 
   // Cookie first (web, unchanged), then body `{ refresh }` / `X-Refresh-Token`
   // header (mobile/native — never carries a cookie at all).
@@ -46,16 +58,26 @@ export async function POST(req: NextRequest) {
     signingKey(),
   );
 
-  // Same additive body-vs-cookie shape as login: the rotated tokens are
-  // returned in the JSON body too, for a mobile client with no cookies to
-  // read them from. Still the single rotation performed above — the
-  // `newRaw` handed to the client here is the only copy that will ever
-  // work (the old raw is now single-use-spent).
+  // The rotated tokens are returned in the JSON body ONLY when the
+  // presented token did NOT come from the cookie — i.e. a native/mobile
+  // client presenting it via body or `X-Refresh-Token` header, which has no
+  // cookie jar to read the new one from. A web client's request is
+  // necessarily cookie-sourced (that's the only place its browser ever put
+  // the token), so it gets `{ user }` only: an XSS forcing a cookie-based
+  // refresh call cannot read a token it can't read from the cookie AND
+  // can't read from the response body either. Still the single rotation
+  // performed above — the `newRaw` handed to the client here is the only
+  // copy that will ever work (the old raw is now single-use-spent), and the
+  // cookies are rotated unconditionally regardless of transport.
   const res = NextResponse.json({
     user,
-    access,
-    refresh: rotated.newRaw,
-    refreshExpiresAt: rotated.expiresAt,
+    ...(fromCookie
+      ? {}
+      : {
+          access,
+          refresh: rotated.newRaw,
+          refreshExpiresAt: rotated.expiresAt,
+        }),
   });
   setAuthCookies(res, {
     access,

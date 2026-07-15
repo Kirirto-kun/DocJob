@@ -52,16 +52,26 @@ export async function POST(req: NextRequest) {
 
   switch (result.status) {
     case 'ok': {
-      // The body also carries the raw tokens (in addition to the cookies
-      // below) so a mobile/native client — which never receives the
-      // httpOnly cookies at all — can read `access`/`refresh` directly. This
-      // is the SAME token pair minted above, not a second mint: exactly one
-      // successful response ever carries the raw refresh token.
+      // The body carries the raw tokens ONLY for a native/mobile client,
+      // which never receives the httpOnly cookies at all and so has no
+      // other way to obtain them. A browser POST always carries an `Origin`
+      // header (it's a forbidden header page JS cannot set or strip), so
+      // Origin-absence reliably identifies a native transport; a web
+      // request (Origin present) gets `{ user }` only — the rotating
+      // refresh token must live solely in the httpOnly cookie, unreadable
+      // by an XSS'd page. Either way this is the SAME token pair minted
+      // above, not a second mint: exactly one successful response ever
+      // carries the raw refresh token, and only to native clients.
+      const isNativeClient = !req.headers.get('origin');
       const res = NextResponse.json({
         user: result.user,
-        access: result.access,
-        refresh: result.refresh,
-        refreshExpiresAt: result.refreshExpiresAt,
+        ...(isNativeClient
+          ? {
+              access: result.access,
+              refresh: result.refresh,
+              refreshExpiresAt: result.refreshExpiresAt,
+            }
+          : {}),
       });
       setAuthCookies(res, {
         access: result.access,
