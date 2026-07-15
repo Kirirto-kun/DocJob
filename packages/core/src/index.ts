@@ -30,6 +30,11 @@ export * from './search/embeddings';
 // `core.search.upsertCaseEmbedding(...)` works equally well.
 export * as search from './search/search.service';
 
+// Namespaced: SP-3 T3 dirty-sweep reindex worker, called as
+// `core.reindex.reembedDirtyCases(...)`. Built on top of `reembedCase`
+// (embeddings.ts) — the durability backstop for embed-on-write.
+export * as reindex from './search/reindex.service';
+
 // Flat: mapper types + serializeReview (small domain, but follows the same
 // mapper/service split as cases and users for consistency).
 export * from './reviews/review.mapper';

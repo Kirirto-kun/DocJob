@@ -14,7 +14,8 @@
     "db:seed": "pnpm --filter @docjob/db db:seed",
     "db:studio": "pnpm --filter @docjob/db db:studio",
     "import:cases": "dotenv -e ../../.env.local -e ../../.env -- tsx scripts/import-cases.ts",
-    "embed:cases": "dotenv -e ../../.env.local -e ../../.env -- tsx scripts/embed-cases.ts"
+    "embed:cases": "dotenv -e ../../.env.local -e ../../.env -- tsx scripts/embed-cases.ts",
+    "reembed:cases": "dotenv -e ../../.env.local -e ../../.env -- tsx scripts/reembed-worker.ts"
   },
   "dependencies": {
     "@blocknote/core": "^0.49.0",

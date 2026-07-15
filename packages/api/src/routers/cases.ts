@@ -55,18 +55,22 @@ export const casesRouter = router({
     .input(z.string())
     .query(({ ctx, input }) => core.cases.getCase(ctx.actor, input)),
 
-  // create/update fire-and-forget the case embedding upsert after the write
+  // create/update fire-and-forget a best-effort re-embed after the write
   // succeeds — moved here verbatim from the (now-retired) `createCase`/
   // `updateCase` Server Actions (SP-2 Task 3) so every caller (web tRPC
   // hooks AND the in-process server caller) gets the same behavior, instead
-  // of duplicating this side effect at every transport call site. Guarded
-  // internally (embeddings.ts): a missing OPENAI_API_KEY or any embedding
-  // error is logged and swallowed, never surfaced to the caller.
+  // of duplicating this side effect at every transport call site. SP-3 T3:
+  // now calls the guarded, dirty-flag-driven `reembedCase` (embeddings.ts)
+  // instead of the old unguarded `upsertCaseEmbedding` — mutation latency is
+  // unchanged (still fire-and-forget), and `core.reindex.reembedDirtyCases`
+  // (the sweep worker) is the durability backstop for anything this inline
+  // call leaves dirty (missing OPENAI_API_KEY, a transient failure, or a
+  // concurrent-edit race). Never surfaced to the caller.
   create: adminProcedure
     .input(z.custom<core.cases.CreateCaseInput>(isPlainObject))
     .mutation(async ({ ctx, input }) => {
       const data = await core.cases.createCase(ctx.actor, input);
-      void core.search.upsertCaseEmbedding(data.id).catch(() => {});
+      void core.reembedCase(data.id).catch(() => {});
       return data;
     }),
 
@@ -74,7 +78,7 @@ export const casesRouter = router({
     .input(z.custom<core.cases.UpdateCaseInput>(isPlainObject))
     .mutation(async ({ ctx, input }) => {
       const data = await core.cases.updateCase(ctx.actor, input);
-      void core.search.upsertCaseEmbedding(data.id).catch(() => {});
+      void core.reembedCase(data.id).catch(() => {});
       return data;
     }),
 

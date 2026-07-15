@@ -13,9 +13,9 @@ async function main() {
     throw new Error('OPENAI_API_KEY is required to embed cases.');
   }
 
-  // Cases without an embedding yet.
+  // Cases without an embedding yet, or whose embedding is stale.
   const missing = await prisma.$queryRaw<Array<{ id: string }>>`
-    SELECT id FROM "Case" WHERE embedding IS NULL
+    SELECT id FROM "Case" WHERE "embeddingDirty" = true OR embedding IS NULL
   `;
 
   if (missing.length === 0) {
