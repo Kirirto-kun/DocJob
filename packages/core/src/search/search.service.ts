@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { prisma, type Prisma } from '@docjob/db';
 import { assertApproved, type Actor } from '../shared/actor';
+import { DomainError } from '../shared/errors';
 import { serializeCase, type SerializedCase } from '../cases/case.mapper';
 import { getOpenAI, DEFAULT_OPENAI_MODEL } from '../openai';
 import { embedText, toVectorLiteral } from './embeddings';
@@ -122,7 +123,9 @@ async function vectorSearchIds(refinedQuery: string): Promise<string[]> {
  * tag/specialty/subgroup boosts, and returns ranked SearchHits. The LLM is
  * used ONLY for query understanding; returned cases are curated library
  * content (never generated). Degrades gracefully: OpenAI down → lexical-only;
- * lexical error too → substring fallback. Never throws to the caller.
+ * lexical error too → substring fallback. On a genuinely broken search (e.g.
+ * a total DB outage, so even the substring fallback can't run) it throws a
+ * user-safe `DomainError` rather than leaking a raw Prisma error.
  */
 export async function searchCases(actor: Actor | null, query: string): Promise<SearchHit[]> {
   assertApproved(actor, 'Требуется авторизация.');
@@ -157,53 +160,57 @@ export async function searchCases(actor: Actor | null, query: string): Promise<S
   const lexIds = lexHits.map((h) => h.id);
   const snippetById = new Map(lexHits.map((h) => [h.id, h.snippet]));
 
-  // Both arms empty → last-ditch substring fallback (keeps the old contract).
-  if (lexIds.length === 0 && vecIds.length === 0) {
-    if (!trimmed) return [];
-    console.warn('searchCases: both arms empty, substring fallback', { query: trimmed });
-    const rows = await fallbackSearchCases(trimmed);
-    if (rows.length === 0) console.warn('searchCases zero-result', { query: trimmed });
-    return rows.map((c) => ({ case: c, score: 0, matchedVia: ['lexical'] as MatchSignal[], snippet: null }));
+  try {
+    // Both arms empty → last-ditch substring fallback (keeps the old contract).
+    if (lexIds.length === 0 && vecIds.length === 0) {
+      console.warn('searchCases: both arms empty, substring fallback', { query: trimmed });
+      const rows = await fallbackSearchCases(trimmed);
+      if (rows.length === 0) console.warn('searchCases zero-result', { query: trimmed });
+      return rows.map((c) => ({ case: c, score: 0, matchedVia: [] as MatchSignal[], snippet: null }));
+    }
+
+    const fused = reciprocalRankFusion([vecIds, lexIds]);
+    const lexSet = new Set(lexIds);
+    const vecSet = new Set(vecIds);
+
+    // Load every candidate row once.
+    const candidateIds = [...fused.keys()];
+    const rows = await prisma.case.findMany({ where: { id: { in: candidateIds } }, include: SEARCH_INCLUDE });
+    const byId = new Map(rows.map((r) => [r.id, r]));
+
+    // Intent boosts (additive on top of the RRF score).
+    const wantTags = new Set(intent.tags.map(normSearch).filter(Boolean));
+    const wantSpecialty = intent.specialty ? normSearch(intent.specialty) : null;
+    const wantSubgroup = intent.subgroup ? normSearch(intent.subgroup) : null;
+
+    const scored: SearchHit[] = candidateIds
+      .map((id): SearchHit | null => {
+        const row = byId.get(id);
+        if (!row) return null;
+        let score = fused.get(id) ?? 0;
+        if (wantTags.size) {
+          const rowTags = new Set((row.tags ?? []).map(normSearch));
+          let overlap = 0;
+          for (const t of wantTags) if (rowTags.has(t)) overlap += 1;
+          score += overlap * 0.01;
+        }
+        if (wantSpecialty && row.specialty && normSearch(row.specialty) === wantSpecialty) score += 0.015;
+        if (wantSubgroup && row.subgroup && normSearch(row.subgroup) === wantSubgroup) score += 0.008;
+        const matchedVia: MatchSignal[] = [];
+        if (vecSet.has(id)) matchedVia.push('semantic');
+        if (lexSet.has(id)) matchedVia.push('lexical');
+        return { case: serializeCase(row), score, matchedVia, snippet: snippetById.get(id) ?? null };
+      })
+      .filter((x): x is SearchHit => x !== null)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, RESULT_LIMIT);
+
+    if (scored.length === 0) console.warn('searchCases zero-result', { query: trimmed });
+    return scored;
+  } catch (error) {
+    console.error('searchCases failed', error);
+    throw new DomainError('Не удалось выполнить поиск.');
   }
-
-  const fused = reciprocalRankFusion([vecIds, lexIds]);
-  const lexSet = new Set(lexIds);
-  const vecSet = new Set(vecIds);
-
-  // Load every candidate row once.
-  const candidateIds = [...fused.keys()];
-  const rows = await prisma.case.findMany({ where: { id: { in: candidateIds } }, include: SEARCH_INCLUDE });
-  const byId = new Map(rows.map((r) => [r.id, r]));
-
-  // Intent boosts (additive on top of the RRF score).
-  const wantTags = new Set(intent.tags.map(normSearch).filter(Boolean));
-  const wantSpecialty = intent.specialty ? normSearch(intent.specialty) : null;
-  const wantSubgroup = intent.subgroup ? normSearch(intent.subgroup) : null;
-
-  const scored: SearchHit[] = candidateIds
-    .map((id): SearchHit | null => {
-      const row = byId.get(id);
-      if (!row) return null;
-      let score = fused.get(id) ?? 0;
-      if (wantTags.size) {
-        const rowTags = new Set((row.tags ?? []).map(normSearch));
-        let overlap = 0;
-        for (const t of wantTags) if (rowTags.has(t)) overlap += 1;
-        score += overlap * 0.01;
-      }
-      if (wantSpecialty && row.specialty && normSearch(row.specialty) === wantSpecialty) score += 0.015;
-      if (wantSubgroup && row.subgroup && normSearch(row.subgroup) === wantSubgroup) score += 0.008;
-      const matchedVia: MatchSignal[] = [];
-      if (vecSet.has(id)) matchedVia.push('semantic');
-      if (lexSet.has(id)) matchedVia.push('lexical');
-      return { case: serializeCase(row), score, matchedVia, snippet: snippetById.get(id) ?? null };
-    })
-    .filter((x): x is SearchHit => x !== null)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, RESULT_LIMIT);
-
-  if (scored.length === 0) console.warn('searchCases zero-result', { query: trimmed });
-  return scored;
 }
 
 export { embedText, buildCaseEmbeddingText, toVectorLiteral, upsertCaseEmbedding, reembedCase, EMBEDDING_MODEL, EMBEDDING_DIMS } from './embeddings';
