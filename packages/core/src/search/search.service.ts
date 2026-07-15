@@ -5,7 +5,7 @@ import { assertApproved, type Actor } from '../shared/actor';
 import { DomainError } from '../shared/errors';
 import { serializeCase, type SerializedCase } from '../cases/case.mapper';
 import { getOpenAI, DEFAULT_OPENAI_MODEL } from '../openai';
-import { embedText, toVectorLiteral } from './embeddings';
+import { toVectorLiteral } from './embeddings';
 import { embedQueryCached } from './query-cache';
 import { reciprocalRankFusion, type SearchHit, type MatchSignal } from './fusion';
 import { lexicalSearch } from './lexical';
@@ -193,7 +193,7 @@ export async function searchCases(actor: Actor | null, query: string): Promise<S
           const rowTags = new Set((row.tags ?? []).map(normSearch));
           let overlap = 0;
           for (const t of wantTags) if (rowTags.has(t)) overlap += 1;
-          score += overlap * 0.01;
+          score += Math.min(overlap, 2) * 0.01;
         }
         if (wantSpecialty && row.specialty && normSearch(row.specialty) === wantSpecialty) score += 0.015;
         if (wantSubgroup && row.subgroup && normSearch(row.subgroup) === wantSubgroup) score += 0.008;

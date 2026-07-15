@@ -1,12 +1,10 @@
 import { config } from 'dotenv';
-import { PrismaClient } from '@prisma/client';
-import { buildCaseEmbeddingText, embedText, toVectorLiteral } from '@docjob/core';
+import { prisma } from '@docjob/db';
+import { reembedCase } from '@docjob/core';
 
 // Load env the same way the app does (.env.local then .env).
 config({ path: '.env.local' });
 config({ path: '.env' });
-
-const prisma = new PrismaClient();
 
 async function main() {
   if (!process.env.OPENAI_API_KEY) {
@@ -25,39 +23,28 @@ async function main() {
 
   console.log(`Embedding ${missing.length} case(s)...`);
 
-  let done = 0;
+  let embedded = 0;
   let failed = 0;
+  let skipped = 0;
   for (const { id } of missing) {
-    const c = await prisma.case.findUnique({
-      where: { id },
-      select: {
-        name: true,
-        teaser: true,
-        primaryCondition: true,
-        specialty: true,
-        subgroup: true,
-        tags: true,
-        body: true,
-      },
-    });
-    if (!c) {
-      console.warn(`  - skip ${id} (not found)`);
-      continue;
-    }
-    try {
-      const text = buildCaseEmbeddingText(c);
-      const vector = await embedText(text);
-      const literal = toVectorLiteral(vector);
-      await prisma.$executeRaw`UPDATE "Case" SET embedding = ${literal}::vector WHERE id = ${id}`;
-      done += 1;
-      console.log(`  + embedded ${id} (${c.name})`);
-    } catch (error) {
+    // Delegate to the single guarded core path: builds text, embeds, and
+    // writes embedding + bodyHash + embeddingDirty=false atomically, so a
+    // second run of this script finds rows current via bodyHash and skips
+    // them without paying OpenAI again.
+    const result = await reembedCase(id);
+    if (result === 'embedded') {
+      embedded += 1;
+      console.log(`  + embedded ${id}`);
+    } else if (result === 'failed') {
       failed += 1;
-      console.error(`  ! failed ${id}:`, error);
+      console.error(`  ! failed ${id}`);
+    } else {
+      skipped += 1;
+      console.log(`  ~ skipped ${id} (${result})`);
     }
   }
 
-  console.log(`Done. Embedded ${done}, failed ${failed}.`);
+  console.log(`Done. Embedded ${embedded}, failed ${failed}, skipped ${skipped}.`);
 }
 
 main()
