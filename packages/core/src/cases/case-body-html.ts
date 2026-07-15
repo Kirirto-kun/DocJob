@@ -11,10 +11,29 @@ import type { CaseBody } from '@docjob/types';
  * Security: ALL text and ALL attribute values are HTML-escaped via `esc()`
  * (order matters: `&` first, then `<`, `>`, `"`) — a case body containing
  * `<script>` must render as inert escaped text, never as a live tag.
+ *
+ * Defense-in-depth: link `href` and image `src` are additionally passed
+ * through `safeUrl()`, an allowlist guard on the URL scheme, so a
+ * `javascript:`/`data:` URL can never become a navigable/loadable
+ * attribute in the rendered HTML (this webview has no CSP of its own).
  */
 
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/**
+ * Allowlist guard for URLs used as `href`/`src`. Returns the url unchanged
+ * if it's safe to use as a navigable/loadable URL, else `null`. Allows
+ * relative URLs (`/...`), fragments (`#...`), and absolute `http:`,
+ * `https:`, `mailto:`, `tel:` URLs. Rejects everything else, notably
+ * `javascript:` and `data:`.
+ */
+function safeUrl(url: string): string | null {
+  const u = String(url).trim();
+  if (u.startsWith('/') || u.startsWith('#')) return u;
+  if (/^(https?|mailto|tel):/i.test(u)) return u;
+  return null;
 }
 
 function extractBlocks(body: CaseBody): unknown[] {
@@ -37,7 +56,9 @@ function inlineContentToHtml(content: unknown): string {
     if (obj.type === 'link') {
       const href = typeof obj.href === 'string' ? obj.href : '';
       const inner = inlineContentToHtml(obj.content);
-      return `<a href="${esc(href)}">${inner}</a>`;
+      const safe = safeUrl(href);
+      if (safe === null) return inner;
+      return `<a href="${esc(safe)}">${inner}</a>`;
     }
 
     if (typeof obj.text === 'string') {
@@ -154,7 +175,9 @@ function renderBlock(block: Record<string, unknown>, type: string): string {
       const props = (block.props && typeof block.props === 'object') ? (block.props as Record<string, unknown>) : {};
       const url = typeof props.url === 'string' ? props.url : '';
       const caption = typeof props.caption === 'string' ? props.caption : '';
-      return `<img src="${esc(url)}" alt="${esc(caption)}">`;
+      const safe = safeUrl(url);
+      if (safe === null) return '';
+      return `<img src="${esc(safe)}" alt="${esc(caption)}">`;
     }
     case 'table': {
       return renderTableBlock(block);

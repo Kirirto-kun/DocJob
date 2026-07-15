@@ -53,4 +53,34 @@ describe('caseBodyToHtml', () => {
     expect(caseBodyToHtml(null)).toBe('');
     expect(caseBodyToHtml(undefined)).toBe('');
   });
+
+  it('strips a javascript: link href but keeps the visible text', () => {
+    const body = { blocks: [
+      { type: 'paragraph', content: [
+        { type: 'link', href: 'javascript:alert(1)', content: [{ type: 'text', text: 'click', styles: {} }] },
+      ] },
+    ] };
+    const html = caseBodyToHtml(body as any);
+    expect(html).toContain('click');
+    expect(html).not.toContain('href');
+    expect(html).not.toContain('javascript:');
+  });
+
+  it('keeps a normal https link as an anchor', () => {
+    const body = { blocks: [
+      { type: 'paragraph', content: [
+        { type: 'link', href: 'https://x.test', content: [{ type: 'text', text: 'link', styles: {} }] },
+      ] },
+    ] };
+    const html = caseBodyToHtml(body as any);
+    expect(html).toContain('<a href="https://x.test">');
+  });
+
+  it('omits an <img> with a javascript: src but renders one with a safe relative src', () => {
+    const dangerous = { blocks: [{ type: 'image', props: { url: 'javascript:alert(1)', caption: 'x' } }] };
+    expect(caseBodyToHtml(dangerous as any)).not.toContain('<img');
+
+    const safe = { blocks: [{ type: 'image', props: { url: '/api/images/x.png', caption: 'x' } }] };
+    expect(caseBodyToHtml(safe as any)).toContain('<img');
+  });
 });
