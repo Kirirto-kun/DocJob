@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowRight, Loader2, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, Loader2, Search, SearchX, Sparkles } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard-layout';
 import ScenarioControls from '@/components/scenario-controls';
 import {
@@ -22,6 +22,18 @@ import type { SearchHit, SerializedCase } from '@docjob/core';
 import { caseBodyPreview } from '@/lib/case-body-text';
 import { cn } from '@/lib/utils';
 
+// Snippets come from server-side ts_headline (curated case text), but sanitize
+// defensively before dangerouslySetInnerHTML: escape everything, then re-allow
+// only <mark>/</mark>.
+function renderSnippet(html: string): string {
+  return html
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/&lt;mark&gt;/g, '<mark>')
+    .replace(/&lt;\/mark&gt;/g, '</mark>');
+}
+
 export default function AiSearchPage() {
   const { currentUser, isInitialized } = useUserStore();
   const router = useRouter();
@@ -29,6 +41,7 @@ export default function AiSearchPage() {
   const tCases = useTranslations('cases');
 
   const [query, setQuery] = useState('');
+  const [submittedQuery, setSubmittedQuery] = useState('');
   const [results, setResults] = useState<SearchHit[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -48,6 +61,7 @@ export default function AiSearchPage() {
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted) {
         setQuery('');
+        setSubmittedQuery('');
         setResults(null);
         setSearching(false);
         setPendingId(null);
@@ -61,6 +75,7 @@ export default function AiSearchPage() {
     const text = query.trim();
     if (!text || searching) return;
     setSearching(true);
+    setSubmittedQuery(text);
     try {
       const data = await utils.search.search.fetch({ query: text });
       setResults(data);
@@ -124,11 +139,10 @@ export default function AiSearchPage() {
               <p className="max-w-md text-sm">{t('description')}</p>
             </div>
           ) : results.length === 0 ? (
-            <Card className="bg-muted/30">
-              <CardContent className="p-8 text-center text-muted-foreground">
-                {t('noResults')}
-              </CardContent>
-            </Card>
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center text-muted-foreground">
+              <SearchX className="h-10 w-10" />
+              <p className="max-w-md text-sm">{t('noResults', { query: submittedQuery })}</p>
+            </div>
           ) : (
             <>
               <p className="text-sm text-muted-foreground">
@@ -175,6 +189,28 @@ export default function AiSearchPage() {
                           <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
                             {preview}
                           </p>
+                        ) : null}
+                        {hit.matchedVia.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {hit.matchedVia.includes('semantic') ? (
+                              <Badge variant="secondary" className="gap-1 text-[10px]">
+                                <Sparkles className="h-3 w-3" />
+                                {t('matchedSemantic')}
+                              </Badge>
+                            ) : null}
+                            {hit.matchedVia.includes('lexical') ? (
+                              <Badge variant="secondary" className="gap-1 text-[10px]">
+                                <Search className="h-3 w-3" />
+                                {t('matchedLexical')}
+                              </Badge>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        {hit.snippet ? (
+                          <p
+                            className="text-sm text-muted-foreground mt-1"
+                            dangerouslySetInnerHTML={{ __html: renderSnippet(hit.snippet) }}
+                          />
                         ) : null}
                         {c.tags && c.tags.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5">

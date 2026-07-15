@@ -83,6 +83,15 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Search-result snippet highlighting (ts_headline <mark> tags). Themed for
+     the dark-mode-first UI: a translucent primary wash that stays legible on
+     both the app's dark surfaces and the light .case-body-prose reading panel. */
+  mark {
+    background: hsl(var(--primary) / 0.25);
+    color: inherit;
+    border-radius: 2px;
+    padding: 0 2px;
+  }
 }
 
 @layer utilities {
