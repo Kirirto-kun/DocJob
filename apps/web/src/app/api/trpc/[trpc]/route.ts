@@ -1,6 +1,7 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { appRouter, createContext } from '@docjob/api';
 import { verificationKeys } from '@/lib/auth-keys';
+import { assertSameOrigin } from '@/lib/csrf';
 
 // Node runtime: `createContext` (see packages/api/src/context.ts) verifies
 // the access token with jose (Edge-safe on its own) but then re-reads the
@@ -27,6 +28,16 @@ export const runtime = 'nodejs';
  * redirected/blocked upstream.
  */
 function handler(req: Request) {
+  // CSRF: a state-changing tRPC call arrives as an HTTP POST (a mutation, or a
+  // batch that may contain one); reads are GETs. For cookie-authenticated POSTs
+  // require a same-origin Origin/Referer, so a cross-site page can't forge a
+  // mutation that rides on the victim's cookies. `assertSameOrigin` exempts
+  // bearer-only requests (no cookie) — they can't be CSRF'd — so the mobile/API
+  // path is unaffected. GET queries are read-only and need no check.
+  if (req.method === 'POST') {
+    const csrfBlock = assertSameOrigin(req);
+    if (csrfBlock) return csrfBlock;
+  }
   return fetchRequestHandler({
     endpoint: '/api/trpc',
     req,
