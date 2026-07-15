@@ -21,7 +21,7 @@ export * as users from './users/user.service';
 
 // Flat: pure embedding helpers (EMBEDDING_MODEL, EMBEDDING_DIMS, embedText,
 // buildCaseEmbeddingText, toVectorLiteral, upsertCaseEmbedding, and — SP-3 T2
-// — hashEmbeddingText, markCaseDirty, reembedCase) — reused directly as
+// — hashEmbeddingText, reembedCase) — reused directly as
 // `core.upsertCaseEmbedding(...)` / `core.reembedCase(...)`, same convention
 // as case.mapper's serializeCase.
 export * from './search/embeddings';

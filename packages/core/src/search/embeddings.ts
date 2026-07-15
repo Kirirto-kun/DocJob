@@ -112,11 +112,6 @@ export function hashEmbeddingText(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
 
-/** Flip the dirty flag without bumping updatedAt (raw SQL, so @updatedAt stays put). */
-export async function markCaseDirty(caseId: string): Promise<void> {
-  await prisma.$executeRaw`UPDATE "Case" SET "embeddingDirty" = true WHERE id = ${caseId}`;
-}
-
 export type ReembedResult =
   | 'embedded'
   | 'skipped-unchanged'
