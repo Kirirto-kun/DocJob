@@ -286,6 +286,85 @@ describe('authFetch', () => {
       expect(mockTokenStore.clear).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('a later 401 after a successful refresh starts a fresh single-flight cycle', () => {
+    it('refreshes again (not a stale in-flight promise) when a 401 arrives after an earlier refresh already resolved', async () => {
+      // Regression guard for `refresh()`'s `.finally(() => { refreshInFlight
+      // = null; })`: if that `.finally` were ever dropped, `refreshInFlight`
+      // would stay set to the first (already-settled) cycle's promise
+      // forever, and every subsequent 401 would resolve against stale state
+      // instead of kicking off a real rotation.
+      const ACCESS_1 = 'access-1';
+      const ACCESS_2 = 'access-2';
+      const ACCESS_3 = 'access-3';
+      const REFRESH_2 = 'refresh-2';
+      const REFRESH_3 = 'refresh-3';
+
+      let refreshCalls = 0;
+      const protectedCallHeaders: (string | undefined)[] = [];
+      // Scripted per-call outcome for /protected, in call order: initial
+      // attempt fails, refresh+retry succeeds — happening TWICE in a row.
+      // This models two 401s separated in time (the first authFetch fully
+      // resolves before the second starts), unlike the centerpiece test
+      // above which fires 401s concurrently.
+      const protectedOutcomes = [401, 200, 401, 200];
+      let protectedCallIndex = 0;
+
+      const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+
+        if (url.endsWith('/api/auth/refresh')) {
+          refreshCalls += 1;
+          if (refreshCalls === 1) {
+            return jsonResponse(200, {
+              user: { id: 'u1' },
+              access: ACCESS_2,
+              refresh: REFRESH_2,
+              refreshExpiresAt: '2031-01-01T00:00:00.000Z',
+            });
+          }
+          return jsonResponse(200, {
+            user: { id: 'u1' },
+            access: ACCESS_3,
+            refresh: REFRESH_3,
+            refreshExpiresAt: '2032-01-01T00:00:00.000Z',
+          });
+        }
+
+        if (url.endsWith('/protected')) {
+          protectedCallHeaders.push(authHeader(init));
+          const status = protectedOutcomes[protectedCallIndex];
+          protectedCallIndex += 1;
+          return jsonResponse(status, status === 200 ? { ok: true } : { error: 'unauthorized' });
+        }
+
+        throw new Error(`unexpected fetch to ${url}`);
+      });
+      (global as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+
+      // First 401 → one refresh cycle, awaited to completion so
+      // `refreshInFlight`'s `.finally` has run before the second call.
+      const firstResult = await authFetch(`${API_BASE_URL}/protected`);
+      expect(firstResult.status).toBe(200);
+      expect(refreshCalls).toBe(1);
+
+      // A LATER, independent 401 must start a FRESH single-flight refresh —
+      // the refresh endpoint should now have been fetched TWICE total.
+      const secondResult = await authFetch(`${API_BASE_URL}/protected`);
+      expect(secondResult.status).toBe(200);
+      expect(refreshCalls).toBe(2);
+
+      // And the second cycle's retry carried the newest access token,
+      // proving it re-read fresh state rather than replaying the first
+      // cycle's result.
+      expect(protectedCallHeaders).toEqual([
+        `Bearer ${ACCESS_1}`,
+        `Bearer ${ACCESS_2}`,
+        `Bearer ${ACCESS_2}`,
+        `Bearer ${ACCESS_3}`,
+      ]);
+    });
+  });
 });
 
 describe('refresh()', () => {

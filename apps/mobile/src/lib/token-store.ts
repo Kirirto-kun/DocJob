@@ -79,15 +79,29 @@ export const tokenStore: TokenStore = {
 
   setTokens(tokens: PersistedTokens): Promise<void> {
     return withLock(async () => {
-      await SecureStore.setItemAsync(TOKEN_KEYS.access, tokens.access);
-      // The refresh token is the long-lived, high-value credential (it's
-      // what a stolen device could use to mint new access tokens
-      // indefinitely) — restrict it to when the device is unlocked and
-      // never let it migrate to a new device via backup/restore.
+      // Write order is deliberate, not stylistic: SecureStore has no
+      // transaction, so a crash/kill between two of these writes can persist
+      // a torn pair. The refresh token — the long-lived, high-value
+      // credential (it's what a stolen device could use to mint new access
+      // tokens indefinitely; restricted to when the device is unlocked and
+      // never migrated to a new device via backup/restore) — is also
+      // single-use and server-rotated on every `refresh()`. If it were
+      // written LAST and a crash landed between the access write and the
+      // refresh write, the device would persist a NEW access token paired
+      // with the OLD (already-spent) refresh token; the next `refresh()`
+      // would then present that spent token, trip the server's reuse
+      // detection, and revoke the whole token family — a hard, un-self-
+      // healing logout. Writing refresh (and its expiry) FIRST means the
+      // only crash window is "NEW refresh + OLD access" — which self-heals:
+      // the stale access token simply 401s on its next use, `authFetch`
+      // refreshes with the (valid, current) new refresh token, and the
+      // access token catches up. Do not reorder this without re-deriving
+      // this analysis.
       await SecureStore.setItemAsync(TOKEN_KEYS.refresh, tokens.refresh, {
         keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       });
       await SecureStore.setItemAsync(TOKEN_KEYS.refreshExpiresAt, tokens.refreshExpiresAt);
+      await SecureStore.setItemAsync(TOKEN_KEYS.access, tokens.access);
     });
   },
 

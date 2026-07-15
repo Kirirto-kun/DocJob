@@ -139,19 +139,20 @@ describe('tokenStore', () => {
 
     // All 3 keys were written for call 1 (in order) before call 2's first
     // write started at all — proves no interleaving, not just a correct
-    // final value.
+    // final value. Order is refresh, refreshExpiresAt, access — see the
+    // crash-atomicity comment on `setTokens` in token-store.ts.
     const calls = secureStoreMock.setItemAsync.mock.calls as [string, string, unknown][];
     const call1Keys = calls.slice(0, 3).map(([key, value]) => `${key}=${value}`);
     const call2Keys = calls.slice(3, 6).map(([key, value]) => `${key}=${value}`);
     expect(call1Keys).toEqual([
-      `${TOKEN_KEYS.access}=access-1`,
       `${TOKEN_KEYS.refresh}=refresh-1`,
       `${TOKEN_KEYS.refreshExpiresAt}=exp-1`,
+      `${TOKEN_KEYS.access}=access-1`,
     ]);
     expect(call2Keys).toEqual([
-      `${TOKEN_KEYS.access}=access-2`,
       `${TOKEN_KEYS.refresh}=refresh-2`,
       `${TOKEN_KEYS.refreshExpiresAt}=exp-2`,
+      `${TOKEN_KEYS.access}=access-2`,
     ]);
   });
 
