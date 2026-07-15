@@ -1,13 +1,13 @@
 /**
  * Integration tests for the `search` tRPC router — run against the real dev
  * Postgres (same harness cases.test.ts/context.test.ts use). `search.search`
- * forwards straight into `@docjob/core`'s `search.searchCases`, which itself
- * falls back to a plain substring search whenever OpenAI is unavailable
- * (missing key, quota, network) — so this test doesn't special-case a
- * missing key/quota, it always asserts the same public contract (an array),
- * whichever internal path core took to get there. See
- * packages/core/src/search/search.service.test.ts for the equivalent
- * core-level coverage.
+ * forwards straight into `@docjob/core`'s `search.searchCases` (SP-3 T4:
+ * hybrid RRF over a lexical + semantic arm), which itself falls back to a
+ * plain substring search whenever both arms come back empty — so this test
+ * doesn't special-case a missing key/quota, it always asserts the same
+ * public contract (an array of `SearchHit`), whichever internal path core
+ * took to get there. See packages/core/src/search/search.service.test.ts for
+ * the equivalent core-level coverage.
  */
 import { describe, it, expect } from 'vitest';
 import { TRPCError } from '@trpc/server';
@@ -46,10 +46,11 @@ describe('search router (integration, real Postgres)', () => {
       const caller = createCaller({ actor: approvedActor });
       const result = await caller.search.search({ query: 'инфаркт' });
       expect(Array.isArray(result)).toBe(true);
-      for (const c of result) {
-        expect(typeof c.id).toBe('string');
-        expect(typeof c.name).toBe('string');
-        expect(c).not.toHaveProperty('solution');
+      for (const hit of result) {
+        expect(typeof hit.case.id).toBe('string');
+        expect(typeof hit.case.name).toBe('string');
+        expect(hit.case).not.toHaveProperty('solution');
+        expect(Array.isArray(hit.matchedVia)).toBe(true);
       }
     },
     // Generous cap: when OpenAI is rate-limited/unavailable the service

@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useUserStore } from '@/hooks/use-user-store';
 import { trpc } from '@/lib/trpc/react';
-import type { SerializedCase } from '@docjob/core';
+import type { SearchHit, SerializedCase } from '@docjob/core';
 import { caseBodyPreview } from '@/lib/case-body-text';
 import { cn } from '@/lib/utils';
 
@@ -29,7 +29,7 @@ export default function AiSearchPage() {
   const tCases = useTranslations('cases');
 
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SerializedCase[] | null>(null);
+  const [results, setResults] = useState<SearchHit[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -135,7 +135,8 @@ export default function AiSearchPage() {
                 {t('resultsCount', { count: results.length })}
               </p>
               <div className="grid grid-cols-1 gap-4 pb-4 md:grid-cols-2 xl:grid-cols-3">
-                {results.map((c) => {
+                {results.map((hit) => {
+                  const c = hit.case;
                   const preview = c.teaser?.trim() || caseBodyPreview(c.body ?? null, 140);
                   const isPending = pendingId === c.id;
                   const hasOtherPending = pendingId !== null && !isPending;

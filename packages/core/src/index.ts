@@ -29,6 +29,11 @@ export * from './search/embeddings';
 // search.service.ts also re-exports the embedding helpers, so
 // `core.search.upsertCaseEmbedding(...)` works equally well.
 export * as search from './search/search.service';
+// Flat: SP-3 T4 hybrid-search result shape (`SearchHit`/`MatchSignal`) — also
+// reachable namespaced as `core.search.SearchHit` via the re-export above,
+// but exported flat too so `import type { SearchHit } from '@docjob/core'`
+// works without going through the `search` namespace.
+export type { SearchHit, MatchSignal } from './search/fusion';
 
 // Namespaced: SP-3 T3 dirty-sweep reindex worker, called as
 // `core.reindex.reembedDirtyCases(...)`. Built on top of `reembedCase`
