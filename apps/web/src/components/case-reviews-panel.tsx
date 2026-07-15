@@ -1,18 +1,13 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Loader2, MessageSquare, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import {
-  createReview,
-  deleteReview,
-  getReviewsForCase,
-  type SerializedReview,
-} from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 
 type CaseReviewsPanelProps = {
   caseId: string;
@@ -22,51 +17,41 @@ export function CaseReviewsPanel({ caseId }: CaseReviewsPanelProps) {
   const t = useTranslations('caseReviews');
   const { currentUser } = useUserStore();
   const { toast } = useToast();
-  const [reviews, setReviews] = useState<SerializedReview[]>([]);
-  const [loading, setLoading] = useState(true);
+  const utils = trpc.useUtils();
   const [draft, setDraft] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [, startTransition] = useTransition();
 
   const canWrite = currentUser?.role === 'reviewer' || currentUser?.role === 'admin';
 
-  useEffect(() => {
-    void load();
-  }, [caseId]);
+  const reviewsQuery = trpc.reviews.forCase.useQuery(caseId);
+  const reviews = reviewsQuery.data ?? [];
+  const loading = reviewsQuery.isLoading;
 
-  const load = async () => {
-    setLoading(true);
-    const res = await getReviewsForCase(caseId);
-    if (res.success) setReviews(res.data);
-    setLoading(false);
-  };
+  const createMutation = trpc.reviews.create.useMutation();
+  const deleteMutation = trpc.reviews.delete.useMutation();
 
   const onSubmit = async () => {
     if (draft.trim().length < 10) return;
-    setSubmitting(true);
     try {
-      const res = await createReview({ caseId, body: draft.trim() });
-      if (!res.success) {
-        toast({ variant: 'destructive', title: res.error });
-        return;
-      }
-      setDraft('');
-      setReviews((prev) => [res.data, ...prev]);
-    } finally {
-      setSubmitting(false);
+      await createMutation.mutateAsync({ caseId, body: draft.trim() });
+    } catch (e) {
+      toast({ variant: 'destructive', title: e instanceof Error ? e.message : t('addButton') });
+      return;
     }
+    setDraft('');
+    await utils.reviews.forCase.invalidate(caseId);
+    await utils.reviews.mine.invalidate();
   };
 
-  const onDelete = (id: string) => {
+  const onDelete = async (id: string) => {
     if (!confirm(t('deleteConfirm'))) return;
-    startTransition(async () => {
-      const res = await deleteReview(id);
-      if (!res.success) {
-        toast({ variant: 'destructive', title: res.error });
-        return;
-      }
-      setReviews((prev) => prev.filter((r) => r.id !== id));
-    });
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (e) {
+      toast({ variant: 'destructive', title: e instanceof Error ? e.message : t('deleteButton') });
+      return;
+    }
+    await utils.reviews.forCase.invalidate(caseId);
+    await utils.reviews.mine.invalidate();
   };
 
   return (
@@ -91,9 +76,9 @@ export function CaseReviewsPanel({ caseId }: CaseReviewsPanelProps) {
           <div className="flex justify-end">
             <Button
               onClick={onSubmit}
-              disabled={submitting || draft.trim().length < 10}
+              disabled={createMutation.isPending || draft.trim().length < 10}
             >
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('addButton')}
             </Button>
           </div>
@@ -140,7 +125,7 @@ export function CaseReviewsPanel({ caseId }: CaseReviewsPanelProps) {
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => onDelete(r.id)}
+                        onClick={() => void onDelete(r.id)}
                         aria-label={t('deleteButton')}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />

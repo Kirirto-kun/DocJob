@@ -25,13 +25,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import {
-  getAllCaseSubmissions,
-  sendCaseSubmissionMessage,
-  updateCaseSubmissionStatus,
-  type SerializedCaseSubmission,
-  type SerializedSubmissionAttachment,
-} from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
+import type { SerializedCaseSubmission, SerializedSubmissionAttachment } from '@docjob/core';
 import { authFetch } from '@/lib/auth-client';
 import { subgroupLabel } from '@/lib/case-taxonomy';
 import { cn } from '@/lib/utils';
@@ -45,9 +40,10 @@ export default function AdminCaseSubmissionsPage() {
   const t = useTranslations('adminSubmissions');
   const tSuggest = useTranslations('suggestCase');
   const { toast } = useToast();
-  const [items, setItems] = useState<SerializedCaseSubmission[]>([]);
+  const utils = trpc.useUtils();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const isAdmin = isInitialized && !!currentUser && currentUser.role === 'admin';
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -57,16 +53,15 @@ export default function AdminCaseSubmissionsPage() {
     }
     if (currentUser.role !== 'admin') {
       router.push('/');
-      return;
     }
-    void load();
   }, [isInitialized, currentUser, router]);
 
+  const listQuery = trpc.submissions.all.useQuery(undefined, { enabled: isAdmin });
+  const items = listQuery.data ?? [];
+  const loading = listQuery.isLoading;
+
   const load = async () => {
-    setLoading(true);
-    const res = await getAllCaseSubmissions();
-    if (res.success) setItems(res.data);
-    setLoading(false);
+    await utils.submissions.all.invalidate();
   };
 
   const active = items.find((s) => s.id === activeId) ?? null;
@@ -156,11 +151,13 @@ function ThreadPanel({
   const tSuggest = useTranslations('suggestCase');
   const { currentUser } = useUserStore();
   const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
   const [attachments, setAttachments] = useState<SerializedSubmissionAttachment[]>([]);
   const [status, setStatus] = useState<StatusValue>((submission.status as StatusValue) ?? 'new');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sendMutation = trpc.submissions.sendMessage.useMutation();
+  const statusMutation = trpc.submissions.updateStatus.useMutation();
+  const sending = sendMutation.isPending;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -169,31 +166,28 @@ function ThreadPanel({
   const onSend = async () => {
     if (sending) return;
     if (draft.trim().length === 0 && attachments.length === 0) return;
-    setSending(true);
     try {
-      const res = await sendCaseSubmissionMessage({
+      await sendMutation.mutateAsync({
         submissionId: submission.id,
         body: draft.trim() || '[вложение]',
         attachmentIds: attachments.map((a) => a.attachmentId),
       });
-      if (!res.success) {
-        onError(res.error);
-        return;
-      }
-      setDraft('');
-      setAttachments([]);
-      await onChanged();
-    } finally {
-      setSending(false);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : tSuggest('thread.send'));
+      return;
     }
+    setDraft('');
+    setAttachments([]);
+    await onChanged();
   };
 
   const onStatusChange = async (next: string) => {
     const nextStatus = next as StatusValue;
     setStatus(nextStatus);
-    const res = await updateCaseSubmissionStatus(submission.id, nextStatus);
-    if (!res.success) {
-      onError(res.error);
+    try {
+      await statusMutation.mutateAsync({ submissionId: submission.id, status: nextStatus });
+    } catch (e) {
+      onError(e instanceof Error ? e.message : t('statusLabel'));
       return;
     }
     await onChanged();

@@ -304,26 +304,10 @@ function inlineContentToText(content: unknown): string {
 }
 
 // ───────────────────────── Tags
-
-export async function getTags(): Promise<ActionResult<string[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.tags.getTags(actor);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function addTag(label: string): Promise<ActionResult<{ label: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.tags.addTag(actor, label);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
+//
+// `getTags`/`addTag` retired (SP-2 Task 4) — `use-tag-store.tsx` now calls
+// `trpc.tags.list`/`trpc.tags.add` directly; see
+// `packages/api/src/routers/tags.ts`.
 
 // ───────────────────────── News
 //
@@ -563,182 +547,26 @@ export async function getSessionUser(): Promise<SerializedUser | null> {
 }
 
 // ───────────────────────── Saved cases (favourites / bookmarks)
-
-export type SerializedSavedCase = core.saved.SerializedSavedCase;
-
-export async function toggleSavedCase(
-  caseId: string,
-): Promise<ActionResult<{ saved: boolean }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.saved.toggleSavedCase(actor, caseId);
-    revalidatePath('/saved-cases');
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function isCaseSaved(caseId: string): Promise<ActionResult<{ saved: boolean }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.saved.isCaseSaved(actor, caseId);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function getSavedCases(): Promise<ActionResult<SerializedSavedCase[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.saved.getSavedCases(actor);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function getSavedCaseIds(): Promise<ActionResult<string[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.saved.getSavedCaseIds(actor);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
+//
+// `toggleSavedCase`/`isCaseSaved`/`getSavedCases`/`getSavedCaseIds` retired
+// (SP-2 Task 4) — `save-case-button.tsx`, `saved-cases/page.tsx`,
+// `cases/[subgroup]/page.tsx`, and `profile/page.tsx` now call
+// `trpc.saved.*` directly; see `packages/api/src/routers/saved.ts`.
 
 // ───────────────────────── Reviews
-
-export type SerializedReview = core.SerializedReview;
-export type SerializedReviewWithCase = core.SerializedReviewWithCase;
-
-export async function createReview(
-  input: core.reviews.CreateReviewInput,
-): Promise<ActionResult<SerializedReview>> {
-  try {
-    const actor = await getActor();
-    const data = await core.reviews.createReview(actor, input);
-    revalidatePath(`/cases`);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function deleteReview(reviewId: string): Promise<ActionResult<{ id: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.reviews.deleteReview(actor, reviewId);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function getReviewsForCase(caseId: string): Promise<ActionResult<SerializedReview[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.reviews.getReviewsForCase(actor, caseId);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function getMyReviews(): Promise<ActionResult<SerializedReviewWithCase[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.reviews.getMyReviews(actor);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
+//
+// `createReview`/`deleteReview`/`getReviewsForCase`/`getMyReviews` retired
+// (SP-2 Task 4) — `case-reviews-panel.tsx`, `reviewer/my-reviews/page.tsx`,
+// and `profile/page.tsx` now call `trpc.reviews.*` directly; see
+// `packages/api/src/routers/reviews.ts`.
 
 // ───────────────────────── Case submissions (author -> admin discussion)
 //
-// Pure domain logic (validation, auth rules, message-thread persistence,
-// status workflow) lives in @docjob/core's submission.service — these are
-// thin transport wrappers: resolve the actor, call core, translate thrown
-// DomainErrors back into ActionResult, and run the Next.js-specific side
-// effects (revalidatePath).
-
-export type SerializedSubmissionAttachment = core.SerializedSubmissionAttachment;
-export type SerializedSubmissionMessage = core.SerializedSubmissionMessage;
-export type SerializedCaseSubmission = core.SerializedCaseSubmission;
-
-export async function createCaseSubmission(
-  input: core.submissions.CreateCaseSubmissionInput,
-): Promise<ActionResult<SerializedCaseSubmission>> {
-  try {
-    const actor = await getActor();
-    const data = await core.submissions.createCaseSubmission(actor, input);
-    revalidatePath('/admin/case-submissions');
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function sendCaseSubmissionMessage(
-  input: core.submissions.SendCaseSubmissionMessageInput,
-): Promise<ActionResult<SerializedSubmissionMessage>> {
-  try {
-    const actor = await getActor();
-    const data = await core.submissions.sendCaseSubmissionMessage(actor, input);
-    revalidatePath('/admin/case-submissions');
-    revalidatePath('/suggest-case');
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function getMyCaseSubmissions(): Promise<ActionResult<SerializedCaseSubmission[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.submissions.getMyCaseSubmissions(actor);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function getAllCaseSubmissions(): Promise<ActionResult<SerializedCaseSubmission[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.submissions.getAllCaseSubmissions(actor);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function getCaseSubmissionById(id: string): Promise<ActionResult<SerializedCaseSubmission>> {
-  try {
-    const actor = await getActor();
-    const data = await core.submissions.getCaseSubmissionById(actor, id);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function updateCaseSubmissionStatus(
-  submissionId: string,
-  status: core.submissions.CaseSubmissionStatus,
-): Promise<ActionResult<{ id: string; status: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.submissions.updateCaseSubmissionStatus(actor, submissionId, status);
-    revalidatePath('/admin/case-submissions');
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
+// `createCaseSubmission`/`sendCaseSubmissionMessage`/`getMyCaseSubmissions`/
+// `getAllCaseSubmissions`/`getCaseSubmissionById`/`updateCaseSubmissionStatus`
+// retired (SP-2 Task 4) — `suggest-case/page.tsx` and
+// `admin/case-submissions/page.tsx` now call `trpc.submissions.*` directly;
+// see `packages/api/src/routers/submissions.ts`.
 
 // ───────────────────────── Search
 //

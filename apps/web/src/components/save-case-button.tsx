@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { isCaseSaved, toggleSavedCase } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 import { cn } from '@/lib/utils';
 
 type SaveCaseButtonProps = {
@@ -23,8 +23,8 @@ export function SaveCaseButton({
 }: SaveCaseButtonProps) {
   const t = useTranslations('caseSaveButton');
   const { toast } = useToast();
+  const utils = trpc.useUtils();
   const [saved, setSaved] = useState<boolean | null>(initialSaved ?? null);
-  const [pending, startTransition] = useTransition();
 
   // Sync from prop when parent re-renders with a freshly-loaded value
   // (e.g. catalog page initially passes `false` while it loads the
@@ -36,28 +36,30 @@ export function SaveCaseButton({
   }, [initialSaved]);
 
   // No prop given → fetch fresh state from server.
+  const isSavedQuery = trpc.saved.isSaved.useQuery(caseId, {
+    enabled: initialSaved === undefined,
+  });
   useEffect(() => {
     if (initialSaved !== undefined) return;
-    let cancelled = false;
-    void (async () => {
-      const res = await isCaseSaved(caseId);
-      if (cancelled) return;
-      if (res.success) setSaved(res.data.saved);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [caseId, initialSaved]);
+    if (isSavedQuery.data) setSaved(isSavedQuery.data.saved);
+  }, [initialSaved, isSavedQuery.data]);
 
-  const onClick = () => {
-    startTransition(async () => {
-      const res = await toggleSavedCase(caseId);
-      if (!res.success) {
-        toast({ variant: 'destructive', title: res.error });
-        return;
-      }
-      setSaved(res.data.saved);
-    });
+  const toggleMutation = trpc.saved.toggle.useMutation();
+  const pending = toggleMutation.isPending;
+
+  const onClick = async () => {
+    try {
+      const res = await toggleMutation.mutateAsync(caseId);
+      setSaved(res.saved);
+    } catch (e) {
+      toast({ variant: 'destructive', title: e instanceof Error ? e.message : t('save') });
+      return;
+    }
+    await Promise.all([
+      utils.saved.list.invalidate(),
+      utils.saved.ids.invalidate(),
+      utils.saved.isSaved.invalidate(caseId),
+    ]);
   };
 
   const isSaved = saved === true;
@@ -69,7 +71,7 @@ export function SaveCaseButton({
         type="button"
         size="icon"
         variant="ghost"
-        onClick={onClick}
+        onClick={() => void onClick()}
         disabled={pending || saved === null}
         aria-label={ariaLabel}
         title={isSaved ? t('saved') : t('save')}
@@ -89,7 +91,7 @@ export function SaveCaseButton({
     <Button
       type="button"
       variant={isSaved ? 'secondary' : 'outline'}
-      onClick={onClick}
+      onClick={() => void onClick()}
       disabled={pending || saved === null}
       className={className}
     >

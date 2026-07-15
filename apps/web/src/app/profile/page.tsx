@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore, type UserRole } from '@/hooks/use-user-store';
-import { getMyReviews, getSavedCaseIds } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 import { authFetch } from '@/lib/auth-client';
 
 export default function ProfilePage() {
@@ -24,8 +24,6 @@ export default function ProfilePage() {
   const locale = useLocale();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [savedCount, setSavedCount] = useState(0);
-  const [reviewCount, setReviewCount] = useState(0);
 
   useEffect(() => {
     if (isInitialized && !currentUser) {
@@ -33,23 +31,14 @@ export default function ProfilePage() {
     }
   }, [isInitialized, currentUser, router]);
 
-  useEffect(() => {
-    if (!isInitialized || !currentUser) return;
-    let cancelled = false;
-    void (async () => {
-      const res = await getSavedCaseIds();
-      if (!cancelled && res.success) setSavedCount(res.data.length);
-    })();
-    if (currentUser.role === 'reviewer') {
-      void (async () => {
-        const res = await getMyReviews();
-        if (!cancelled && res.success) setReviewCount(res.data.length);
-      })();
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [isInitialized, currentUser]);
+  const savedIdsQuery = trpc.saved.ids.useQuery(undefined, {
+    enabled: isInitialized && !!currentUser,
+  });
+  const savedCount = savedIdsQuery.data?.length ?? 0;
+
+  const isReviewer = isInitialized && !!currentUser && currentUser.role === 'reviewer';
+  const myReviewsQuery = trpc.reviews.mine.useQuery(undefined, { enabled: isReviewer });
+  const reviewCount = myReviewsQuery.data?.length ?? 0;
 
   if (!isInitialized || !currentUser) {
     return (

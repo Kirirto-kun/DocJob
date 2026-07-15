@@ -27,7 +27,7 @@ import { findSubgroup } from '@/lib/case-taxonomy';
 import { caseBodyPreview } from '@/lib/case-body-text';
 import { cn } from '@/lib/utils';
 import { SaveCaseButton } from '@/components/save-case-button';
-import { getSavedCaseIds } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 
 const ALL_SPECIALTIES = '__all__';
 
@@ -43,7 +43,6 @@ export default function CasesBySubgroupPage({
   const { patients, isInitialized, refreshPatients } = usePatientStore();
   const [specialtyFilter, setSpecialtyFilter] = useState<string>(ALL_SPECIALTIES);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [savedIds, setSavedIds] = useState<Set<string> | null>(null);
   const [, startTransition] = useTransition();
 
   // The patient store loads once on app start. If the admin creates a new
@@ -56,13 +55,8 @@ export default function CasesBySubgroupPage({
     }
   }, [isInitialized, refreshPatients]);
 
-  useEffect(() => {
-    if (!isInitialized) return;
-    void (async () => {
-      const res = await getSavedCaseIds();
-      if (res.success) setSavedIds(new Set(res.data));
-    })();
-  }, [isInitialized]);
+  const savedIdsQuery = trpc.saved.ids.useQuery(undefined, { enabled: isInitialized });
+  const savedIds = savedIdsQuery.data ? new Set(savedIdsQuery.data) : null;
 
   const subgroup = findSubgroup(subgroupSlug);
 

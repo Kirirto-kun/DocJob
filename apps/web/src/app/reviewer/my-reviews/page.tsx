@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import { deleteReview, getMyReviews, type SerializedReviewWithCase } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 import { subgroupLabel } from '@/lib/case-taxonomy';
 
 export default function MyReviewsPage() {
@@ -20,36 +20,32 @@ export default function MyReviewsPage() {
   const { currentUser, isInitialized } = useUserStore();
   const t = useTranslations('myReviews');
   const { toast } = useToast();
-  const [reviews, setReviews] = useState<SerializedReviewWithCase[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [, startTransition] = useTransition();
+  const utils = trpc.useUtils();
 
   useEffect(() => {
     if (!isInitialized) return;
     if (!currentUser) {
       router.push('/login');
-      return;
     }
-    void load();
   }, [isInitialized, currentUser, router]);
 
-  const load = async () => {
-    setLoading(true);
-    const res = await getMyReviews();
-    if (res.success) setReviews(res.data);
-    setLoading(false);
-  };
+  const reviewsQuery = trpc.reviews.mine.useQuery(undefined, {
+    enabled: isInitialized && !!currentUser,
+  });
+  const reviews = reviewsQuery.data ?? [];
+  const loading = reviewsQuery.isLoading;
 
-  const handleDelete = (id: string) => {
+  const deleteMutation = trpc.reviews.delete.useMutation();
+
+  const handleDelete = async (id: string) => {
     if (!confirm(t('deleteConfirm'))) return;
-    startTransition(async () => {
-      const res = await deleteReview(id);
-      if (!res.success) {
-        toast({ variant: 'destructive', title: res.error });
-        return;
-      }
-      setReviews((prev) => prev.filter((r) => r.id !== id));
-    });
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (e) {
+      toast({ variant: 'destructive', title: e instanceof Error ? e.message : t('deleteReview') });
+      return;
+    }
+    await utils.reviews.mine.invalidate();
   };
 
   return (
@@ -91,7 +87,7 @@ export default function MyReviewsPage() {
                         size="icon"
                         variant="ghost"
                         title={t('deleteReview')}
-                        onClick={() => handleDelete(r.id)}
+                        onClick={() => void handleDelete(r.id)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>

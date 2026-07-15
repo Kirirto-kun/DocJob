@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -12,11 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import {
-  getSavedCases,
-  toggleSavedCase,
-  type SerializedSavedCase,
-} from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 import { subgroupLabel } from '@/lib/case-taxonomy';
 
 export default function SavedCasesPage() {
@@ -24,35 +20,33 @@ export default function SavedCasesPage() {
   const router = useRouter();
   const t = useTranslations('savedCases');
   const { toast } = useToast();
-  const [items, setItems] = useState<SerializedSavedCase[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [, startTransition] = useTransition();
+  const utils = trpc.useUtils();
 
   useEffect(() => {
     if (!isInitialized) return;
     if (!currentUser) {
       router.push('/login');
-      return;
     }
-    void load();
   }, [isInitialized, currentUser, router]);
 
-  const load = async () => {
-    setLoading(true);
-    const res = await getSavedCases();
-    if (res.success) setItems(res.data);
-    setLoading(false);
-  };
+  const listQuery = trpc.saved.list.useQuery(undefined, { enabled: isInitialized && !!currentUser });
+  const items = listQuery.data ?? [];
+  const loading = listQuery.isLoading;
 
-  const handleRemove = (caseId: string) => {
-    startTransition(async () => {
-      const res = await toggleSavedCase(caseId);
-      if (!res.success) {
-        toast({ variant: 'destructive', title: res.error });
-        return;
-      }
-      setItems((prev) => prev.filter((i) => i.caseId !== caseId));
-    });
+  const toggleMutation = trpc.saved.toggle.useMutation();
+
+  const handleRemove = async (caseId: string) => {
+    try {
+      await toggleMutation.mutateAsync(caseId);
+    } catch (e) {
+      toast({ variant: 'destructive', title: e instanceof Error ? e.message : t('removeButton') });
+      return;
+    }
+    await Promise.all([
+      utils.saved.list.invalidate(),
+      utils.saved.ids.invalidate(),
+      utils.saved.isSaved.invalidate(caseId),
+    ]);
   };
 
   return (
@@ -91,7 +85,7 @@ export default function SavedCasesPage() {
                         size="icon"
                         variant="ghost"
                         title={t('removeButton')}
-                        onClick={() => handleRemove(s.caseId)}
+                        onClick={() => void handleRemove(s.caseId)}
                       >
                         <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
                       </Button>

@@ -1,7 +1,7 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { getTags, addTag as addTagAction } from '@/app/actions';
+import { createContext, useCallback, useContext, useMemo } from 'react';
+import { trpc } from '@/lib/trpc/react';
 import { useUserStore } from './use-user-store';
 
 type TagStore = {
@@ -13,33 +13,35 @@ type TagStore = {
 
 const TagContext = createContext<TagStore | null>(null);
 
+/**
+ * Tag pool store, migrated off the `getTags`/`addTag` Server Actions to
+ * `trpc.tags.*` (SP-2 Task 4). Public API (`tags`, `addTag`, `refreshTags`,
+ * `isInitialized`) is unchanged so `tag-picker.tsx` keeps working unmodified.
+ */
 export function TagProvider({ children }: { children: React.ReactNode }) {
-  const [tags, setTags] = useState<string[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
   const { currentUser, isInitialized: userInit } = useUserStore();
+  const utils = trpc.useUtils();
+
+  const hasUser = Boolean(currentUser);
+  const listQuery = trpc.tags.list.useQuery(undefined, {
+    enabled: userInit && hasUser,
+  });
+
+  const tags = useMemo(() => (hasUser ? (listQuery.data ?? []) : []), [hasUser, listQuery.data]);
+  const isLoaded = !userInit ? false : !hasUser || listQuery.isFetched || listQuery.isError;
 
   const refreshTags = useCallback(async () => {
-    const res = await getTags();
-    if (res.success) setTags(res.data);
-    setIsLoaded(true);
-  }, []);
+    await listQuery.refetch();
+  }, [listQuery.refetch]);
 
-  useEffect(() => {
-    if (userInit && currentUser) {
-      void refreshTags();
-    } else if (userInit && !currentUser) {
-      setTags([]);
-      setIsLoaded(true);
-    }
-  }, [userInit, currentUser, refreshTags]);
+  const addMutation = trpc.tags.add.useMutation();
 
   const addTag = useCallback(
     async (label: string) => {
-      const res = await addTagAction(label);
-      if (!res.success) throw new Error(res.error);
-      await refreshTags();
+      await addMutation.mutateAsync(label);
+      await utils.tags.list.invalidate();
     },
-    [refreshTags]
+    [addMutation, utils],
   );
 
   return (

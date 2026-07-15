@@ -30,13 +30,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import {
-  createCaseSubmission,
-  getMyCaseSubmissions,
-  sendCaseSubmissionMessage,
-  type SerializedCaseSubmission,
-  type SerializedSubmissionAttachment,
-} from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
+import type { SerializedCaseSubmission, SerializedSubmissionAttachment } from '@docjob/core';
 import { authFetch } from '@/lib/auth-client';
 import { SUBGROUPS, subgroupLabel } from '@/lib/case-taxonomy';
 import { cn } from '@/lib/utils';
@@ -58,24 +53,24 @@ export default function SuggestCasePage() {
   const { toast } = useToast();
 
   const [mode, setMode] = useState<Mode>('list');
-  const [submissions, setSubmissions] = useState<SerializedCaseSubmission[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const utils = trpc.useUtils();
 
   useEffect(() => {
     if (!isInitialized) return;
     if (!currentUser) {
       router.push('/login');
-      return;
     }
-    void refresh();
   }, [isInitialized, currentUser, router]);
 
+  const submissionsQuery = trpc.submissions.mine.useQuery(undefined, {
+    enabled: isInitialized && !!currentUser,
+  });
+  const submissions = submissionsQuery.data ?? [];
+  const loading = submissionsQuery.isLoading;
+
   const refresh = async () => {
-    setLoading(true);
-    const res = await getMyCaseSubmissions();
-    if (res.success) setSubmissions(res.data);
-    setLoading(false);
+    await utils.submissions.mine.invalidate();
   };
 
   const activeSubmission = submissions.find((s) => s.id === activeId) ?? null;
@@ -211,8 +206,9 @@ function NewSubmissionForm({
   const [subgroup, setSubgroup] = useState<string>('none');
   const [attachments, setAttachments] = useState<SerializedSubmissionAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const createMutation = trpc.submissions.create.useMutation();
+  const submitting = createMutation.isPending;
 
   const onAddAuthor = () => setAuthors((prev) => [...prev, '']);
   const onRemoveAuthor = (i: number) =>
@@ -255,22 +251,17 @@ function NewSubmissionForm({
   };
 
   const onSubmit = async () => {
-    setSubmitting(true);
     try {
-      const res = await createCaseSubmission({
+      const data = await createMutation.mutateAsync({
         title,
         description,
         authors: authors.map((a) => a.trim()).filter(Boolean),
         subgroup: subgroup === 'none' ? null : subgroup,
         attachmentIds: attachments.map((a) => a.attachmentId),
       });
-      if (!res.success) {
-        onError(res.error);
-        return;
-      }
-      onCreated(res.data.id);
-    } finally {
-      setSubmitting(false);
+      onCreated(data.id);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : t('form.submit'));
     }
   };
 
@@ -417,10 +408,11 @@ function ThreadView({
   const t = useTranslations('suggestCase');
   const { currentUser } = useUserStore();
   const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
   const [attachments, setAttachments] = useState<SerializedSubmissionAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sendMutation = trpc.submissions.sendMessage.useMutation();
+  const sending = sendMutation.isPending;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -429,23 +421,19 @@ function ThreadView({
   const onSend = async () => {
     if (sending) return;
     if (draft.trim().length === 0 && attachments.length === 0) return;
-    setSending(true);
     try {
-      const res = await sendCaseSubmissionMessage({
+      await sendMutation.mutateAsync({
         submissionId: submission.id,
         body: draft.trim() || '[вложение]',
         attachmentIds: attachments.map((a) => a.attachmentId),
       });
-      if (!res.success) {
-        onError(res.error);
-        return;
-      }
-      setDraft('');
-      setAttachments([]);
-      await onSent();
-    } finally {
-      setSending(false);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : t('thread.send'));
+      return;
     }
+    setDraft('');
+    setAttachments([]);
+    await onSent();
   };
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
