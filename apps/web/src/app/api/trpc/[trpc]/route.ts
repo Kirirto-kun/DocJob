@@ -4,6 +4,7 @@ import { appRouter, createContext } from '@docjob/api';
 import { verificationKeys } from '@/lib/auth-keys';
 import { assertSameOrigin } from '@/lib/csrf';
 import { sendEmail } from '@/lib/email';
+import { SITE_EMAIL } from '@/lib/site';
 
 /**
  * `EmailSender` adapter (SP-4a Task 2) backing `ApiContext.email` for every
@@ -13,6 +14,24 @@ import { sendEmail } from '@/lib/email';
  * `@docjob/core` importing the `resend` package or its env vars directly.
  */
 const webEmailSender: EmailSender = { send: (message) => sendEmail(message) };
+
+/**
+ * `passwordResetBase` (SP-4a Task 3): the client-facing base URL
+ * `users.requestPasswordReset` builds a reset link against. Deliberately
+ * decoupled from `AUTH_URL` (which doubles as the CSRF same-origin key) via
+ * its own `PASSWORD_RESET_URL_BASE` env var, falling back to `AUTH_URL` and
+ * finally a local-dev default so this never throws at request time.
+ */
+const passwordResetBase =
+  process.env.PASSWORD_RESET_URL_BASE ?? process.env.AUTH_URL ?? 'http://localhost:3000';
+
+/**
+ * `contactInboxEmail` (SP-4a Task 3 follow-up): the recipient
+ * `core.contact.sendContactMessage` delivers to — sourced from the same
+ * `SITE_EMAIL` constant the rest of the web app uses (SEO metadata, etc.),
+ * instead of a separate hardcoded constant living inside `@docjob/core`.
+ */
+const contactInboxEmail = SITE_EMAIL;
 
 // Node runtime: `createContext` (see packages/api/src/context.ts) verifies
 // the access token with jose (Edge-safe on its own) but then re-reads the
@@ -53,7 +72,8 @@ function handler(req: Request) {
     endpoint: '/api/trpc',
     req,
     router: appRouter,
-    createContext: ({ req }) => createContext({ req, keys: verificationKeys(), email: webEmailSender }),
+    createContext: ({ req }) =>
+      createContext({ req, keys: verificationKeys(), email: webEmailSender, passwordResetBase, contactInboxEmail }),
   });
 }
 

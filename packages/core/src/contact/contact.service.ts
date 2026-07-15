@@ -40,18 +40,18 @@ export function parseContactMessage(input: ContactMessageInput): ParsedContactMe
 }
 
 /**
- * Inbox that receives contact-form submissions. Mirrors
- * `apps/web/src/lib/site.ts`'s `SITE_EMAIL` — duplicated here (rather than
- * imported) because that file lives behind the web app's `@/*` alias, which
- * `@docjob/core`'s boundary test (`boundary.test.ts`) forbids importing.
- */
-const CONTACT_INBOX_EMAIL = 'docjob@inbox.kz';
-
-/**
  * Validate a contact-form submission and deliver it via the injected
  * `EmailSender` port (SP-4a Task 2) — this is what makes `contact.send`
  * actually send mail for every transport (web *and* mobile/tRPC-only
  * clients), instead of delivery living only in the web Server Action.
+ *
+ * The recipient inbox is injected too (SP-4a Task 3 follow-up), not
+ * hardcoded here — this used to duplicate `apps/web/src/lib/site.ts`'s
+ * `SITE_EMAIL` as a local `CONTACT_INBOX_EMAIL` constant (silent-drift
+ * risk: the two could go out of sync). `deps.inboxEmail` is threaded
+ * through from `ApiContext.contactInboxEmail`, which every context-
+ * construction site sets from the SAME `SITE_EMAIL` constant, so there's a
+ * single source of truth again.
  *
  * Bots that fill the hidden `company` honeypot field still resolve
  * `{ sent: true }` (matching the pre-existing silent-accept behavior) but
@@ -59,7 +59,7 @@ const CONTACT_INBOX_EMAIL = 'docjob@inbox.kz';
  */
 export async function sendContactMessage(
   input: ContactMessageInput,
-  deps: { email: EmailSender },
+  deps: { email: EmailSender; inboxEmail: string },
 ): Promise<{ sent: true }> {
   const parsed = parseContactMessage(input);
   if (parsed.isHoneypot) return { sent: true };
@@ -69,6 +69,6 @@ export async function sendContactMessage(
     email: parsed.email,
     message: parsed.message,
   });
-  await deps.email.send({ to: CONTACT_INBOX_EMAIL, subject, html, text, replyTo: parsed.email });
+  await deps.email.send({ to: deps.inboxEmail, subject, html, text, replyTo: parsed.email });
   return { sent: true };
 }

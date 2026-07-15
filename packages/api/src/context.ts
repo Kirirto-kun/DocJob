@@ -26,8 +26,29 @@ const ACCESS_COOKIE_NAMES = ['docjob-access', '__Host-docjob-access'];
  * (`apps/web/src/app/api/trpc/[trpc]/route.ts`), the in-process caller
  * (`apps/web/src/lib/trpc/server.ts`) reuses the same adapter, and tests
  * inject a spy/no-op.
+ *
+ * `passwordResetBase` (SP-4a Task 3): the client-facing base URL the
+ * `users.requestPasswordReset` procedure builds a reset link against (via
+ * `buildResetLink`, `@docjob/core`). Deliberately a separate config value
+ * from `AUTH_URL` (which doubles as the CSRF same-origin key) — resolved
+ * from `PASSWORD_RESET_URL_BASE` with an `AUTH_URL` fallback at each
+ * context-construction site.
+ *
+ * `contactInboxEmail` (SP-4a Task 3 follow-up, folds in a T2 review note):
+ * the recipient address `core.contact.sendContactMessage` delivers to.
+ * Previously a `CONTACT_INBOX_EMAIL` constant hardcoded inside
+ * `contact.service.ts`, duplicating `apps/web/src/lib/site.ts`'s
+ * `SITE_EMAIL` (silent-drift risk). Now injected here — every production
+ * context-construction site sets it from that same `SITE_EMAIL` constant —
+ * so there's one source of truth again, consistent with the injected-
+ * `EmailSender` pattern above.
  */
-export type ApiContext = { actor: Actor | null; email: EmailSender };
+export type ApiContext = {
+  actor: Actor | null;
+  email: EmailSender;
+  passwordResetBase: string;
+  contactInboxEmail: string;
+};
 
 function bearerToken(req: Request): string | undefined {
   const header = req.headers.get('authorization');
@@ -81,15 +102,22 @@ export async function createContext(opts: {
   req: Request;
   keys: SigningKey[];
   email: EmailSender;
+  passwordResetBase: string;
+  contactInboxEmail: string;
 }): Promise<ApiContext> {
+  const config = { passwordResetBase: opts.passwordResetBase, contactInboxEmail: opts.contactInboxEmail };
   const token = extractToken(opts.req);
-  if (!token) return { actor: null, email: opts.email };
+  if (!token) return { actor: null, email: opts.email, ...config };
 
   const claims = await verifyAccessToken(token, opts.keys);
-  if (!claims) return { actor: null, email: opts.email };
+  if (!claims) return { actor: null, email: opts.email, ...config };
 
   const user = await prisma.user.findUnique({ where: { id: claims.sub } });
-  if (!user) return { actor: null, email: opts.email };
+  if (!user) return { actor: null, email: opts.email, ...config };
 
-  return { actor: { id: user.id, role: user.role, approvedAt: user.approvedAt }, email: opts.email };
+  return {
+    actor: { id: user.id, role: user.role, approvedAt: user.approvedAt },
+    email: opts.email,
+    ...config,
+  };
 }

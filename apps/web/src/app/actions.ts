@@ -200,8 +200,15 @@ export type SerializedCase = core.SerializedCase;
 
 // ───────────────────────── Password reset
 
+/**
+ * Client-facing base URL for the reset link (SP-4a Task 3). Same resolution
+ * the tRPC mount uses (`apps/web/src/app/api/trpc/[trpc]/route.ts`'s
+ * `passwordResetBase`) — kept in sync so the web Server Action and the
+ * `users.requestPasswordReset` tRPC procedure emit an identical link,
+ * decoupled from `AUTH_URL` (which doubles as the CSRF same-origin key).
+ */
 function resetBaseUrl(): string {
-  return process.env.AUTH_URL?.replace(/\/$/, '') ?? 'http://localhost:3000';
+  return process.env.PASSWORD_RESET_URL_BASE ?? process.env.AUTH_URL ?? 'http://localhost:3000';
 }
 
 /**
@@ -217,7 +224,7 @@ export async function requestPasswordReset(
   // success either way). Email delivery is a transport concern and stays here.
   const issued = await core.users.requestPasswordReset(email);
   if (issued) {
-    const resetUrl = `${resetBaseUrl()}/reset-password?token=${issued.rawToken}`;
+    const resetUrl = core.buildResetLink(resetBaseUrl(), issued.rawToken);
     const { subject, html, text } = buildPasswordResetEmail(resetUrl);
     try {
       await sendEmail({ to: issued.to, subject, html, text });

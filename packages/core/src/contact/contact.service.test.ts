@@ -87,18 +87,19 @@ describe('contact.service — sendContactMessage (injected EmailSender)', () => 
     const send = vi.fn(async (_msg: EmailMessage) => {});
     const res = await contact.sendContactMessage(
       { name: 'Ann', email: 'a@b.test', message: 'Hello there team', company: '' },
-      { email: { send } },
+      { email: { send }, inboxEmail: 'inbox@test' },
     );
     expect(res).toEqual({ sent: true });
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0].subject).toBeTruthy();
+    expect(send.mock.calls[0][0].to).toBe('inbox@test');
   });
 
   it('sendContactMessage drops honeypot submissions without sending', async () => {
     const send = vi.fn(async () => {});
     const res = await contact.sendContactMessage(
       { name: 'Bot', email: 'bot@b.test', message: 'spam spam spam', company: 'ACME' },
-      { email: { send } },
+      { email: { send }, inboxEmail: 'inbox@test' },
     );
     expect(res).toEqual({ sent: true });
     expect(send).not.toHaveBeenCalled();

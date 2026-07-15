@@ -12,7 +12,7 @@ import * as core from '@docjob/core';
 import type { Actor } from '@docjob/core';
 import { appRouter } from '../root';
 import { createCallerFactory } from '../trpc';
-import { noopEmailSender } from '../test-helpers';
+import { noopEmailSender, testPasswordResetBase, testContactInboxEmail } from '../test-helpers';
 
 const createCaller = createCallerFactory(appRouter);
 
@@ -93,7 +93,7 @@ describe('reviews router (integration, real Postgres)', () => {
   });
 
   it('create rejects with TRPCError FORBIDDEN for a non-reviewer, non-admin actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const err = await captureTRPCError(() =>
       caller.reviews.create({ caseId, body: 'This should never be created.' }),
     );
@@ -101,7 +101,7 @@ describe('reviews router (integration, real Postgres)', () => {
   });
 
   it('create rejects with TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const err = await captureTRPCError(() =>
       caller.reviews.create({ caseId, body: 'This should never be created.' }),
     );
@@ -109,7 +109,7 @@ describe('reviews router (integration, real Postgres)', () => {
   });
 
   it('create as a reviewer persists and returns a SerializedReview', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: reviewerActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: reviewerActor });
     const result = await caller.reviews.create({
       caseId,
       body: 'A sufficiently long review body for validation.',
@@ -123,38 +123,38 @@ describe('reviews router (integration, real Postgres)', () => {
   });
 
   it('create rejects a too-short body with TRPCError BAD_REQUEST (core ValidationError)', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: reviewerActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: reviewerActor });
     const err = await captureTRPCError(() => caller.reviews.create({ caseId, body: 'short' }));
     expect(err.code).toBe('BAD_REQUEST');
     expect(err.message).toBe('Текст рецензии должен содержать минимум 10 символов.');
   });
 
   it('forCase throws UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const err = await captureTRPCError(() => caller.reviews.forCase(caseId));
     expect(err.code).toBe('UNAUTHORIZED');
   });
 
   it('forCase returns reviews for the case, any approved actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const rows = await caller.reviews.forCase(caseId);
     expect(Array.isArray(rows)).toBe(true);
     expect(rows.some((r) => r.id === createdReviewIds[0])).toBe(true);
   });
 
   it("mine returns only the caller's own reviews, with a case summary", async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: reviewerActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: reviewerActor });
     const mine = await caller.reviews.mine();
     expect(mine.some((r) => r.id === createdReviewIds[0])).toBe(true);
     expect(mine.every((r) => r.reviewerId === reviewerUserId)).toBe(true);
 
-    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const adminMine = await adminCaller.reviews.mine();
     expect(adminMine.some((r) => r.id === createdReviewIds[0])).toBe(false);
   });
 
   it('delete: author can delete their own review', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: reviewerActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: reviewerActor });
     const created = await caller.reviews.create({
       caseId,
       body: 'A review that will be deleted by its author.',
@@ -168,32 +168,32 @@ describe('reviews router (integration, real Postgres)', () => {
   });
 
   it("delete: a different non-admin actor is rejected with TRPCError FORBIDDEN", async () => {
-    const reviewerCaller = createCaller({ email: noopEmailSender, actor: reviewerActor });
+    const reviewerCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: reviewerActor });
     const created = await reviewerCaller.reviews.create({
       caseId,
       body: 'A review that a stranger will try to delete.',
     });
     createdReviewIds.push(created.id);
 
-    const doctorCaller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const doctorCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const err = await captureTRPCError(() => doctorCaller.reviews.delete(created.id));
     expect(err.code).toBe('FORBIDDEN');
   });
 
   it('delete: admin can delete someone else\'s review', async () => {
-    const reviewerCaller = createCaller({ email: noopEmailSender, actor: reviewerActor });
+    const reviewerCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: reviewerActor });
     const created = await reviewerCaller.reviews.create({
       caseId,
       body: 'A review that will be deleted by an admin.',
     });
 
-    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const deleted = await adminCaller.reviews.delete(created.id);
     expect(deleted).toEqual({ id: created.id });
   });
 
   it('delete throws TRPCError NOT_FOUND for a missing review id', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const err = await captureTRPCError(() => caller.reviews.delete('does-not-exist'));
     expect(err.code).toBe('NOT_FOUND');
   });

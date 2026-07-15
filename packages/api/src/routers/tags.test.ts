@@ -13,7 +13,7 @@ import { prisma } from '@docjob/db';
 import type { Actor } from '@docjob/core';
 import { appRouter } from '../root';
 import { createCallerFactory } from '../trpc';
-import { noopEmailSender } from '../test-helpers';
+import { noopEmailSender, testPasswordResetBase, testContactInboxEmail } from '../test-helpers';
 
 const createCaller = createCallerFactory(appRouter);
 
@@ -74,38 +74,38 @@ describe('tags router (integration, real Postgres)', () => {
   });
 
   it('add rejects with TRPCError FORBIDDEN for a non-admin (approved) actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const err = await captureTRPCError(() => caller.tags.add('should-never-be-created'));
     expect(err.code).toBe('FORBIDDEN');
   });
 
   it('add rejects with TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const err = await captureTRPCError(() => caller.tags.add('should-never-be-created'));
     expect(err.code).toBe('UNAUTHORIZED');
   });
 
   it('list rejects with TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const err = await captureTRPCError(() => caller.tags.list());
     expect(err.code).toBe('UNAUTHORIZED');
   });
 
   it('add as admin persists a trimmed label; list (any approved actor) includes it', async () => {
-    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const label = `api-tags-trim-${Date.now()}`;
     createdLabels.push(label);
 
     const result = await adminCaller.tags.add(`  ${label}  `);
     expect(result).toEqual({ label });
 
-    const doctorCaller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const doctorCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const tags = await doctorCaller.tags.list();
     expect(tags).toContain(label);
   });
 
   it('add dedups by label: calling it twice as admin upserts, not duplicates', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const label = `api-tags-dedup-${Date.now()}`;
     createdLabels.push(label);
 
@@ -117,7 +117,7 @@ describe('tags router (integration, real Postgres)', () => {
   });
 
   it('add rejects an empty (whitespace-only) label with TRPCError BAD_REQUEST', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const err = await captureTRPCError(() => caller.tags.add('   '));
     expect(err.code).toBe('BAD_REQUEST');
     expect(err.message).toBe('Пустой тег.');

@@ -8,3 +8,12 @@ import type { EmailSender } from '@docjob/core';
  * rather than repeating `{ send: async () => {} }` at each call site.
  */
 export const noopEmailSender: EmailSender = { send: async () => {} };
+
+/**
+ * Fixture values for `ApiContext.passwordResetBase` / `.contactInboxEmail`
+ * (SP-4a Task 3) — required fields, so every test-built `ApiContext` literal
+ * needs *some* value even when the test doesn't exercise password reset or
+ * contact delivery. Shared here for the same reason `noopEmailSender` is.
+ */
+export const testPasswordResetBase = 'http://localhost:3000';
+export const testContactInboxEmail = 'inbox@test';

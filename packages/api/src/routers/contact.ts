@@ -18,7 +18,9 @@ import { publicProcedure, router } from '../trpc';
  * directly — this keeps both packages' boundary tests (boundary.test.ts,
  * which forbid `@/*` and email infra) satisfied while making delivery work
  * uniformly for every transport, including mobile (tRPC-only) clients that
- * have no Server Action to fall back on.
+ * have no Server Action to fall back on. The recipient inbox is injected too
+ * (SP-4a Task 3 follow-up, `ctx.contactInboxEmail`) rather than hardcoded in
+ * core — see `context.ts`'s doc comment on `ApiContext.contactInboxEmail`.
  *
  * Auth tier: `send` = publicProcedure. `sendContactMessage` takes no actor at
  * all (anonymous visitors submit the contact form) — matches the original
@@ -39,6 +41,6 @@ export const contactRouter = router({
       // Throws ValidationError (-> TRPCError BAD_REQUEST) for a malformed
       // payload; a tripped honeypot parses fine and resolves { sent: true }
       // without sending, matching the pre-existing silent-accept behavior.
-      return core.contact.sendContactMessage(input, { email: ctx.email });
+      return core.contact.sendContactMessage(input, { email: ctx.email, inboxEmail: ctx.contactInboxEmail });
     }),
 });

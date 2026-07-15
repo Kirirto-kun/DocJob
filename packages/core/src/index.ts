@@ -24,6 +24,10 @@ export * as cases from './cases/case.service';
 // re-point its import at @docjob/core instead of duplicating the logic).
 export * from './users/user.mapper';
 export * from './users/password-reset-tokens';
+// Flat: `buildResetLink` (SP-4a Task 3) — pure URL builder shared by the web
+// Server Action and the `users.requestPasswordReset` tRPC procedure so both
+// transports emit an identical reset link.
+export * from './users/reset-link';
 // Namespaced: service functions, called as `core.users.registerUser(input)`.
 export * as users from './users/user.service';
 
@@ -91,9 +95,11 @@ export * from './announcements/announcement.mapper';
 export * as announcements from './announcements/announcement.service';
 
 // No mapper. `parseContactMessage` is pure validation + honeypot; delivery
-// now lives here too via `sendContactMessage(input, { email })` using the
-// injected `EmailSender` port (SP-4a) — the Resend adapter is supplied by the
-// web tRPC mount, so core still imports no email infra.
+// now lives here too via `sendContactMessage(input, { email, inboxEmail })`
+// using the injected `EmailSender` port (SP-4a Task 2) plus an injected
+// recipient inbox (SP-4a Task 3 follow-up) — the Resend adapter and inbox
+// address are both supplied by the web tRPC mount, so core still imports no
+// email infra and hardcodes no inbox address.
 export * as contact from './contact/contact.service';
 
 // Flat + namespaced (same module, same convention as search/embeddings):

@@ -2,6 +2,7 @@ import type { EmailSender } from '@docjob/core';
 import { appRouter, createCallerFactory } from '@docjob/api';
 import { getActor } from '@/lib/action-helpers';
 import { sendEmail } from '@/lib/email';
+import { SITE_EMAIL } from '@/lib/site';
 
 /**
  * Same Resend-backed `EmailSender` adapter the HTTP mount injects (SP-4a
@@ -11,6 +12,16 @@ import { sendEmail } from '@/lib/email';
  * adapter (rather than a no-op) means that changes.
  */
 const serverEmailSender: EmailSender = { send: (message) => sendEmail(message) };
+
+/**
+ * Same `passwordResetBase` / `contactInboxEmail` resolution the HTTP mount
+ * uses (SP-4a Task 3, see `apps/web/src/app/api/trpc/[trpc]/route.ts`) — kept
+ * in sync so a reset link or contact-form send is identical regardless of
+ * which transport (HTTP mount vs. this in-process caller) built it.
+ */
+const passwordResetBase =
+  process.env.PASSWORD_RESET_URL_BASE ?? process.env.AUTH_URL ?? 'http://localhost:3000';
+const contactInboxEmail = SITE_EMAIL;
 
 /**
  * In-process tRPC caller for Server Components / Server Actions — NO HTTP
@@ -41,5 +52,5 @@ const createCaller = createCallerFactory(appRouter);
 
 export async function serverCaller() {
   const actor = await getActor();
-  return createCaller({ actor, email: serverEmailSender });
+  return createCaller({ actor, email: serverEmailSender, passwordResetBase, contactInboxEmail });
 }

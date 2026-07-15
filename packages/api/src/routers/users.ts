@@ -41,12 +41,27 @@ import { publicProcedure, protectedProcedure, adminProcedure, router } from '../
  *   not tRPC — this router deliberately has no login/refresh/logout
  *   procedure, and `checkLoginIssue` (folded into `@docjob/auth`'s `login()`
  *   in SP-1c) is not re-added here.
+ * - `requestPasswordReset` / `resetPassword` / `checkResetToken` (SP-4a
+ *   Task 3) = publicProcedure. Anonymous by nature — the request-reset flow
+ *   exists precisely for someone who's locked out. `requestPasswordReset`
+ *   ALWAYS resolves `{ sent: true }` regardless of whether the email is
+ *   registered/approved (anti-enumeration, matching the pre-existing web
+ *   Server Action's behavior) — core's `requestPasswordReset` returns `null`
+ *   in every "don't actually send" case and this procedure only branches on
+ *   that to decide whether to build+send an email, never to change the
+ *   response. The reset link is built via `buildResetLink(ctx.passwordResetBase, ...)`
+ *   so web and mobile/tRPC-only clients emit an identical link; the email
+ *   itself goes out through the injected `ctx.email` port (SP-4a Task 2),
+ *   same pattern as `contact.send`.
  *
  * Input schemas: `updateProfile`/`register` reuse core's own input shapes via
  * `z.custom` (core's internal `safeParse` is the real validator, same
  * rationale as cases.ts/submissions.ts). `me`/`list`/`pending` take no input.
  * `approve`/`reject`/`delete` take a bare `id` string, no core-side schema to
- * reuse.
+ * reuse. `requestPasswordReset` takes `{ email }`, `resetPassword` takes
+ * `{ token, newPassword }` (this router's own zod shapes — core's functions
+ * take positional args, not an input object, so there's no core schema to
+ * borrow here), `checkResetToken` takes a bare token string.
  */
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
@@ -77,4 +92,27 @@ export const usersRouter = router({
   register: publicProcedure
     .input(z.custom<core.users.RegisterUserInput>(isPlainObject))
     .mutation(({ input }) => core.users.registerUser(input)),
+
+  requestPasswordReset: publicProcedure
+    .input(z.object({ email: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Anti-enumeration: core returns null for malformed/unknown/unapproved/
+      // throttled — this branch only decides whether to send, never the
+      // response, so the client always sees the same neutral result.
+      const issued = await core.users.requestPasswordReset(input.email);
+      if (issued) {
+        const link = core.buildResetLink(ctx.passwordResetBase, issued.rawToken);
+        const { subject, html, text } = core.buildPasswordResetEmail(link);
+        await ctx.email.send({ to: issued.to, subject, html, text });
+      }
+      return { sent: true } as const;
+    }),
+
+  resetPassword: publicProcedure
+    .input(z.object({ token: z.string().min(1), newPassword: z.string().min(6) }))
+    .mutation(({ input }) => core.users.resetPassword(input.token, input.newPassword)),
+
+  checkResetToken: publicProcedure
+    .input(z.string())
+    .query(({ input }) => core.users.checkResetToken(input)),
 });

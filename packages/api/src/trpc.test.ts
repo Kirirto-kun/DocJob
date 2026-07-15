@@ -10,7 +10,7 @@ import {
   createCallerFactory,
 } from './trpc';
 import type { ApiContext } from './context';
-import { noopEmailSender } from './test-helpers';
+import { noopEmailSender, testPasswordResetBase, testContactInboxEmail } from './test-helpers';
 
 /**
  * TDD spec for the tRPC v11 base setup: router/procedure factory, the
@@ -36,7 +36,7 @@ const testRouter = router({
 const createCaller = createCallerFactory(testRouter);
 
 function callerWith(actor: Actor | null) {
-  const ctx: ApiContext = { actor, email: noopEmailSender };
+  const ctx: ApiContext = { actor, email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail };
   return createCaller(ctx);
 }
 

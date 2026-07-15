@@ -10,13 +10,13 @@
  * which calls `assertAdmin` (tightened from `assertApproved` in a
  * security-hardening pass; see user.service.ts's doc comment on `listUsers`).
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { TRPCError } from '@trpc/server';
 import { prisma } from '@docjob/db';
-import type { Actor } from '@docjob/core';
+import type { Actor, EmailMessage } from '@docjob/core';
 import { appRouter } from '../root';
 import { createCallerFactory } from '../trpc';
-import { noopEmailSender } from '../test-helpers';
+import { noopEmailSender, testPasswordResetBase, testContactInboxEmail } from '../test-helpers';
 
 const createCaller = createCallerFactory(appRouter);
 
@@ -80,7 +80,7 @@ describe('users router (integration, real Postgres)', () => {
   // ───────────────────────── register (public)
 
   it('register (public caller, no actor) creates an unapproved user', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const email = uniqueEmail('register');
     const result = await caller.users.register({
       email,
@@ -96,7 +96,7 @@ describe('users router (integration, real Postgres)', () => {
   });
 
   it('register rejects a malformed payload with TRPCError BAD_REQUEST (core ValidationError)', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const err = await captureTRPCError(() =>
       caller.users.register({ email: 'not-an-email', password: 'x', name: '' }),
     );
@@ -106,14 +106,14 @@ describe('users router (integration, real Postgres)', () => {
   // ───────────────────────── me
 
   it('me returns the actor\'s own SerializedUser', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const me = await caller.users.me();
     expect(me?.id).toBe(doctorUserId);
     expect(me).not.toHaveProperty('passwordHash');
   });
 
   it('me throws TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const err = await captureTRPCError(() => caller.users.me());
     expect(err.code).toBe('UNAUTHORIZED');
   });
@@ -121,19 +121,19 @@ describe('users router (integration, real Postgres)', () => {
   // ───────────────────────── list (adminProcedure — matches core's assertAdmin)
 
   it('list throws TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const err = await captureTRPCError(() => caller.users.list());
     expect(err.code).toBe('UNAUTHORIZED');
   });
 
   it('list rejects with TRPCError FORBIDDEN for a non-admin (approved) actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const err = await captureTRPCError(() => caller.users.list());
     expect(err.code).toBe('FORBIDDEN');
   });
 
   it('list succeeds for an admin actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const list = await caller.users.list();
     expect(list.some((u) => u.id === adminUserId)).toBe(true);
   });
@@ -141,19 +141,19 @@ describe('users router (integration, real Postgres)', () => {
   // ───────────────────────── pending (adminProcedure — matches core's assertAdmin)
 
   it('pending rejects with TRPCError FORBIDDEN for a non-admin (approved) actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const err = await captureTRPCError(() => caller.users.pending());
     expect(err.code).toBe('FORBIDDEN');
   });
 
   it('pending rejects with TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const err = await captureTRPCError(() => caller.users.pending());
     expect(err.code).toBe('UNAUTHORIZED');
   });
 
   it('pending as admin includes a freshly registered unapproved user', async () => {
-    const publicCaller = createCaller({ email: noopEmailSender, actor: null });
+    const publicCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const email = uniqueEmail('pending');
     const registered = await publicCaller.users.register({
       email,
@@ -162,7 +162,7 @@ describe('users router (integration, real Postgres)', () => {
     });
     createdUserIds.push(registered.id);
 
-    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const pending = await adminCaller.users.pending();
     expect(pending.some((u) => u.id === registered.id)).toBe(true);
   });
@@ -170,7 +170,7 @@ describe('users router (integration, real Postgres)', () => {
   // ───────────────────────── approve / reject (adminProcedure — matches core's assertAdmin)
 
   it('approve rejects with TRPCError FORBIDDEN for a non-admin actor', async () => {
-    const publicCaller = createCaller({ email: noopEmailSender, actor: null });
+    const publicCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const registered = await publicCaller.users.register({
       email: uniqueEmail('approve-forbidden'),
       password: 'password123',
@@ -178,13 +178,13 @@ describe('users router (integration, real Postgres)', () => {
     });
     createdUserIds.push(registered.id);
 
-    const doctorCaller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const doctorCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const err = await captureTRPCError(() => doctorCaller.users.approve(registered.id));
     expect(err.code).toBe('FORBIDDEN');
   });
 
   it('approve as admin sets approvedAt on the target user', async () => {
-    const publicCaller = createCaller({ email: noopEmailSender, actor: null });
+    const publicCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const registered = await publicCaller.users.register({
       email: uniqueEmail('approve-ok'),
       password: 'password123',
@@ -192,7 +192,7 @@ describe('users router (integration, real Postgres)', () => {
     });
     createdUserIds.push(registered.id);
 
-    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const result = await adminCaller.users.approve(registered.id);
     expect(result).toEqual({ id: registered.id });
 
@@ -201,14 +201,14 @@ describe('users router (integration, real Postgres)', () => {
   });
 
   it('reject as admin deletes an unapproved target user', async () => {
-    const publicCaller = createCaller({ email: noopEmailSender, actor: null });
+    const publicCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const registered = await publicCaller.users.register({
       email: uniqueEmail('reject-ok'),
       password: 'password123',
       name: 'Reject OK Target',
     });
 
-    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const result = await adminCaller.users.reject(registered.id);
     expect(result).toEqual({ id: registered.id });
 
@@ -219,7 +219,7 @@ describe('users router (integration, real Postgres)', () => {
   // ───────────────────────── updateProfile (protectedProcedure — matches core's assertApproved)
 
   it('updateProfile lets an actor update their own profile', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const result = await caller.users.updateProfile({ id: doctorUserId, specialty: 'Cardiology' });
     expect(result).toEqual({ id: doctorUserId });
 
@@ -228,7 +228,7 @@ describe('users router (integration, real Postgres)', () => {
   });
 
   it('updateProfile rejects a non-admin actor editing someone else with TRPCError FORBIDDEN (core check)', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const err = await captureTRPCError(() =>
       caller.users.updateProfile({ id: adminUserId, specialty: 'Should not apply' }),
     );
@@ -236,7 +236,7 @@ describe('users router (integration, real Postgres)', () => {
   });
 
   it('updateProfile throws TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const err = await captureTRPCError(() => caller.users.updateProfile({ id: doctorUserId }));
     expect(err.code).toBe('UNAUTHORIZED');
   });
@@ -245,24 +245,85 @@ describe('users router (integration, real Postgres)', () => {
 
   it('delete rejects with TRPCError FORBIDDEN for a non-admin actor', async () => {
     const err = await captureTRPCError(() =>
-      createCaller({ email: noopEmailSender, actor: doctorActor }).users.delete(adminUserId),
+      createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor }).users.delete(adminUserId),
     );
     expect(err.code).toBe('FORBIDDEN');
   });
 
   it('delete as admin removes the target user', async () => {
-    const publicCaller = createCaller({ email: noopEmailSender, actor: null });
+    const publicCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const registered = await publicCaller.users.register({
       email: uniqueEmail('delete-ok'),
       password: 'password123',
       name: 'Delete OK Target',
     });
 
-    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const result = await adminCaller.users.delete(registered.id);
     expect(result).toEqual({ id: registered.id });
 
     const row = await prisma.user.findUnique({ where: { id: registered.id } });
     expect(row).toBeNull();
+  });
+
+  // ───────────────────────── requestPasswordReset / resetPassword /
+  // checkResetToken (publicProcedure — SP-4a Task 3)
+
+  it('requestPasswordReset emails a reset link (via the injected sender) for a known approved user', async () => {
+    const email = uniqueEmail('reset-known');
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash: 'unused-in-tests',
+        name: 'Reset Flow User',
+        role: 'DOCTOR',
+        approvedAt: new Date(),
+      },
+      select: { id: true },
+    });
+    createdUserIds.push(user.id);
+
+    const send = vi.fn(async (_msg: EmailMessage) => {});
+    const base = 'https://reset.docjob.test';
+    const caller = createCaller({
+      actor: null,
+      email: { send },
+      passwordResetBase: base,
+      contactInboxEmail: testContactInboxEmail,
+    });
+
+    const result = await caller.users.requestPasswordReset({ email });
+    expect(result).toEqual({ sent: true });
+    expect(send).toHaveBeenCalledTimes(1);
+
+    const [msg] = send.mock.calls[0];
+    expect(msg.to).toBe(email.toLowerCase());
+    expect(msg.text).toContain(`${base}/reset-password?token=`);
+  });
+
+  it('requestPasswordReset returns { sent: true } WITHOUT calling the sender for an unknown email (anti-enumeration)', async () => {
+    const send = vi.fn(async (_msg: EmailMessage) => {});
+    const caller = createCaller({
+      actor: null,
+      email: { send },
+      passwordResetBase: testPasswordResetBase,
+      contactInboxEmail: testContactInboxEmail,
+    });
+
+    const result = await caller.users.requestPasswordReset({ email: uniqueEmail('reset-unknown') });
+    expect(result).toEqual({ sent: true });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('checkResetToken returns { valid: false } for a garbage token', async () => {
+    const caller = createCaller({
+      email: noopEmailSender,
+      passwordResetBase: testPasswordResetBase,
+      contactInboxEmail: testContactInboxEmail,
+      actor: null,
+    });
+
+    const result = await caller.users.checkResetToken('garbage-not-a-real-token');
+    expect(result).toEqual({ valid: false });
   });
 });

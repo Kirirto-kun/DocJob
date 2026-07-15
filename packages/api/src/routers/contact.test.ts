@@ -20,7 +20,7 @@ import { TRPCError } from '@trpc/server';
 import type { EmailMessage } from '@docjob/core';
 import { appRouter } from '../root';
 import { createCallerFactory } from '../trpc';
-import { noopEmailSender } from '../test-helpers';
+import { noopEmailSender, testPasswordResetBase, testContactInboxEmail } from '../test-helpers';
 
 const createCaller = createCallerFactory(appRouter);
 
@@ -35,7 +35,7 @@ async function captureTRPCError(fn: () => Promise<unknown>): Promise<TRPCError> 
 }
 
 describe('contact router (unit — core.contact is pure, no DB)', () => {
-  const caller = createCaller({ email: noopEmailSender, actor: null });
+  const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
 
   it('send with a valid payload resolves { sent: true }, no actor required', async () => {
     const result = await caller.contact.send({
@@ -74,7 +74,12 @@ describe('contact router (unit — core.contact is pure, no DB)', () => {
 describe('contact router — email delivery via injected EmailSender (SP-4a Task 2)', () => {
   it('send with a valid payload calls the injected sender exactly once', async () => {
     const send = vi.fn(async (_msg: EmailMessage) => {});
-    const caller = createCaller({ actor: null, email: { send } });
+    const caller = createCaller({
+      actor: null,
+      email: { send },
+      passwordResetBase: testPasswordResetBase,
+      contactInboxEmail: testContactInboxEmail,
+    });
 
     const result = await caller.contact.send({
       name: 'Jane Doctor',
@@ -85,11 +90,19 @@ describe('contact router — email delivery via injected EmailSender (SP-4a Task
     expect(result).toEqual({ sent: true });
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0].subject).toBeTruthy();
+    // SP-4a Task 3 follow-up: the recipient comes from ctx.contactInboxEmail
+    // (injected), not a hardcoded core constant.
+    expect(send.mock.calls[0][0].to).toBe(testContactInboxEmail);
   });
 
   it('send with the honeypot field filled resolves { sent: true } without calling the sender', async () => {
     const send = vi.fn(async (_msg: EmailMessage) => {});
-    const caller = createCaller({ actor: null, email: { send } });
+    const caller = createCaller({
+      actor: null,
+      email: { send },
+      passwordResetBase: testPasswordResetBase,
+      contactInboxEmail: testContactInboxEmail,
+    });
 
     const result = await caller.contact.send({
       name: 'Bot',

@@ -15,7 +15,7 @@ import { prisma } from '@docjob/db';
 import type { Actor } from '@docjob/core';
 import { appRouter } from '../root';
 import { createCallerFactory } from '../trpc';
-import { noopEmailSender } from '../test-helpers';
+import { noopEmailSender, testPasswordResetBase, testContactInboxEmail } from '../test-helpers';
 
 const createCaller = createCallerFactory(appRouter);
 
@@ -76,13 +76,13 @@ describe('banners router (integration, real Postgres + filesystem manifest)', ()
   });
 
   it('get (public, no actor) returns a manifest object', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const manifest = await caller.banners.get();
     expect(manifest).toHaveProperty('1');
   });
 
   it('set rejects with TRPCError FORBIDDEN for a non-admin actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const err = await captureTRPCError(() =>
       caller.banners.set({
         slot: 1,
@@ -99,7 +99,7 @@ describe('banners router (integration, real Postgres + filesystem manifest)', ()
   });
 
   it('set rejects with TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const err = await captureTRPCError(() =>
       caller.banners.set({
         slot: 1,
@@ -116,7 +116,7 @@ describe('banners router (integration, real Postgres + filesystem manifest)', ()
   });
 
   it('set rejects an invalid slot with TRPCError BAD_REQUEST', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const err = await captureTRPCError(() =>
       caller.banners.set({
         // @ts-expect-error deliberately invalid slot for the runtime check
@@ -128,7 +128,7 @@ describe('banners router (integration, real Postgres + filesystem manifest)', ()
   });
 
   it('set as admin persists banner info; get reflects it; clearing (info: null) removes it', async () => {
-    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const info = {
       filename: `api-banners-test-${Date.now()}.png`,
       url: '/api/images/api-banners-test.png',

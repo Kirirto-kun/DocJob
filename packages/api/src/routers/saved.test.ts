@@ -9,7 +9,7 @@ import * as core from '@docjob/core';
 import type { Actor } from '@docjob/core';
 import { appRouter } from '../root';
 import { createCallerFactory } from '../trpc';
-import { noopEmailSender } from '../test-helpers';
+import { noopEmailSender, testPasswordResetBase, testContactInboxEmail } from '../test-helpers';
 
 const createCaller = createCallerFactory(appRouter);
 
@@ -72,24 +72,24 @@ describe('saved router (integration, real Postgres)', () => {
   });
 
   it('isSaved throws UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const err = await captureTRPCError(() => caller.saved.isSaved(caseId));
     expect(err.code).toBe('UNAUTHORIZED');
   });
 
   it('isSaved returns false before the case has been saved', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     await expect(caller.saved.isSaved(caseId)).resolves.toEqual({ saved: false });
   });
 
   it('toggle throws TRPCError NOT_FOUND for a missing case id', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     const err = await captureTRPCError(() => caller.saved.toggle('does-not-exist'));
     expect(err.code).toBe('NOT_FOUND');
   });
 
   it('toggle is idempotent per (userId, caseId): save then un-save on the same actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
 
     const first = await caller.saved.toggle(caseId);
     expect(first).toEqual({ saved: true });
@@ -101,7 +101,7 @@ describe('saved router (integration, real Postgres)', () => {
   });
 
   it('list includes the case-list-item summary while saved, empty again once un-saved', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
 
     await caller.saved.toggle(caseId);
     const listedWhileSaved = await caller.saved.list();
@@ -116,13 +116,13 @@ describe('saved router (integration, real Postgres)', () => {
   });
 
   it('ids returns the actor\'s saved case ids only', async () => {
-    const doctorCaller = createCaller({ email: noopEmailSender, actor: doctorActor });
+    const doctorCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: doctorActor });
     await doctorCaller.saved.toggle(caseId);
 
     const doctorIds = await doctorCaller.saved.ids();
     expect(doctorIds).toContain(caseId);
 
-    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: adminActor });
     const adminIds = await adminCaller.saved.ids();
     expect(adminIds).not.toContain(caseId);
 
@@ -131,7 +131,7 @@ describe('saved router (integration, real Postgres)', () => {
   });
 
   it('list/ids/toggle all throw UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ email: noopEmailSender, actor: null });
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     await expect(captureTRPCError(() => caller.saved.list())).resolves.toMatchObject({
       code: 'UNAUTHORIZED',
     });
