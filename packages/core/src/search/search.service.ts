@@ -6,6 +6,7 @@ import { DomainError } from '../shared/errors';
 import { serializeCase, type SerializedCase } from '../cases/case.mapper';
 import { getOpenAI, DEFAULT_OPENAI_MODEL } from '../openai';
 import { embedText, toVectorLiteral } from './embeddings';
+import { embedQueryCached } from './query-cache';
 import { reciprocalRankFusion, type SearchHit, type MatchSignal } from './fusion';
 import { lexicalSearch } from './lexical';
 
@@ -105,7 +106,7 @@ const RESULT_LIMIT = 12;
 
 /** Over-fetched vector KNN (no WHERE filter, to protect HNSW recall). */
 async function vectorSearchIds(refinedQuery: string): Promise<string[]> {
-  const vector = await embedText(refinedQuery);
+  const vector = await embedQueryCached(refinedQuery);
   const literal = toVectorLiteral(vector);
   const knn = await prisma.$queryRaw<Array<{ id: string }>>`
     SELECT id FROM "Case"
