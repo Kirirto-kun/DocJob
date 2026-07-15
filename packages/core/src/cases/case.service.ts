@@ -275,6 +275,7 @@ export async function updateCase(actor: Actor | null, input: UpdateCaseInput): P
             },
           }
         : {}),
+      embeddingDirty: true,
     },
     include: { images: true, attachments: { orderBy: { createdAt: 'asc' } } },
   });

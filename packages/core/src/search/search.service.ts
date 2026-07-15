@@ -199,4 +199,4 @@ export async function searchCases(actor: Actor | null, query: string): Promise<S
   }
 }
 
-export { embedText, buildCaseEmbeddingText, toVectorLiteral, upsertCaseEmbedding, EMBEDDING_MODEL, EMBEDDING_DIMS } from './embeddings';
+export { embedText, buildCaseEmbeddingText, toVectorLiteral, upsertCaseEmbedding, reembedCase, markCaseDirty, hashEmbeddingText, EMBEDDING_MODEL, EMBEDDING_DIMS } from './embeddings';

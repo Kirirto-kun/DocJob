@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { prisma } from '@docjob/db';
 import type { CaseBody } from '@docjob/types';
 import { getOpenAI } from '../openai';
@@ -106,38 +107,83 @@ export function toVectorLiteral(vector: number[]): string {
   return `[${vector.join(',')}]`;
 }
 
+/** sha256 hex of the embed-input text — the durability guard's content key. */
+export function hashEmbeddingText(text: string): string {
+  return createHash('sha256').update(text).digest('hex');
+}
+
+/** Flip the dirty flag without bumping updatedAt (raw SQL, so @updatedAt stays put). */
+export async function markCaseDirty(caseId: string): Promise<void> {
+  await prisma.$executeRaw`UPDATE "Case" SET "embeddingDirty" = true WHERE id = ${caseId}`;
+}
+
+export type ReembedResult =
+  | 'embedded'
+  | 'skipped-unchanged'
+  | 'skipped-stale'
+  | 'skipped-nokey'
+  | 'not-found'
+  | 'failed';
+
 /**
- * Load a case, build its searchable text, embed it, and persist the vector.
- * Fully guarded: a missing OPENAI_API_KEY or any API/DB error is logged and
- * swallowed so callers (createCase/updateCase) are never broken by embedding.
+ * Re-embed a case with durability + concurrency guards:
+ *  - reads a snapshot (updatedAt + fields), builds text + hash;
+ *  - if the hash matches the stored bodyHash and an embedding already exists
+ *    and !force → just clears the dirty flag (no OpenAI call);
+ *  - else embeds and writes embedding+bodyHash+embeddingDirty=false GUARDED by
+ *    `WHERE "updatedAt" = <snapshot>` so a concurrent user edit (which bumps
+ *    updatedAt via Prisma and re-sets dirty) is never clobbered — that row
+ *    just stays dirty for the next sweep (returns 'skipped-stale').
+ * Never throws: any error is logged and returned as 'failed' so the worker
+ * loop and the write-path best-effort call are safe.
  */
-export async function upsertCaseEmbedding(caseId: string): Promise<void> {
+export async function reembedCase(
+  caseId: string,
+  opts?: { force?: boolean; embed?: (text: string) => Promise<number[]> },
+): Promise<ReembedResult> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      console.warn('[embeddings] OPENAI_API_KEY missing — skipping embedding for case', caseId);
-      return;
+    if (!process.env.OPENAI_API_KEY && !opts?.embed) {
+      return 'skipped-nokey';
     }
     const c = await prisma.case.findUnique({
       where: { id: caseId },
       select: {
-        name: true,
-        teaser: true,
-        primaryCondition: true,
-        specialty: true,
-        subgroup: true,
-        tags: true,
-        body: true,
+        updatedAt: true, bodyHash: true,
+        name: true, teaser: true, primaryCondition: true,
+        specialty: true, subgroup: true, tags: true, body: true,
       },
     });
-    if (!c) {
-      console.warn('[embeddings] case not found, skipping embedding', caseId);
-      return;
-    }
+    if (!c) return 'not-found';
+
     const text = buildCaseEmbeddingText(c);
-    const vector = await embedText(text);
+    const hash = hashEmbeddingText(text);
+
+    // Already up to date (content unchanged, embedding present): clear the
+    // flag cheaply, guarded so we don't unset a concurrent edit's dirty=true.
+    if (!opts?.force && c.bodyHash === hash) {
+      const cleared = await prisma.$executeRaw`
+        UPDATE "Case" SET "embeddingDirty" = false
+        WHERE id = ${caseId} AND "updatedAt" = ${c.updatedAt} AND "embedding" IS NOT NULL
+      `;
+      return cleared > 0 ? 'skipped-unchanged' : 'skipped-stale';
+    }
+
+    const embed = opts?.embed ?? embedText;
+    const vector = await embed(text);
     const literal = toVectorLiteral(vector);
-    await prisma.$executeRaw`UPDATE "Case" SET embedding = ${literal}::vector WHERE id = ${caseId}`;
+    const updated = await prisma.$executeRaw`
+      UPDATE "Case"
+      SET "embedding" = ${literal}::vector, "bodyHash" = ${hash}, "embeddingDirty" = false
+      WHERE id = ${caseId} AND "updatedAt" = ${c.updatedAt}
+    `;
+    return updated > 0 ? 'embedded' : 'skipped-stale';
   } catch (error) {
-    console.error('[embeddings] upsertCaseEmbedding failed for', caseId, error);
+    console.error('[embeddings] reembedCase failed for', caseId, error);
+    return 'failed';
   }
+}
+
+/** Back-compat alias — pre-SP-3 callers (cases router) used this fire-and-forget name. */
+export async function upsertCaseEmbedding(caseId: string): Promise<void> {
+  await reembedCase(caseId);
 }

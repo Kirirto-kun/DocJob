@@ -20,9 +20,10 @@ export * from './users/password-reset-tokens';
 export * as users from './users/user.service';
 
 // Flat: pure embedding helpers (EMBEDDING_MODEL, EMBEDDING_DIMS, embedText,
-// buildCaseEmbeddingText, toVectorLiteral, upsertCaseEmbedding) — reused
-// directly as `core.upsertCaseEmbedding(...)`, same convention as
-// case.mapper's serializeCase.
+// buildCaseEmbeddingText, toVectorLiteral, upsertCaseEmbedding, and — SP-3 T2
+// — hashEmbeddingText, markCaseDirty, reembedCase) — reused directly as
+// `core.upsertCaseEmbedding(...)` / `core.reembedCase(...)`, same convention
+// as case.mapper's serializeCase.
 export * from './search/embeddings';
 // Namespaced: service functions, called as `core.search.searchCases(actor, query)`.
 // search.service.ts also re-exports the embedding helpers, so
