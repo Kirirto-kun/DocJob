@@ -23,6 +23,23 @@ function isSecureDeployment(): boolean {
   return (process.env.AUTH_URL ?? '').startsWith('https://');
 }
 
+const ACCESS_COOKIE_NAME_PLAIN = 'docjob-access';
+const ACCESS_COOKIE_NAME_SECURE = '__Host-docjob-access';
+
+/**
+ * Both access-cookie name variants this app has ever set, regardless of the
+ * current deployment's https-ness. Exported so request-driven token
+ * extraction from a raw `Request`'s `cookie` header (`@/lib/session`'s
+ * `getUserFromRequest`, mirroring `packages/api/src/context.ts`'s
+ * `cookieToken`) can recognize either variant without re-hardcoding these
+ * literal names a third time. `packages/api/src/context.ts` has to keep its
+ * own literal copy of this same pair — it can't import this file, since this
+ * module can't be imported by the transport-agnostic `@docjob/api` package
+ * (see that file's comment) — but every call site *within* `apps/web` should
+ * import from here instead.
+ */
+export const ACCESS_COOKIE_NAMES = [ACCESS_COOKIE_NAME_PLAIN, ACCESS_COOKIE_NAME_SECURE] as const;
+
 /**
  * `__Host-` requires Secure + Path=/ + no Domain attribute — exactly what
  * the access cookie already is, so it gets the strongest available prefix.
@@ -31,7 +48,7 @@ function isSecureDeployment(): boolean {
  * only gets `__Secure-` (Secure attribute only, no path constraint).
  */
 function accessCookieName(): string {
-  return isSecureDeployment() ? '__Host-docjob-access' : 'docjob-access';
+  return isSecureDeployment() ? ACCESS_COOKIE_NAME_SECURE : ACCESS_COOKIE_NAME_PLAIN;
 }
 
 function refreshCookieName(): string {

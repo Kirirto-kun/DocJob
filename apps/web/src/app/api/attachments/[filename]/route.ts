@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
 import { readAttachment } from '@/lib/storage';
-import { requireUser } from '@/lib/session';
+import { getUserFromRequest } from '@/lib/session';
 
 export const runtime = 'nodejs';
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ filename: string }> }
 ) {
-  try {
-    await requireUser();
-  } catch {
+  const user = await getUserFromRequest(req);
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

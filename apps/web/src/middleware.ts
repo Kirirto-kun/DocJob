@@ -90,6 +90,20 @@ export default async function middleware(req: NextRequest) {
     return ensureLocaleCookie(req, NextResponse.next());
   }
 
+  // `/api/attachments/*` (SP-4a Task 4, see route.ts) is deliberately NOT
+  // gated by this middleware's cookie-only `isAuthenticated` check either,
+  // for the same reason `/api/trpc/*` above isn't: this Edge-only check can
+  // only see the access-token *cookie* (`getAccessToken(req.cookies)`), not
+  // an `Authorization: Bearer` header, so a mobile client sending Bearer and
+  // no cookie would get a blanket 401 right here — before its perfectly
+  // valid token ever reached the route handler. The route handler itself
+  // (`getUserFromRequest`, `@/lib/session`) does the real Bearer-then-cookie
+  // auth check and returns its own 401 when neither is present/valid, so
+  // this bypass only skips the middleware-level short-circuit, never auth.
+  if (pathname.startsWith('/api/attachments/')) {
+    return ensureLocaleCookie(req, NextResponse.next());
+  }
+
   if (!authenticated) {
     // API callers get a 401 they can act on programmatically; page
     // navigations get redirected to the login form with a callbackUrl.

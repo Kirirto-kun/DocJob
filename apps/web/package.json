@@ -8,7 +8,7 @@
     "start": "dotenv -e ../../.env.local -e ../../.env -- next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "dotenv -e ../../.env.local -e ../../.env -- vitest run",
     "db:migrate": "pnpm --filter @docjob/db db:migrate",
     "db:deploy": "pnpm --filter @docjob/db db:deploy",
     "db:seed": "pnpm --filter @docjob/db db:seed",
