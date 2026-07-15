@@ -1,12 +1,8 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import {
-  getUsers,
-  updateUser as updateUserAction,
-  registerUser,
-  type SerializedUser,
-} from '@/app/actions';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { SerializedUser as CoreSerializedUser } from '@docjob/core';
+import { trpc } from '@/lib/trpc/react';
 
 // Legacy-compatible User type (role is lowercase for existing callers)
 export type UserRole = 'admin' | 'doctor' | 'reviewer';
@@ -28,7 +24,7 @@ export type User = {
   consentAcceptedAt?: string | null;
 };
 
-function serializedToUser(s: SerializedUser): User {
+function serializedToUser(s: CoreSerializedUser): User {
   return {
     id: s.id,
     name: s.name,
@@ -65,6 +61,14 @@ type UserStore = {
 
 const UserContext = createContext<UserStore | null>(null);
 
+/**
+ * `getUsers`/`updateUser`/`registerUser` Server Actions retired (SP-2 Task
+ * 5) -> `trpc.users.{list,updateProfile,register}`. Public API (`currentUser`,
+ * `allUsers`, `addUser`, `updateUser`, `refreshUsers`, `login`, `logout`,
+ * `isInitialized`) is unchanged. `login`/`logout` stay on the dedicated
+ * `POST /api/auth/login|logout` cookie routes (SP-1c) — the `users` tRPC
+ * router deliberately has no login/logout procedure (see users.ts).
+ */
 export function UserProvider({ children }: { children: React.ReactNode }) {
   // `meUser` mirrors what NextAuth's `session.user` used to carry: just the
   // identity/role, refreshed from `GET /api/auth/me` on mount (and on
@@ -77,28 +81,34 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // after the update, instead of via `refreshUsers`.
   const [meUser, setMeUser] = useState<User | null>(null);
   const [isMeLoaded, setIsMeLoaded] = useState(false);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [isUsersLoaded, setIsUsersLoaded] = useState(false);
+  const utils = trpc.useUtils();
 
-  // Admin-only: `getUsers()` -> core's `listUsers` now asserts admin. For
-  // non-admins this would 403 (TRPCError/ActionResult failure), so we don't
-  // even attempt it — `allUsers` just stays `[]` for them. If a fetch does
-  // fail for an admin (network blip, etc.) we still swallow it to `[]`
-  // rather than surfacing an error, same as before.
+  const isAdmin = isMeLoaded && meUser?.role === 'admin';
+
+  // Admin-only: `trpc.users.list` -> core's `listUsers` now asserts admin.
+  // For non-admins this would 403 (TRPCError), so the query is simply
+  // disabled — `allUsers` just stays `[]` for them. If a fetch does fail for
+  // an admin (network blip, etc.) we still fall back to `[]` rather than
+  // surfacing an error, same as before.
+  const usersQuery = trpc.users.list.useQuery(undefined, { enabled: isAdmin });
+
+  const allUsers = useMemo(
+    () => (isAdmin ? (usersQuery.data ?? []).map(serializedToUser) : []),
+    [isAdmin, usersQuery.data],
+  );
+  const isUsersLoaded = !isMeLoaded
+    ? false
+    : !isAdmin || usersQuery.isFetched || usersQuery.isError;
+
   const refreshUsers = useCallback(async () => {
-    const res = await getUsers();
-    if (res.success) {
-      setAllUsers(res.data.map(serializedToUser));
-    } else {
-      setAllUsers([]);
-    }
-    setIsUsersLoaded(true);
-  }, []);
+    if (!isAdmin) return;
+    await usersQuery.refetch();
+  }, [isAdmin, usersQuery.refetch]);
 
   const loadMe = useCallback(async () => {
     try {
       const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
-      const data = (await res.json()) as { user: SerializedUser | null };
+      const data = (await res.json()) as { user: CoreSerializedUser | null };
       setMeUser(data.user ? serializedToUser(data.user) : null);
     } catch {
       setMeUser(null);
@@ -111,25 +121,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     void loadMe();
   }, [loadMe]);
 
-  useEffect(() => {
-    if (!isMeLoaded) return;
-    if (meUser?.role === 'admin') {
-      void refreshUsers();
-    } else {
-      setAllUsers([]);
-      setIsUsersLoaded(true);
-    }
-    // Only re-run when the *identity*/role changes, not on every meUser
-    // object reference — refreshUsers is stable (useCallback([])) so this
-    // only fires on mount and on login/logout/role-change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMeLoaded, meUser?.id, meUser?.role, refreshUsers]);
-
   const currentUser = meUser;
 
+  const registerMutation = trpc.users.register.useMutation();
   const addUser = useCallback(
     async (user: User & { password?: string }) => {
-      const res = await registerUser({
+      await registerMutation.mutateAsync({
         email: user.email,
         password: user.password ?? 'changeme123',
         name: user.name,
@@ -140,15 +137,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         phoneNumber: user.phoneNumber ?? undefined,
         role: user.role.toUpperCase() as 'ADMIN' | 'DOCTOR' | 'REVIEWER',
       });
-      if (!res.success) throw new Error(res.error);
-      await refreshUsers();
+      await utils.users.list.invalidate();
     },
-    [refreshUsers]
+    [registerMutation, utils],
   );
 
+  const updateProfileMutation = trpc.users.updateProfile.useMutation();
   const updateUser = useCallback(
     async (user: User) => {
-      const res = await updateUserAction({
+      await updateProfileMutation.mutateAsync({
         id: user.id,
         name: user.name,
         fullName: user.fullName ?? null,
@@ -158,14 +155,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         phoneNumber: user.phoneNumber ?? null,
         profilePhotoUrl: user.profilePhotoUrl ?? null,
       });
-      if (!res.success) throw new Error(res.error);
       // `updateUser` in this store is only ever called for a self-update
       // (see profile/page.tsx, its one caller) — re-fetch `/api/auth/me` so
-      // `currentUser` (now derived directly from `meUser`, not `allUsers`)
+      // `currentUser` (derived directly from `meUser`, not `allUsers`)
       // reflects the change immediately, without a re-login.
       await loadMe();
+      await utils.users.list.invalidate();
     },
-    [loadMe]
+    [updateProfileMutation, loadMe, utils],
   );
 
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {

@@ -31,7 +31,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { DocJobLogo } from '@/components/icons';
 import { LanguageSwitcher } from '@/components/language-switcher';
-import { registerUser } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 import { SUBGROUPS } from '@/lib/case-taxonomy';
 
 const REGION_KEYS = [
@@ -150,6 +150,8 @@ export default function RegisterPage() {
   const specialtyValue = watch('specialty');
   const consentValue = watch('consentAccepted');
 
+  const registerMutation = trpc.users.register.useMutation();
+
   const onTabChange = (value: string) => {
     const next = value === 'reviewer' ? 'reviewer' : 'user';
     setAccountKind(next);
@@ -159,7 +161,7 @@ export default function RegisterPage() {
   const onSubmit: SubmitHandler<RegisterFormValues> = async (data) => {
     setIsLoading(true);
     try {
-      const result = await registerUser({
+      await registerMutation.mutateAsync({
         email: data.email,
         password: data.password,
         name: data.fullName,
@@ -173,25 +175,23 @@ export default function RegisterPage() {
         consentAccepted: data.consentAccepted,
         role: data.accountKind === 'reviewer' ? 'REVIEWER' : 'DOCTOR',
       });
-
-      if (!result.success) {
-        toast({
-          variant: 'destructive',
-          title: t('toast.errorTitle'),
-          description: result.error,
-        });
-        return;
-      }
-
+    } catch (e) {
       toast({
-        title: t('toast.pendingTitle'),
-        description: t('toast.pendingDescription'),
+        variant: 'destructive',
+        title: t('toast.errorTitle'),
+        description: e instanceof Error ? e.message : t('toast.errorTitle'),
       });
-      router.push('/login?pending=1');
-      router.refresh();
+      return;
     } finally {
       setIsLoading(false);
     }
+
+    toast({
+      title: t('toast.pendingTitle'),
+      description: t('toast.pendingDescription'),
+    });
+    router.push('/login?pending=1');
+    router.refresh();
   };
 
   return (

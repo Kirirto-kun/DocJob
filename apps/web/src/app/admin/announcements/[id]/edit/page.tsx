@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import DashboardLayout from '@/components/dashboard-layout';
@@ -8,7 +8,7 @@ import ScenarioControls from '@/components/scenario-controls';
 import { AnnouncementEditor } from '@/components/admin/announcement-editor';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import { getAnnouncement, type SerializedAnnouncement } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -17,8 +17,6 @@ export default function AdminAnnouncementEditPage({ params }: PageProps) {
   const { currentUser, isInitialized } = useUserStore();
   const router = useRouter();
   const { toast } = useToast();
-
-  const [item, setItem] = useState<SerializedAnnouncement | null>(null);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -31,23 +29,16 @@ export default function AdminAnnouncementEditPage({ params }: PageProps) {
     }
   }, [currentUser, isInitialized, router]);
 
+  const isAdmin = isInitialized && !!currentUser && currentUser.role === 'admin';
+  const itemQuery = trpc.announcements.byId.useQuery(id, { enabled: isAdmin });
+  const item = itemQuery.data ?? null;
+
   useEffect(() => {
-    if (!isInitialized || !currentUser || currentUser.role !== 'admin') return;
-    let cancelled = false;
-    (async () => {
-      const res = await getAnnouncement(id);
-      if (cancelled) return;
-      if (res.success) {
-        setItem(res.data);
-      } else {
-        toast({ variant: 'destructive', title: res.error });
-        router.push('/admin/announcements');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [id, isInitialized, currentUser, router, toast]);
+    if (isAdmin && itemQuery.isError) {
+      toast({ variant: 'destructive', title: itemQuery.error?.message });
+      router.push('/admin/announcements');
+    }
+  }, [isAdmin, itemQuery.isError, itemQuery.error, router, toast]);
 
   if (!isInitialized || !currentUser || currentUser.role !== 'admin' || !item) {
     return (

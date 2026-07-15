@@ -1,10 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { Prisma, Role } from '@prisma/client';
-import { revalidatePath } from 'next/cache';
-import { prisma } from '@docjob/db';
-import { requireUser } from '@/lib/session';
+import { Prisma } from '@prisma/client';
 import { analyzeStudentQuestion, AnalyzeStudentQuestionInput } from '@/ai/flows/analyze-student-question';
 import { generatePersonalizedScenario, GeneratePersonalizedScenarioInput } from '@/ai/flows/generate-personalized-scenario';
 import { simulateComorbidities, SimulateComorbiditiesInput } from '@/ai/flows/simulate-comorbidities';
@@ -78,98 +75,16 @@ export async function handleFileUpload(formData: FormData) {
 
 // ───────────────────────── Auth / users
 //
-// Pure domain logic (validation, auth rules, bcrypt hashing, Prisma calls)
-// lives in @docjob/core's user.service — these are thin transport wrappers:
-// resolve the actor, call core, translate thrown DomainErrors back into
-// ActionResult, and run the Next.js-specific side effects (revalidatePath)
-// that can't live in a transport-agnostic package. Session-reading stays in
-// web (getActor / lib/session); core never touches cookies.
-
-export async function registerUser(
-  input: core.users.RegisterUserInput,
-): Promise<ActionResult<{ id: string }>> {
-  try {
-    const data = await core.users.registerUser(input);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function updateUser(
-  input: core.users.UpdateUserInput,
-): Promise<ActionResult<{ id: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.users.updateUser(actor, input);
-    revalidatePath('/');
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function getUsers(): Promise<ActionResult<SerializedUser[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.users.listUsers(actor);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
+// `registerUser`/`updateUser`/`getUsers` retired (SP-2 Task 5) -> the web
+// app now calls `trpc.users.{register,updateProfile,list}` directly; see
+// `packages/api/src/routers/users.ts`. `use-user-store.tsx`,
+// `register/page.tsx` were the callers.
+//
 // ───────────────────────── Registration approval (admin)
-
-export async function getPendingUsers(): Promise<ActionResult<SerializedUser[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.users.listPendingUsers(actor);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function approveUser(userId: string): Promise<ActionResult<{ id: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.users.approveUser(actor, userId);
-    revalidatePath('/admin/pending');
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function rejectUser(userId: string): Promise<ActionResult<{ id: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.users.rejectUser(actor, userId);
-    revalidatePath('/admin/pending');
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-/**
- * Permanently delete a user — revokes their access to the platform entirely.
- * Cascades remove their authored cases, chat sessions, saved cases, reviews and
- * submissions (see onDelete: Cascade in the schema). Admin-only; an admin
- * cannot delete their own account.
- */
-export async function deleteUser(userId: string): Promise<ActionResult<{ id: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.users.deleteUser(actor, userId);
-    revalidatePath('/admin/users');
-    revalidatePath('/admin/pending');
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
+//
+// `getPendingUsers`/`approveUser`/`rejectUser`/`deleteUser` retired (SP-2
+// Task 5) -> `admin/pending/page.tsx` and `admin/users/page.tsx` now call
+// `trpc.users.{pending,approve,reject,delete}` directly.
 
 // ───────────────────────── Cases
 //
@@ -311,196 +226,32 @@ function inlineContentToText(content: unknown): string {
 
 // ───────────────────────── News
 //
-// Pure domain logic (validation, admin gating, CRUD) lives in
-// @docjob/core's news.service — these are thin transport wrappers: resolve
-// the actor, call core, translate thrown DomainErrors back into
-// ActionResult, and run the Next.js-specific side effect (revalidatePath).
-// The public feed itself (`getNews`) delegates to the same
-// `core.news.listPublicNews` that `@/lib/news.ts#getPublicNewsItems` uses
-// directly (that one is imported by Server Components, not this action).
-
-export type SerializedNewsItem = core.SerializedNewsItem;
-export type NewsInput = core.news.NewsInput;
-
-function revalidateNewsPaths() {
-  revalidatePath('/landing');
-  revalidatePath('/news');
-  revalidatePath('/admin/news');
-}
-
-export async function getNews(): Promise<ActionResult<SerializedNewsItem[]>> {
-  try {
-    return ok(await core.news.listPublicNews());
-  } catch (error) {
-    console.error('getNews failed', error);
-    return fail('Не удалось загрузить новости.');
-  }
-}
-
-export async function getNewsItem(id: string): Promise<ActionResult<SerializedNewsItem>> {
-  try {
-    const actor = await getActor();
-    const data = await core.news.getNewsItem(actor, id);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function createNews(input: NewsInput): Promise<ActionResult<{ id: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.news.createNews(actor, input);
-    revalidateNewsPaths();
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function updateNews(
-  id: string,
-  input: NewsInput,
-): Promise<ActionResult<{ id: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.news.updateNews(actor, id, input);
-    revalidateNewsPaths();
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function deleteNews(id: string): Promise<ActionResult<{ id: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.news.deleteNews(actor, id);
-    revalidateNewsPaths();
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
+// `getNews`/`getNewsItem`/`createNews`/`updateNews`/`deleteNews` retired
+// (SP-2 Task 5) -> `news-editor.tsx` and `admin/news/*` now call
+// `trpc.news.{list,byId,create,update,delete}` directly; see
+// `packages/api/src/routers/news.ts`. The public feed itself
+// (`@/lib/news.ts#getPublicNewsItems`) still delegates to
+// `core.news.listPublicNews` directly (a Server Component read, never went
+// through this action file) and is unchanged.
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Announcements (admin advertisement popups)
+// Announcements (admin advertisement popups) — retired (SP-2 Task 5)
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Pure domain logic (validation, admin gating, dismissal bookkeeping) lives
-// in @docjob/core's announcement.service — these are thin transport
-// wrappers. `getActiveAnnouncements`/`dismissAnnouncement` still resolve the
-// actor via `getActor()` (which itself calls `getCurrentUser()`) — behavior
-// is unchanged, just routed through the actor shape instead of raw prisma.
-
-export type SerializedAnnouncement = core.SerializedAnnouncement;
-export type AnnouncementInput = core.announcements.AnnouncementInput;
-
-function revalidateAnnouncementPaths() {
-  revalidatePath('/admin/announcements');
-  revalidatePath('/');
-}
-
-// --- Public (per logged-in user) ---
-
-export async function getActiveAnnouncements(): Promise<ActionResult<SerializedAnnouncement[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.announcements.getActiveAnnouncements(actor);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function dismissAnnouncement(announcementId: string): Promise<ActionResult<{ id: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.announcements.dismissAnnouncement(actor, announcementId);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-// --- Admin CRUD ---
-
-export async function getAnnouncements(): Promise<ActionResult<SerializedAnnouncement[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.announcements.getAnnouncements(actor);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function getAnnouncement(id: string): Promise<ActionResult<SerializedAnnouncement>> {
-  try {
-    const actor = await getActor();
-    const data = await core.announcements.getAnnouncement(actor, id);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function createAnnouncement(
-  input: AnnouncementInput,
-): Promise<ActionResult<SerializedAnnouncement>> {
-  try {
-    const actor = await getActor();
-    const data = await core.announcements.createAnnouncement(actor, input);
-    revalidateAnnouncementPaths();
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function updateAnnouncement(
-  input: AnnouncementInput & { id: string },
-): Promise<ActionResult<SerializedAnnouncement>> {
-  try {
-    const actor = await getActor();
-    const data = await core.announcements.updateAnnouncement(actor, input);
-    revalidateAnnouncementPaths();
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function deleteAnnouncement(id: string): Promise<ActionResult<{ id: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.announcements.deleteAnnouncement(actor, id);
-    revalidateAnnouncementPaths();
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
+// `getActiveAnnouncements`/`dismissAnnouncement`/`getAnnouncements`/
+// `getAnnouncement`/`createAnnouncement`/`updateAnnouncement`/
+// `deleteAnnouncement` retired -> `announcement-modal.tsx`,
+// `announcement-editor.tsx`, and `admin/announcements/*` now call
+// `trpc.announcements.{active,dismiss,list,byId,create,update,delete}`
+// directly; see `packages/api/src/routers/announcements.ts`.
 
 // ───────────────────────── Serialization helpers
-
-export type SerializedUser = {
-  id: string;
-  email: string;
-  role: Role;
-  name: string;
-  fullName: string | null;
-  region: string | null;
-  age: number | null;
-  specialty: string | null;
-  phoneNumber: string | null;
-  workplace: string | null;
-  academicDegree: string | null;
-  profilePhotoUrl: string | null;
-  consentAcceptedAt: string | null;
-  approvedAt: string | null;
-  createdAt: string;
-};
+//
+// `SerializedUser` (the hand-rolled type) + `getSessionUser`/`serializeUser`/
+// `requireUserSafe` retired alongside the users actions above (SP-2 Task 5)
+// — they had no remaining callers once `use-user-store.tsx`/admin pages
+// switched to importing `SerializedUser` from `@docjob/core` directly (same
+// shape, see `packages/core/src/users/user.mapper.ts`).
 
 // Case-shaped serialized types + serializeCase itself now live in
 // @docjob/core (packages/core/src/cases/case.mapper.ts). Re-exported here so
@@ -509,42 +260,6 @@ export type SerializedUser = {
 export type SerializedCaseImage = core.SerializedCaseImage;
 export type SerializedCaseAttachment = core.SerializedCaseAttachment;
 export type SerializedCase = core.SerializedCase;
-
-type PrismaUser = Awaited<ReturnType<typeof prisma.user.findFirst>>;
-
-function serializeUser(u: NonNullable<PrismaUser>): SerializedUser {
-  return {
-    id: u.id,
-    email: u.email,
-    role: u.role,
-    name: u.name,
-    fullName: u.fullName,
-    region: u.region,
-    age: u.age,
-    specialty: u.specialty,
-    phoneNumber: u.phoneNumber,
-    workplace: u.workplace,
-    academicDegree: u.academicDegree,
-    profilePhotoUrl: u.profilePhotoUrl,
-    consentAcceptedAt: u.consentAcceptedAt ? u.consentAcceptedAt.toISOString() : null,
-    approvedAt: u.approvedAt ? u.approvedAt.toISOString() : null,
-    createdAt: u.createdAt.toISOString(),
-  };
-}
-
-async function requireUserSafe() {
-  try {
-    return await requireUser();
-  } catch {
-    return null;
-  }
-}
-
-// Current user convenience export for server components
-export async function getSessionUser(): Promise<SerializedUser | null> {
-  const actor = await getActor();
-  return actor ? core.users.getUserById(actor.id) : null;
-}
 
 // ───────────────────────── Saved cases (favourites / bookmarks)
 //

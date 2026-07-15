@@ -22,7 +22,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import { getUsers, deleteUser, type SerializedUser } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
+import type { SerializedUser } from '@docjob/core';
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Администратор',
@@ -36,8 +37,8 @@ export default function AdminUsersPage() {
   const { toast } = useToast();
   const locale = useLocale();
 
-  const [users, setUsers] = useState<SerializedUser[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const utils = trpc.useUtils();
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -55,23 +56,17 @@ export default function AdminUsersPage() {
     }
   }, [currentUser, isInitialized, router, toast]);
 
+  const isAdmin = isInitialized && !!currentUser && currentUser.role === 'admin';
+  const usersQuery = trpc.users.list.useQuery(undefined, { enabled: isAdmin });
+  const users: SerializedUser[] | null = isAdmin ? (usersQuery.data ?? null) : null;
+
   useEffect(() => {
-    if (!isInitialized || !currentUser || currentUser.role !== 'admin') return;
-    let cancelled = false;
-    (async () => {
-      const res = await getUsers();
-      if (cancelled) return;
-      if (res.success) {
-        setUsers(res.data);
-      } else {
-        setUsers([]);
-        toast({ variant: 'destructive', title: 'Ошибка', description: res.error });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isInitialized, currentUser, toast]);
+    if (usersQuery.isError) {
+      toast({ variant: 'destructive', title: 'Ошибка', description: usersQuery.error.message });
+    }
+  }, [usersQuery.isError, usersQuery.error, toast]);
+
+  const deleteMutation = trpc.users.delete.useMutation();
 
   const dateFormatter = new Intl.DateTimeFormat(locale === 'kk' ? 'kk-KZ' : 'ru-RU', {
     dateStyle: 'short',
@@ -79,16 +74,22 @@ export default function AdminUsersPage() {
 
   const onDelete = async (user: SerializedUser) => {
     setBusyId(user.id);
-    const res = await deleteUser(user.id);
-    setBusyId(null);
-    if (res.success) {
-      setUsers((prev) => prev?.filter((u) => u.id !== user.id) ?? null);
+    try {
+      await deleteMutation.mutateAsync(user.id);
+      await utils.users.list.invalidate();
+      await utils.users.pending.invalidate();
       toast({
         title: 'Пользователь удалён',
         description: `${user.fullName ?? user.name} (${user.email}) больше не имеет доступа к платформе.`,
       });
-    } else {
-      toast({ variant: 'destructive', title: 'Ошибка', description: res.error });
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: 'Ошибка',
+        description: e instanceof Error ? e.message : 'Не удалось удалить пользователя.',
+      });
+    } finally {
+      setBusyId(null);
     }
   };
 

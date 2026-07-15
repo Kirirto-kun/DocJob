@@ -22,15 +22,16 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import { deleteAnnouncement, getAnnouncements, type SerializedAnnouncement } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
+import type { SerializedAnnouncement } from '@docjob/core';
 
 export default function AdminAnnouncementsPage() {
   const { currentUser, isInitialized } = useUserStore();
   const router = useRouter();
   const { toast } = useToast();
   const t = useTranslations('announcements');
+  const utils = trpc.useUtils();
 
-  const [items, setItems] = useState<SerializedAnnouncement[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,33 +45,32 @@ export default function AdminAnnouncementsPage() {
     }
   }, [currentUser, isInitialized, router]);
 
+  const isAdmin = isInitialized && !!currentUser && currentUser.role === 'admin';
+  const listQuery = trpc.announcements.list.useQuery(undefined, { enabled: isAdmin });
+  const items: SerializedAnnouncement[] | null = isAdmin ? (listQuery.data ?? null) : null;
+
   useEffect(() => {
-    if (!isInitialized || !currentUser || currentUser.role !== 'admin') return;
-    let cancelled = false;
-    (async () => {
-      const res = await getAnnouncements();
-      if (cancelled) return;
-      if (res.success) {
-        setItems(res.data);
-      } else {
-        setItems([]);
-        toast({ variant: 'destructive', title: res.error });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isInitialized, currentUser, toast]);
+    if (listQuery.isError) {
+      toast({ variant: 'destructive', title: listQuery.error.message });
+    }
+  }, [listQuery.isError, listQuery.error, toast]);
+
+  const deleteMutation = trpc.announcements.delete.useMutation();
 
   const handleDelete = async (item: SerializedAnnouncement) => {
     setBusyId(item.id);
-    const res = await deleteAnnouncement(item.id);
-    setBusyId(null);
-    if (res.success) {
-      setItems((prev) => prev?.filter((n) => n.id !== item.id) ?? null);
+    try {
+      await deleteMutation.mutateAsync(item.id);
+      await utils.announcements.list.invalidate();
+      await utils.announcements.active.invalidate();
       toast({ title: t('deleted') });
-    } else {
-      toast({ variant: 'destructive', title: res.error });
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: e instanceof Error ? e.message : 'Не удалось удалить объявление.',
+      });
+    } finally {
+      setBusyId(null);
     }
   };
 

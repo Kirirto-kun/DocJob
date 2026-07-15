@@ -15,11 +15,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { authFetch } from '@/lib/auth-client';
-import {
-  createAnnouncement,
-  updateAnnouncement,
-  type SerializedAnnouncement,
-} from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
+import type { SerializedAnnouncement } from '@docjob/core';
 
 type Props = {
   mode: 'create' | 'edit';
@@ -51,6 +48,9 @@ export function AnnouncementEditor({ mode, initial }: Props) {
   const [expiresAt, setExpiresAt] = useState(isoToDateInput(initial?.expiresAt));
   const [uploading, setUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const utils = trpc.useUtils();
+  const createMutation = trpc.announcements.create.useMutation();
+  const updateMutation = trpc.announcements.update.useMutation();
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -85,21 +85,27 @@ export function AnnouncementEditor({ mode, initial }: Props) {
         active,
         expiresAt: expiresAt || undefined,
       };
-      const result =
-        mode === 'edit' && initial
-          ? await updateAnnouncement({ id: initial.id, ...payload })
-          : await createAnnouncement(payload);
 
-      if (!result.success) {
-        toast({ variant: 'destructive', title: result.error });
-        return;
+      if (mode === 'edit' && initial) {
+        await updateMutation.mutateAsync({ id: initial.id, ...payload });
+      } else {
+        await createMutation.mutateAsync(payload);
       }
-      toast({ title: mode === 'create' ? t('created') : t('updated') });
-      router.push('/admin/announcements');
-      router.refresh();
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: err instanceof Error ? err.message : 'Не удалось сохранить объявление.',
+      });
+      return;
     } finally {
       setIsSubmitting(false);
     }
+
+    await utils.announcements.list.invalidate();
+    await utils.announcements.active.invalidate();
+    toast({ title: mode === 'create' ? t('created') : t('updated') });
+    router.push('/admin/announcements');
+    router.refresh();
   }
 
   return (

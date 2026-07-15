@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import { deleteNews, getNews } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 
 type NewsItem = { id: string; title: string; body: string; date: string };
 
@@ -32,8 +32,8 @@ export default function AdminNewsPage() {
   const { toast } = useToast();
   const t = useTranslations('admin.news');
   const locale = useLocale();
+  const utils = trpc.useUtils();
 
-  const [items, setItems] = useState<NewsItem[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,27 +52,21 @@ export default function AdminNewsPage() {
     }
   }, [currentUser, isInitialized, router, toast, t]);
 
+  const isAdmin = isInitialized && !!currentUser && currentUser.role === 'admin';
+  const listQuery = trpc.news.list.useQuery(undefined, { enabled: isAdmin });
+  const items: NewsItem[] | null = isAdmin ? (listQuery.data ?? null) : null;
+
   useEffect(() => {
-    if (!isInitialized || !currentUser || currentUser.role !== 'admin') return;
-    let cancelled = false;
-    (async () => {
-      const res = await getNews();
-      if (cancelled) return;
-      if (res.success) {
-        setItems(res.data);
-      } else {
-        setItems([]);
-        toast({
-          variant: 'destructive',
-          title: t('toast.errorTitle'),
-          description: t('toast.loadFailed'),
-        });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isInitialized, currentUser, t, toast]);
+    if (listQuery.isError) {
+      toast({
+        variant: 'destructive',
+        title: t('toast.errorTitle'),
+        description: t('toast.loadFailed'),
+      });
+    }
+  }, [listQuery.isError, t, toast]);
+
+  const deleteMutation = trpc.news.delete.useMutation();
 
   const dateFormatter = new Intl.DateTimeFormat(locale === 'kk' ? 'kk-KZ' : 'ru-RU', {
     dateStyle: 'long',
@@ -80,17 +74,18 @@ export default function AdminNewsPage() {
 
   const handleDelete = async (item: NewsItem) => {
     setBusyId(item.id);
-    const res = await deleteNews(item.id);
-    setBusyId(null);
-    if (res.success) {
-      setItems((prev) => prev?.filter((n) => n.id !== item.id) ?? null);
+    try {
+      await deleteMutation.mutateAsync(item.id);
+      await utils.news.list.invalidate();
       toast({ title: t('toast.deletedTitle') });
-    } else {
+    } catch (e) {
       toast({
         variant: 'destructive',
         title: t('toast.errorTitle'),
-        description: res.error,
+        description: e instanceof Error ? e.message : t('toast.loadFailed'),
       });
+    } finally {
+      setBusyId(null);
     }
   };
 

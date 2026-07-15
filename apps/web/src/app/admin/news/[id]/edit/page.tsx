@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
@@ -9,11 +9,9 @@ import ScenarioControls from '@/components/scenario-controls';
 import NewsEditor from '@/components/admin/news-editor';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import { getNewsItem } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 
 type PageProps = { params: Promise<{ id: string }> };
-
-type NewsItem = { id: string; title: string; body: string; date: string };
 
 export default function AdminNewsEditPage({ params }: PageProps) {
   const { id } = use(params);
@@ -21,8 +19,6 @@ export default function AdminNewsEditPage({ params }: PageProps) {
   const router = useRouter();
   const { toast } = useToast();
   const t = useTranslations('admin.news');
-
-  const [item, setItem] = useState<NewsItem | null>(null);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -40,27 +36,20 @@ export default function AdminNewsEditPage({ params }: PageProps) {
     }
   }, [currentUser, isInitialized, router, toast, t]);
 
+  const isAdmin = isInitialized && !!currentUser && currentUser.role === 'admin';
+  const itemQuery = trpc.news.byId.useQuery(id, { enabled: isAdmin });
+  const item = itemQuery.data ?? null;
+
   useEffect(() => {
-    if (!isInitialized || !currentUser || currentUser.role !== 'admin') return;
-    let cancelled = false;
-    (async () => {
-      const res = await getNewsItem(id);
-      if (cancelled) return;
-      if (res.success) {
-        setItem(res.data);
-      } else {
-        toast({
-          variant: 'destructive',
-          title: t('toast.errorTitle'),
-          description: res.error || t('toast.loadItemFailed'),
-        });
-        router.push('/admin/news');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [id, isInitialized, currentUser, router, toast, t]);
+    if (isAdmin && itemQuery.isError) {
+      toast({
+        variant: 'destructive',
+        title: t('toast.errorTitle'),
+        description: itemQuery.error?.message || t('toast.loadItemFailed'),
+      });
+      router.push('/admin/news');
+    }
+  }, [isAdmin, itemQuery.isError, itemQuery.error, router, toast, t]);
 
   if (!isInitialized || !currentUser || currentUser.role !== 'admin' || !item) {
     return (

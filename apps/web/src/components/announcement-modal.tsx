@@ -4,11 +4,8 @@ import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { useUserStore } from '@/hooks/use-user-store';
-import {
-  getActiveAnnouncements,
-  dismissAnnouncement,
-  type SerializedAnnouncement,
-} from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
+import type { SerializedAnnouncement } from '@docjob/core';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -21,38 +18,37 @@ import {
 export function AnnouncementModal() {
   const { currentUser, isInitialized } = useUserStore();
   const t = useTranslations('announcements');
-  const [queue, setQueue] = useState<SerializedAnnouncement[]>([]);
   const [index, setIndex] = useState(0);
-  const [loadedForUser, setLoadedForUser] = useState<string | null>(null);
 
+  // `active` is a publicProcedure (core's `getActiveAnnouncements` treats a
+  // null actor as "no announcements", not an error) but we still gate the
+  // query on having a resolved user, same as the original effect only fired
+  // once a `currentUser` existed. react-query keys this query without a
+  // per-user id, so `enabled` alone (not a `loadedForUser` guard) is enough
+  // to avoid refetching on every `currentUser` object-reference change
+  // (e.g. after a self profile update) — the query only re-fetches on a
+  // real false->true `enabled` transition (logout -> login).
+  const hasUser = isInitialized && !!currentUser;
+  const activeQuery = trpc.announcements.active.useQuery(undefined, { enabled: hasUser });
+  const queue: SerializedAnnouncement[] = hasUser ? (activeQuery.data ?? []) : [];
+
+  // Reset the pager whenever the identity changes (new login after a
+  // logout, or switching users) so a new user starts from the first
+  // announcement in their own queue.
   useEffect(() => {
-    if (!isInitialized) return;
-    if (!currentUser) {
-      // Reset on logout so a new login re-fetches.
-      setQueue([]);
-      setIndex(0);
-      setLoadedForUser(null);
-      return;
-    }
-    if (loadedForUser === currentUser.id) return;
-    setLoadedForUser(currentUser.id);
-    void (async () => {
-      const res = await getActiveAnnouncements();
-      if (res.success) {
-        setQueue(res.data);
-        setIndex(0);
-      }
-    })();
-  }, [isInitialized, currentUser, loadedForUser]);
+    setIndex(0);
+  }, [currentUser?.id]);
 
   const current = index < queue.length ? queue[index] : null;
+
+  const dismissMutation = trpc.announcements.dismiss.useMutation();
 
   function handleDismiss() {
     if (!current) return;
     const id = current.id;
     // Advance immediately for responsiveness; persist in the background.
     setIndex((prev) => prev + 1);
-    void dismissAnnouncement(id);
+    dismissMutation.mutate(id);
   }
 
   function handleOpenChange(next: boolean) {

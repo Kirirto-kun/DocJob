@@ -21,12 +21,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import {
-  approveUser,
-  getPendingUsers,
-  rejectUser,
-  type SerializedUser,
-} from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
+import type { SerializedUser } from '@docjob/core';
 
 export default function AdminPendingPage() {
   const { currentUser, isInitialized } = useUserStore();
@@ -35,8 +31,8 @@ export default function AdminPendingPage() {
   const t = useTranslations('admin.pending');
   const locale = useLocale();
 
-  const [pending, setPending] = useState<SerializedUser[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const utils = trpc.useUtils();
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -54,27 +50,22 @@ export default function AdminPendingPage() {
     }
   }, [currentUser, isInitialized, router, toast, t]);
 
+  const isAdmin = isInitialized && !!currentUser && currentUser.role === 'admin';
+  const pendingQuery = trpc.users.pending.useQuery(undefined, { enabled: isAdmin });
+  const pending: SerializedUser[] | null = isAdmin ? (pendingQuery.data ?? null) : null;
+
   useEffect(() => {
-    if (!isInitialized || !currentUser || currentUser.role !== 'admin') return;
-    let cancelled = false;
-    (async () => {
-      const res = await getPendingUsers();
-      if (cancelled) return;
-      if (res.success) {
-        setPending(res.data);
-      } else {
-        setPending([]);
-        toast({
-          variant: 'destructive',
-          title: t('toast.errorTitle'),
-          description: t('toast.loadFailed'),
-        });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isInitialized, currentUser, t, toast]);
+    if (pendingQuery.isError) {
+      toast({
+        variant: 'destructive',
+        title: t('toast.errorTitle'),
+        description: t('toast.loadFailed'),
+      });
+    }
+  }, [pendingQuery.isError, t, toast]);
+
+  const approveMutation = trpc.users.approve.useMutation();
+  const rejectMutation = trpc.users.reject.useMutation();
 
   const dateFormatter = new Intl.DateTimeFormat(locale === 'kk' ? 'kk-KZ' : 'ru-RU', {
     dateStyle: 'short',
@@ -83,43 +74,47 @@ export default function AdminPendingPage() {
 
   const handleApprove = async (user: SerializedUser) => {
     setBusyId(user.id);
-    const res = await approveUser(user.id);
-    setBusyId(null);
-    if (res.success) {
-      setPending((prev) => prev?.filter((u) => u.id !== user.id) ?? null);
+    try {
+      await approveMutation.mutateAsync(user.id);
+      await utils.users.pending.invalidate();
+      await utils.users.list.invalidate();
       toast({
         title: t('toast.approvedTitle'),
         description: t('toast.approvedDescription', {
           name: user.fullName ?? user.name,
         }),
       });
-    } else {
+    } catch (e) {
       toast({
         variant: 'destructive',
         title: t('toast.errorTitle'),
-        description: res.error,
+        description: e instanceof Error ? e.message : t('toast.loadFailed'),
       });
+    } finally {
+      setBusyId(null);
     }
   };
 
   const handleReject = async (user: SerializedUser) => {
     setBusyId(user.id);
-    const res = await rejectUser(user.id);
-    setBusyId(null);
-    if (res.success) {
-      setPending((prev) => prev?.filter((u) => u.id !== user.id) ?? null);
+    try {
+      await rejectMutation.mutateAsync(user.id);
+      await utils.users.pending.invalidate();
+      await utils.users.list.invalidate();
       toast({
         title: t('toast.rejectedTitle'),
         description: t('toast.rejectedDescription', {
           name: user.fullName ?? user.name,
         }),
       });
-    } else {
+    } catch (e) {
       toast({
         variant: 'destructive',
         title: t('toast.errorTitle'),
-        description: res.error,
+        description: e instanceof Error ? e.message : t('toast.loadFailed'),
       });
+    } finally {
+      setBusyId(null);
     }
   };
 

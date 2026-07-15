@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { createNews, updateNews } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 
 type NewsEditorProps = {
   mode: 'create' | 'edit';
@@ -39,6 +39,9 @@ export function NewsEditor({ mode, initial }: NewsEditorProps) {
   const [body, setBody] = useState(initial?.body ?? '');
   const [date, setDate] = useState<string>(isoToDateInput(initial?.date));
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const utils = trpc.useUtils();
+  const createMutation = trpc.news.create.useMutation();
+  const updateMutation = trpc.news.update.useMutation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,27 +54,28 @@ export function NewsEditor({ mode, initial }: NewsEditorProps) {
       };
       if (date) input.date = date;
 
-      const result =
-        mode === 'edit' && initial
-          ? await updateNews(initial.id, input)
-          : await createNews(input);
-
-      if (!result.success) {
-        toast({
-          variant: 'destructive',
-          title: t('toast.errorTitle'),
-          description: result.error,
-        });
-        return;
+      if (mode === 'edit' && initial) {
+        await updateMutation.mutateAsync({ id: initial.id, ...input });
+      } else {
+        await createMutation.mutateAsync(input);
       }
+    } catch (err) {
       toast({
-        title: mode === 'create' ? t('toast.createdTitle') : t('toast.updatedTitle'),
+        variant: 'destructive',
+        title: t('toast.errorTitle'),
+        description: err instanceof Error ? err.message : 'Не удалось сохранить новость.',
       });
-      router.push('/admin/news');
-      router.refresh();
+      return;
     } finally {
       setIsSubmitting(false);
     }
+
+    await utils.news.list.invalidate();
+    toast({
+      title: mode === 'create' ? t('toast.createdTitle') : t('toast.updatedTitle'),
+    });
+    router.push('/admin/news');
+    router.refresh();
   };
 
   return (
