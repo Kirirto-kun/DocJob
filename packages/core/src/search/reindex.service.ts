@@ -16,26 +16,31 @@ export async function reembedDirtyCases(opts?: {
 }): Promise<{ processed: number; embedded: number; skipped: number; failed: number }> {
   const limit = opts?.limit ?? 100;
   const concurrency = Math.max(1, opts?.concurrency ?? 3);
-
-  const dirty = await prisma.case.findMany({
-    where: { embeddingDirty: true },
-    select: { id: true },
-    orderBy: { updatedAt: 'asc' },
-    take: limit,
-  });
-
   const tally = { processed: 0, embedded: 0, skipped: 0, failed: 0 };
-  let cursor = 0;
-  async function worker(): Promise<void> {
-    while (cursor < dirty.length) {
-      const item = dirty[cursor++];
-      const r = await reembedCase(item.id, opts?.embed ? { embed: opts.embed } : undefined);
-      tally.processed++;
-      if (r === 'embedded') tally.embedded++;
-      else if (r === 'failed') tally.failed++;
-      else tally.skipped++;
+
+  try {
+    const dirty = await prisma.case.findMany({
+      where: { embeddingDirty: true },
+      select: { id: true },
+      orderBy: { updatedAt: 'asc' },
+      take: limit,
+    });
+
+    let cursor = 0;
+    async function worker(): Promise<void> {
+      while (cursor < dirty.length) {
+        const item = dirty[cursor++];
+        const r = await reembedCase(item.id, opts?.embed ? { embed: opts.embed } : undefined);
+        tally.processed++;
+        if (r === 'embedded') tally.embedded++;
+        else if (r === 'failed') tally.failed++;
+        else tally.skipped++;
+      }
     }
+    await Promise.all(Array.from({ length: Math.min(concurrency, dirty.length) }, worker));
+  } catch (error) {
+    console.error('[reindex] reembedDirtyCases sweep failed', error);
   }
-  await Promise.all(Array.from({ length: Math.min(concurrency, dirty.length) }, worker));
+
   return tally;
 }
