@@ -1,19 +1,11 @@
 'use server';
 
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
 import { analyzeStudentQuestion, AnalyzeStudentQuestionInput } from '@/ai/flows/analyze-student-question';
 import { generatePersonalizedScenario, GeneratePersonalizedScenarioInput } from '@/ai/flows/generate-personalized-scenario';
 import { simulateComorbidities, SimulateComorbiditiesInput } from '@/ai/flows/simulate-comorbidities';
 import { savePatientRecord } from '@/services/patient-record';
 import { deleteAttachmentFile } from '@/lib/storage';
-import {
-  generateResetToken,
-  hashResetToken,
-  resetTokenExpiry,
-  isResetTokenUsable,
-  isWithinResendCooldown,
-} from '@/lib/password-reset-tokens';
 import { sendEmail, buildPasswordResetEmail, buildContactEmail } from '@/lib/email';
 import { SITE_EMAIL } from '@/lib/site';
 import * as core from '@docjob/core';
@@ -133,89 +125,6 @@ export async function handleStructureCaseFromMarkdown(
   } catch (e) {
     return toActionResult(e);
   }
-}
-
-// ───────────────────────── Helpers (BlockNote → text)
-
-function caseBodyToText(body: Prisma.JsonValue): string {
-  return blocksToText(extractBlocks(body));
-}
-
-function extractBlocks(body: Prisma.JsonValue): unknown[] {
-  if (!body || typeof body !== 'object') return [];
-  if (Array.isArray(body)) return body;
-  const blocks = (body as Record<string, unknown>).blocks;
-  return Array.isArray(blocks) ? blocks : [];
-}
-
-function blocksToText(blocks: unknown[], depth = 0): string {
-  const out: string[] = [];
-  const indent = '  '.repeat(depth);
-  for (const raw of blocks) {
-    if (!raw || typeof raw !== 'object') continue;
-    const block = raw as Record<string, unknown>;
-    const type = String(block.type ?? 'paragraph');
-    const content = inlineContentToText(block.content);
-    const props = (block.props ?? {}) as Record<string, unknown>;
-
-    switch (type) {
-      case 'heading': {
-        const level = Number(props.level) || 2;
-        out.push(`${indent}${'#'.repeat(level)} ${content}`);
-        break;
-      }
-      case 'bulletListItem':
-        out.push(`${indent}- ${content}`);
-        break;
-      case 'numberedListItem':
-        out.push(`${indent}1. ${content}`);
-        break;
-      case 'checkListItem':
-        out.push(`${indent}[ ] ${content}`);
-        break;
-      case 'image':
-        out.push(`${indent}[изображение${props.name ? `: ${props.name}` : props.url ? `: ${props.url}` : ''}]`);
-        break;
-      case 'file':
-        out.push(`${indent}[файл${props.name ? `: ${props.name}` : props.url ? `: ${props.url}` : ''}]`);
-        break;
-      case 'table': {
-        const rows = (block.content as Record<string, unknown> | undefined)?.rows;
-        if (Array.isArray(rows)) {
-          for (const row of rows) {
-            const cells = (row as Record<string, unknown>).cells;
-            if (Array.isArray(cells)) {
-              const cellsText = cells.map((c) => inlineContentToText(c)).join(' | ');
-              out.push(`${indent}| ${cellsText} |`);
-            }
-          }
-        }
-        break;
-      }
-      default:
-        if (content) out.push(`${indent}${content}`);
-    }
-
-    const children = block.children;
-    if (Array.isArray(children) && children.length) {
-      out.push(blocksToText(children, depth + 1));
-    }
-  }
-  return out.join('\n');
-}
-
-function inlineContentToText(content: unknown): string {
-  if (!content) return '';
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content.map((c) => inlineContentToText(c)).join('');
-  }
-  if (typeof content === 'object') {
-    const obj = content as Record<string, unknown>;
-    if (typeof obj.text === 'string') return obj.text;
-    if (Array.isArray(obj.content)) return inlineContentToText(obj.content);
-  }
-  return '';
 }
 
 // ───────────────────────── Tags
