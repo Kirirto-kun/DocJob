@@ -9,6 +9,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { prisma, type Role } from '@docjob/db';
 import { signAccessToken, type SigningKey } from '@docjob/auth';
 import { createContext } from './context';
+import { noopEmailSender } from './test-helpers';
 
 const testKey: SigningKey = { kid: 'api-context-test-kid', secret: 'api-context-test-secret-at-least-32-bytes!!' };
 
@@ -47,7 +48,7 @@ describe('createContext (integration, real Postgres)', () => {
       headers: { authorization: `Bearer ${token}` },
     });
 
-    const ctx = await createContext({ req, keys: [testKey] });
+    const ctx = await createContext({ req, keys: [testKey], email: noopEmailSender });
 
     // approvedAt comes from the DB row, not the (deliberately different) JWT
     // claim above — proving this is a re-read, not a trust-the-token shortcut.
@@ -61,7 +62,7 @@ describe('createContext (integration, real Postgres)', () => {
       headers: { cookie: `some-other-cookie=x; docjob-access=${token}; another=y` },
     });
 
-    const ctx = await createContext({ req, keys: [testKey] });
+    const ctx = await createContext({ req, keys: [testKey], email: noopEmailSender });
 
     expect(ctx.actor).toEqual({ id: user.id, role: 'DOCTOR', approvedAt: user.approvedAt });
   });
@@ -73,7 +74,7 @@ describe('createContext (integration, real Postgres)', () => {
       headers: { cookie: `__Host-docjob-access=${token}` },
     });
 
-    const ctx = await createContext({ req, keys: [testKey] });
+    const ctx = await createContext({ req, keys: [testKey], email: noopEmailSender });
 
     expect(ctx.actor).toEqual({ id: user.id, role: 'DOCTOR', approvedAt: user.approvedAt });
   });
@@ -90,14 +91,14 @@ describe('createContext (integration, real Postgres)', () => {
       },
     });
 
-    const ctx = await createContext({ req, keys: [testKey] });
+    const ctx = await createContext({ req, keys: [testKey], email: noopEmailSender });
 
     expect(ctx.actor?.id).toBe(bearerUser.id);
   });
 
   it('actor is null when there is no token at all (no header, no cookie)', async () => {
     const req = new Request('https://example.test/api/trpc/health');
-    const ctx = await createContext({ req, keys: [testKey] });
+    const ctx = await createContext({ req, keys: [testKey], email: noopEmailSender });
     expect(ctx.actor).toBeNull();
   });
 
@@ -105,7 +106,7 @@ describe('createContext (integration, real Postgres)', () => {
     const req = new Request('https://example.test/api/trpc/health', {
       headers: { authorization: 'Bearer not-a-real-jwt' },
     });
-    const ctx = await createContext({ req, keys: [testKey] });
+    const ctx = await createContext({ req, keys: [testKey], email: noopEmailSender });
     expect(ctx.actor).toBeNull();
   });
 
@@ -117,7 +118,7 @@ describe('createContext (integration, real Postgres)', () => {
     const req = new Request('https://example.test/api/trpc/health', {
       headers: { authorization: `Bearer ${token}` },
     });
-    const ctx = await createContext({ req, keys: [wrongKey] });
+    const ctx = await createContext({ req, keys: [wrongKey], email: noopEmailSender });
 
     expect(ctx.actor).toBeNull();
   });
@@ -133,7 +134,7 @@ describe('createContext (integration, real Postgres)', () => {
     const req = new Request('https://example.test/api/trpc/health', {
       headers: { authorization: `Bearer ${token}` },
     });
-    const ctx = await createContext({ req, keys: [testKey] });
+    const ctx = await createContext({ req, keys: [testKey], email: noopEmailSender });
 
     expect(ctx.actor).toBeNull();
   });

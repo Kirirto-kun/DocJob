@@ -14,6 +14,7 @@ import { TRPCError } from '@trpc/server';
 import type { Actor } from '@docjob/core';
 import { appRouter } from '../root';
 import { createCallerFactory } from '../trpc';
+import { noopEmailSender } from '../test-helpers';
 
 const createCaller = createCallerFactory(appRouter);
 
@@ -34,7 +35,7 @@ describe('search router (integration, real Postgres)', () => {
   const approvedActor: Actor = { id: 'not-a-real-user', role: 'DOCTOR', approvedAt: new Date() };
 
   it('search throws UNAUTHORIZED for no actor (protectedProcedure gate)', async () => {
-    const caller = createCaller({ actor: null });
+    const caller = createCaller({ email: noopEmailSender, actor: null });
     const err = await captureTRPCError(() => caller.search.search({ query: 'инфаркт' }));
     expect(err.code).toBe('UNAUTHORIZED');
   });
@@ -43,7 +44,7 @@ describe('search router (integration, real Postgres)', () => {
     'search returns an array for a real query (live OpenAI call if a key is configured, ' +
       'substring fallback otherwise -- either way the query executes without throwing)',
     async () => {
-      const caller = createCaller({ actor: approvedActor });
+      const caller = createCaller({ email: noopEmailSender, actor: approvedActor });
       const result = await caller.search.search({ query: 'инфаркт' });
       expect(Array.isArray(result)).toBe(true);
       for (const hit of result) {
@@ -60,7 +61,7 @@ describe('search router (integration, real Postgres)', () => {
   );
 
   it('search returns an empty array for a blank query without calling OpenAI', async () => {
-    const caller = createCaller({ actor: approvedActor });
+    const caller = createCaller({ email: noopEmailSender, actor: approvedActor });
     const result = await caller.search.search({ query: '   ' });
     expect(result).toEqual([]);
   });

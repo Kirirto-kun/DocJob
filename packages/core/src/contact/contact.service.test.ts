@@ -3,8 +3,10 @@
  * Runs fine without Postgres (unlike most other core domain tests in this
  * SP-1b pass).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ValidationError } from '../shared/errors';
+import type { EmailMessage } from '../shared/email-port';
+import * as contact from './contact.service';
 import { parseContactMessage } from './contact.service';
 
 describe('contact.service', () => {
@@ -77,5 +79,28 @@ describe('contact.service', () => {
     expect(() =>
       parseContactMessage({ name: 'A', email: 'a@b.com', message: 'a'.repeat(2001) }),
     ).toThrow(ValidationError);
+  });
+});
+
+describe('contact.service — sendContactMessage (injected EmailSender)', () => {
+  it('sendContactMessage delivers a valid message exactly once', async () => {
+    const send = vi.fn(async (_msg: EmailMessage) => {});
+    const res = await contact.sendContactMessage(
+      { name: 'Ann', email: 'a@b.test', message: 'Hello there team', company: '' },
+      { email: { send } },
+    );
+    expect(res).toEqual({ sent: true });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].subject).toBeTruthy();
+  });
+
+  it('sendContactMessage drops honeypot submissions without sending', async () => {
+    const send = vi.fn(async () => {});
+    const res = await contact.sendContactMessage(
+      { name: 'Bot', email: 'bot@b.test', message: 'spam spam spam', company: 'ACME' },
+      { email: { send } },
+    );
+    expect(res).toEqual({ sent: true });
+    expect(send).not.toHaveBeenCalled();
   });
 });

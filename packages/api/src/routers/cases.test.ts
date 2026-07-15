@@ -18,6 +18,7 @@ import { prisma } from '@docjob/db';
 import type { Actor } from '@docjob/core';
 import { appRouter } from '../root';
 import { createCallerFactory } from '../trpc';
+import { noopEmailSender } from '../test-helpers';
 
 const createCaller = createCallerFactory(appRouter);
 
@@ -66,19 +67,19 @@ describe('cases router (integration, real Postgres)', () => {
   });
 
   it('byId rejects with TRPCError NOT_FOUND for a missing case id', async () => {
-    const caller = createCaller({ actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
     const err = await captureTRPCError(() => caller.cases.byId('does-not-exist'));
     expect(err.code).toBe('NOT_FOUND');
   });
 
   it('list throws UNAUTHORIZED for no actor (protectedProcedure gate)', async () => {
-    const caller = createCaller({ actor: null });
+    const caller = createCaller({ email: noopEmailSender, actor: null });
     const err = await captureTRPCError(() => caller.cases.list({}));
     expect(err.code).toBe('UNAUTHORIZED');
   });
 
   it('create rejects with TRPCError FORBIDDEN for a non-admin actor', async () => {
-    const caller = createCaller({ actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
     const err = await captureTRPCError(() =>
       caller.cases.create({ name: 'Should never be created' }),
     );
@@ -86,7 +87,7 @@ describe('cases router (integration, real Postgres)', () => {
   });
 
   it('create as admin persists and returns a SerializedCase with no solution field', async () => {
-    const caller = createCaller({ actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
     const result = await caller.cases.create({
       name: 'API Router Test Case',
       subgroup: 'clinical',
@@ -106,7 +107,7 @@ describe('cases router (integration, real Postgres)', () => {
   });
 
   it('byId returns bodyHtml rendered server-side from the BlockNote body', async () => {
-    const caller = createCaller({ actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
     const created = await caller.cases.create({
       name: 'API Router Test Case (bodyHtml)',
       subgroup: 'clinical',
@@ -121,14 +122,14 @@ describe('cases router (integration, real Postgres)', () => {
   });
 
   it('list({}) returns an array that includes the created case', async () => {
-    const caller = createCaller({ actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
     const result = await caller.cases.list({});
     expect(Array.isArray(result)).toBe(true);
     expect(result.some((c) => c.id === createdCaseIds[0])).toBe(true);
   });
 
   it('listPaged returns a paginated page shape', async () => {
-    const caller = createCaller({ actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
     const page = await caller.cases.listPaged({ subgroup: 'clinical', pageSize: 5 });
     expect(Array.isArray(page.items)).toBe(true);
     expect(typeof page.total).toBe('number');
@@ -137,7 +138,7 @@ describe('cases router (integration, real Postgres)', () => {
   });
 
   it('update as admin persists a field change', async () => {
-    const caller = createCaller({ actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
     const updated = await caller.cases.update({ id: createdCaseIds[0], name: 'API Router Test Case (updated)' });
     expect(updated.name).toBe('API Router Test Case (updated)');
 
@@ -146,7 +147,7 @@ describe('cases router (integration, real Postgres)', () => {
   });
 
   it('update rejects with TRPCError FORBIDDEN for a non-admin actor', async () => {
-    const caller = createCaller({ actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
     const err = await captureTRPCError(() =>
       caller.cases.update({ id: createdCaseIds[0], name: 'should not apply' }),
     );
@@ -166,7 +167,7 @@ describe('cases router (integration, real Postgres)', () => {
       select: { id: true },
     });
 
-    const caller = createCaller({ actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
     const updated = await caller.cases.updateAttachment({ id: attachment.id, title: 'Updated title' });
     expect(updated.id).toBe(attachment.id);
     expect(updated.title).toBe('Updated title');
@@ -179,13 +180,13 @@ describe('cases router (integration, real Postgres)', () => {
   });
 
   it('deleteAttachment rejects with TRPCError NOT_FOUND for a missing attachment id', async () => {
-    const caller = createCaller({ actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
     const err = await captureTRPCError(() => caller.cases.deleteAttachment('does-not-exist'));
     expect(err.code).toBe('NOT_FOUND');
   });
 
   it('delete removes the case; a subsequent byId then 404s', async () => {
-    const caller = createCaller({ actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
     const id = createdCaseIds.pop()!;
 
     const deleted = await caller.cases.delete(id);

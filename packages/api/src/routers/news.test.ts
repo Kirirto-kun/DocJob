@@ -13,6 +13,7 @@ import { prisma } from '@docjob/db';
 import type { Actor } from '@docjob/core';
 import { appRouter } from '../root';
 import { createCallerFactory } from '../trpc';
+import { noopEmailSender } from '../test-helpers';
 
 const createCaller = createCallerFactory(appRouter);
 
@@ -73,7 +74,7 @@ describe('news router (integration, real Postgres)', () => {
   });
 
   it('create rejects with TRPCError FORBIDDEN for a non-admin actor', async () => {
-    const caller = createCaller({ actor: doctorActor });
+    const caller = createCaller({ email: noopEmailSender, actor: doctorActor });
     const err = await captureTRPCError(() =>
       caller.news.create({ title: 'Should never be created', body: 'Body text.' }),
     );
@@ -81,7 +82,7 @@ describe('news router (integration, real Postgres)', () => {
   });
 
   it('create rejects with TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ actor: null });
+    const caller = createCaller({ email: noopEmailSender, actor: null });
     const err = await captureTRPCError(() =>
       caller.news.create({ title: 'Should never be created', body: 'Body text.' }),
     );
@@ -89,41 +90,41 @@ describe('news router (integration, real Postgres)', () => {
   });
 
   it('list (public, no actor) returns an array', async () => {
-    const caller = createCaller({ actor: null });
+    const caller = createCaller({ email: noopEmailSender, actor: null });
     const items = await caller.news.list();
     expect(Array.isArray(items)).toBe(true);
   });
 
   it('create as admin persists; public list includes it', async () => {
-    const adminCaller = createCaller({ actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
     const title = `API News Test ${Date.now()}`;
     const created = await adminCaller.news.create({ title, body: 'Some news body.' });
     createdNewsIds.push(created.id);
     expect(created.id).toBeTruthy();
 
-    const guestCaller = createCaller({ actor: null });
+    const guestCaller = createCaller({ email: noopEmailSender, actor: null });
     const items = await guestCaller.news.list();
     expect(items.some((i) => i.id === created.id && i.title === title)).toBe(true);
   });
 
   it('byId rejects with TRPCError FORBIDDEN for a non-admin actor', async () => {
-    const adminCaller = createCaller({ actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
     const created = await adminCaller.news.create({ title: 'byId target', body: 'Body.' });
     createdNewsIds.push(created.id);
 
-    const doctorCaller = createCaller({ actor: doctorActor });
+    const doctorCaller = createCaller({ email: noopEmailSender, actor: doctorActor });
     const err = await captureTRPCError(() => doctorCaller.news.byId(created.id));
     expect(err.code).toBe('FORBIDDEN');
   });
 
   it('byId rejects with TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ actor: null });
+    const caller = createCaller({ email: noopEmailSender, actor: null });
     const err = await captureTRPCError(() => caller.news.byId('does-not-matter'));
     expect(err.code).toBe('UNAUTHORIZED');
   });
 
   it('byId as admin returns the item; throws NOT_FOUND for a missing id', async () => {
-    const adminCaller = createCaller({ actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
     const created = await adminCaller.news.create({ title: 'byId success', body: 'Body.' });
     createdNewsIds.push(created.id);
 
@@ -136,11 +137,11 @@ describe('news router (integration, real Postgres)', () => {
   });
 
   it('update as admin persists changes; rejects FORBIDDEN for a non-admin actor', async () => {
-    const adminCaller = createCaller({ actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
     const created = await adminCaller.news.create({ title: 'Before update', body: 'Body.' });
     createdNewsIds.push(created.id);
 
-    const doctorCaller = createCaller({ actor: doctorActor });
+    const doctorCaller = createCaller({ email: noopEmailSender, actor: doctorActor });
     const err = await captureTRPCError(() =>
       doctorCaller.news.update({ id: created.id, title: 'Hacked', body: 'Hacked.' }),
     );
@@ -159,10 +160,10 @@ describe('news router (integration, real Postgres)', () => {
   });
 
   it('delete as admin removes the item; rejects FORBIDDEN for a non-admin actor', async () => {
-    const adminCaller = createCaller({ actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
     const created = await adminCaller.news.create({ title: 'To be deleted', body: 'Body.' });
 
-    const doctorCaller = createCaller({ actor: doctorActor });
+    const doctorCaller = createCaller({ email: noopEmailSender, actor: doctorActor });
     const forbidden = await captureTRPCError(() => doctorCaller.news.delete(created.id));
     expect(forbidden.code).toBe('FORBIDDEN');
 

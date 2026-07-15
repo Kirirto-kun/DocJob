@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { ValidationError } from '../shared/errors';
+import type { EmailSender } from '../shared/email-port';
+import { buildContactEmail } from '../shared/email-templates';
 
 // Validation schema moved verbatim from apps/web/src/app/actions.ts.
 const contactMessageSchema = z.object({
@@ -21,13 +23,13 @@ export type ParsedContactMessage = {
 
 /**
  * Validate a contact-form submission and evaluate the honeypot. Pure logic
- * only — no DB, no email transport. Building/sending the email
- * (`buildContactEmail` + `sendEmail`, using the `resend` package + env vars)
- * is a transport/infra concern and stays in the web wrapper, same split as
- * `users.requestPasswordReset` in packages/core/src/users/user.service.ts.
+ * only — no DB, no email transport. Exported standalone (in addition to
+ * being used internally by `sendContactMessage` below) so callers that only
+ * need validation — e.g. a future dry-run/preview path — don't have to
+ * provide an `EmailSender`.
  *
  * Bots that fill the hidden `company` field parse successfully but come
- * back with `isHoneypot: true`, so the wrapper can silently accept
+ * back with `isHoneypot: true`, so the caller can silently accept
  * (`{ sent: true }`) without sending an email or revealing the trap.
  */
 export function parseContactMessage(input: ContactMessageInput): ParsedContactMessage {
@@ -35,4 +37,38 @@ export function parseContactMessage(input: ContactMessageInput): ParsedContactMe
   if (!parsed.success) throw new ValidationError('Проверьте правильность заполнения формы.');
   const { name, email, message, company } = parsed.data;
   return { name, email, message, isHoneypot: !!(company && company.trim().length > 0) };
+}
+
+/**
+ * Inbox that receives contact-form submissions. Mirrors
+ * `apps/web/src/lib/site.ts`'s `SITE_EMAIL` — duplicated here (rather than
+ * imported) because that file lives behind the web app's `@/*` alias, which
+ * `@docjob/core`'s boundary test (`boundary.test.ts`) forbids importing.
+ */
+const CONTACT_INBOX_EMAIL = 'docjob@inbox.kz';
+
+/**
+ * Validate a contact-form submission and deliver it via the injected
+ * `EmailSender` port (SP-4a Task 2) — this is what makes `contact.send`
+ * actually send mail for every transport (web *and* mobile/tRPC-only
+ * clients), instead of delivery living only in the web Server Action.
+ *
+ * Bots that fill the hidden `company` honeypot field still resolve
+ * `{ sent: true }` (matching the pre-existing silent-accept behavior) but
+ * the send is skipped entirely, so the trap is never revealed.
+ */
+export async function sendContactMessage(
+  input: ContactMessageInput,
+  deps: { email: EmailSender },
+): Promise<{ sent: true }> {
+  const parsed = parseContactMessage(input);
+  if (parsed.isHoneypot) return { sent: true };
+
+  const { subject, html, text } = buildContactEmail({
+    name: parsed.name,
+    email: parsed.email,
+    message: parsed.message,
+  });
+  await deps.email.send({ to: CONTACT_INBOX_EMAIL, subject, html, text, replyTo: parsed.email });
+  return { sent: true };
 }

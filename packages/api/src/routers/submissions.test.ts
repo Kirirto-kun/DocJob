@@ -12,6 +12,7 @@ import { prisma } from '@docjob/db';
 import type { Actor } from '@docjob/core';
 import { appRouter } from '../root';
 import { createCallerFactory } from '../trpc';
+import { noopEmailSender } from '../test-helpers';
 
 const createCaller = createCallerFactory(appRouter);
 
@@ -89,7 +90,7 @@ describe('submissions router (integration, real Postgres)', () => {
   });
 
   it('create rejects with TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ actor: null });
+    const caller = createCaller({ email: noopEmailSender, actor: null });
     const err = await captureTRPCError(() =>
       caller.submissions.create({
         title: 'Should never be created',
@@ -101,7 +102,7 @@ describe('submissions router (integration, real Postgres)', () => {
   });
 
   it('create as an approved actor persists and returns a SerializedCaseSubmission', async () => {
-    const caller = createCaller({ actor: authorActor });
+    const caller = createCaller({ email: noopEmailSender, actor: authorActor });
     const result = await caller.submissions.create({
       title: 'A candidate case',
       description: 'A sufficiently long description of the case, for validation.',
@@ -122,7 +123,7 @@ describe('submissions router (integration, real Postgres)', () => {
   });
 
   it('create rejects a too-short title with TRPCError BAD_REQUEST (core ValidationError)', async () => {
-    const caller = createCaller({ actor: authorActor });
+    const caller = createCaller({ email: noopEmailSender, actor: authorActor });
     const err = await captureTRPCError(() =>
       caller.submissions.create({ title: 'ab', description: 'A sufficiently long description.', authors: [] }),
     );
@@ -131,7 +132,7 @@ describe('submissions router (integration, real Postgres)', () => {
   });
 
   it('byId: author can read their own submission', async () => {
-    const caller = createCaller({ actor: authorActor });
+    const caller = createCaller({ email: noopEmailSender, actor: authorActor });
     const created = await caller.submissions.create({
       title: 'Readable by author',
       description: 'A sufficiently long description of the case.',
@@ -144,7 +145,7 @@ describe('submissions router (integration, real Postgres)', () => {
   });
 
   it('byId: admin can read any submission', async () => {
-    const authorCaller = createCaller({ actor: authorActor });
+    const authorCaller = createCaller({ email: noopEmailSender, actor: authorActor });
     const created = await authorCaller.submissions.create({
       title: 'Readable by admin',
       description: 'A sufficiently long description of the case.',
@@ -152,13 +153,13 @@ describe('submissions router (integration, real Postgres)', () => {
     });
     createdSubmissionIds.push(created.id);
 
-    const adminCaller = createCaller({ actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
     const fetched = await adminCaller.submissions.byId(created.id);
     expect(fetched.id).toBe(created.id);
   });
 
   it('byId: a non-author non-admin actor is rejected with TRPCError FORBIDDEN', async () => {
-    const authorCaller = createCaller({ actor: authorActor });
+    const authorCaller = createCaller({ email: noopEmailSender, actor: authorActor });
     const created = await authorCaller.submissions.create({
       title: 'Not readable by a stranger',
       description: 'A sufficiently long description of the case.',
@@ -166,25 +167,25 @@ describe('submissions router (integration, real Postgres)', () => {
     });
     createdSubmissionIds.push(created.id);
 
-    const strangerCaller = createCaller({ actor: strangerActor });
+    const strangerCaller = createCaller({ email: noopEmailSender, actor: strangerActor });
     const err = await captureTRPCError(() => strangerCaller.submissions.byId(created.id));
     expect(err.code).toBe('FORBIDDEN');
   });
 
   it('byId throws TRPCError NOT_FOUND for a missing id', async () => {
-    const caller = createCaller({ actor: adminActor });
+    const caller = createCaller({ email: noopEmailSender, actor: adminActor });
     const err = await captureTRPCError(() => caller.submissions.byId('does-not-exist'));
     expect(err.code).toBe('NOT_FOUND');
   });
 
   it('byId throws TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ actor: null });
+    const caller = createCaller({ email: noopEmailSender, actor: null });
     const err = await captureTRPCError(() => caller.submissions.byId('does-not-exist'));
     expect(err.code).toBe('UNAUTHORIZED');
   });
 
   it('sendMessage appends a message and preserves thread order', async () => {
-    const authorCaller = createCaller({ actor: authorActor });
+    const authorCaller = createCaller({ email: noopEmailSender, actor: authorActor });
     const created = await authorCaller.submissions.create({
       title: 'Thread order case',
       description: 'A sufficiently long description of the case.',
@@ -196,7 +197,7 @@ describe('submissions router (integration, real Postgres)', () => {
       submissionId: created.id,
       body: 'Second message in the thread.',
     });
-    const adminCaller = createCaller({ actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
     const third = await adminCaller.submissions.sendMessage({
       submissionId: created.id,
       body: 'Third message, from admin.',
@@ -215,7 +216,7 @@ describe('submissions router (integration, real Postgres)', () => {
   });
 
   it('sendMessage: a non-author non-admin actor is rejected with TRPCError FORBIDDEN', async () => {
-    const authorCaller = createCaller({ actor: authorActor });
+    const authorCaller = createCaller({ email: noopEmailSender, actor: authorActor });
     const created = await authorCaller.submissions.create({
       title: 'No stranger messages',
       description: 'A sufficiently long description of the case.',
@@ -223,7 +224,7 @@ describe('submissions router (integration, real Postgres)', () => {
     });
     createdSubmissionIds.push(created.id);
 
-    const strangerCaller = createCaller({ actor: strangerActor });
+    const strangerCaller = createCaller({ email: noopEmailSender, actor: strangerActor });
     const err = await captureTRPCError(() =>
       strangerCaller.submissions.sendMessage({
         submissionId: created.id,
@@ -234,7 +235,7 @@ describe('submissions router (integration, real Postgres)', () => {
   });
 
   it("mine returns only the caller's own submissions", async () => {
-    const authorCaller = createCaller({ actor: authorActor });
+    const authorCaller = createCaller({ email: noopEmailSender, actor: authorActor });
     const mine = await authorCaller.submissions.create({
       title: 'Mine',
       description: 'A sufficiently long description of the case.',
@@ -246,25 +247,25 @@ describe('submissions router (integration, real Postgres)', () => {
     expect(list.some((s) => s.id === mine.id)).toBe(true);
     expect(list.every((s) => s.authorUserId === authorUserId)).toBe(true);
 
-    const strangerCaller = createCaller({ actor: strangerActor });
+    const strangerCaller = createCaller({ email: noopEmailSender, actor: strangerActor });
     const strangerList = await strangerCaller.submissions.mine();
     expect(strangerList.some((s) => s.id === mine.id)).toBe(false);
   });
 
   it('all rejects with TRPCError FORBIDDEN for a non-admin actor', async () => {
-    const caller = createCaller({ actor: authorActor });
+    const caller = createCaller({ email: noopEmailSender, actor: authorActor });
     const err = await captureTRPCError(() => caller.submissions.all());
     expect(err.code).toBe('FORBIDDEN');
   });
 
   it('all rejects with TRPCError UNAUTHORIZED for no actor', async () => {
-    const caller = createCaller({ actor: null });
+    const caller = createCaller({ email: noopEmailSender, actor: null });
     const err = await captureTRPCError(() => caller.submissions.all());
     expect(err.code).toBe('UNAUTHORIZED');
   });
 
   it('all as admin sees submissions from any author', async () => {
-    const authorCaller = createCaller({ actor: authorActor });
+    const authorCaller = createCaller({ email: noopEmailSender, actor: authorActor });
     const created = await authorCaller.submissions.create({
       title: 'Visible to admin catalog',
       description: 'A sufficiently long description of the case.',
@@ -272,13 +273,13 @@ describe('submissions router (integration, real Postgres)', () => {
     });
     createdSubmissionIds.push(created.id);
 
-    const adminCaller = createCaller({ actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
     const all = await adminCaller.submissions.all();
     expect(all.some((s) => s.id === created.id)).toBe(true);
   });
 
   it('updateStatus rejects with TRPCError FORBIDDEN for a non-admin actor', async () => {
-    const authorCaller = createCaller({ actor: authorActor });
+    const authorCaller = createCaller({ email: noopEmailSender, actor: authorActor });
     const created = await authorCaller.submissions.create({
       title: 'Status change target',
       description: 'A sufficiently long description of the case.',
@@ -293,7 +294,7 @@ describe('submissions router (integration, real Postgres)', () => {
   });
 
   it('updateStatus as admin updates the status', async () => {
-    const authorCaller = createCaller({ actor: authorActor });
+    const authorCaller = createCaller({ email: noopEmailSender, actor: authorActor });
     const created = await authorCaller.submissions.create({
       title: 'Status change target (admin)',
       description: 'A sufficiently long description of the case.',
@@ -301,7 +302,7 @@ describe('submissions router (integration, real Postgres)', () => {
     });
     createdSubmissionIds.push(created.id);
 
-    const adminCaller = createCaller({ actor: adminActor });
+    const adminCaller = createCaller({ email: noopEmailSender, actor: adminActor });
     const updated = await adminCaller.submissions.updateStatus({
       submissionId: created.id,
       status: 'accepted',

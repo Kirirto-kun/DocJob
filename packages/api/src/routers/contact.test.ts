@@ -1,20 +1,26 @@
 /**
  * Integration tests for the `contact` tRPC router. No DB fixtures needed —
- * `core.contact.parseContactMessage` is pure (no Prisma, no network I/O),
- * so these run against `appRouter.createCaller({ actor: null })` only, same
- * harness style as the other routers (see reviews.test.ts) minus the
- * Postgres setup/teardown.
+ * `core.contact.sendContactMessage` is pure aside from the injected
+ * `EmailSender` (no Prisma, no direct network I/O), so these run against
+ * `appRouter.createCaller({ actor: null, email })` only, same harness style
+ * as the other routers (see reviews.test.ts) minus the Postgres setup/
+ * teardown.
  *
- * Per contact.ts's doc comment: this router validates + evaluates the
- * honeypot only. It does NOT send real email (that stays out of
- * `@docjob/api`'s boundary) — these tests deliberately do NOT assert that
- * any email was sent, only that `send` resolves with `{ sent: true }` (or
- * rejects for invalid input).
+ * SP-4a Task 2 update: `send` now actually delivers mail via `ctx.email`
+ * (see contact.ts's doc comment). The first block below uses a no-op sender
+ * (delivery isn't the point of those assertions); the second block injects a
+ * `vi.fn` spy to assert delivery happens for a valid message and is skipped
+ * for a honeypot-tripped one — mirroring the honeypot test from
+ * `packages/core/src/contact/contact.service.test.ts` but driven through the
+ * actual tRPC caller (the same path a mobile/tRPC-only client would take,
+ * with no Server Action fallback).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { TRPCError } from '@trpc/server';
+import type { EmailMessage } from '@docjob/core';
 import { appRouter } from '../root';
 import { createCallerFactory } from '../trpc';
+import { noopEmailSender } from '../test-helpers';
 
 const createCaller = createCallerFactory(appRouter);
 
@@ -29,7 +35,7 @@ async function captureTRPCError(fn: () => Promise<unknown>): Promise<TRPCError> 
 }
 
 describe('contact router (unit — core.contact is pure, no DB)', () => {
-  const caller = createCaller({ actor: null });
+  const caller = createCaller({ email: noopEmailSender, actor: null });
 
   it('send with a valid payload resolves { sent: true }, no actor required', async () => {
     const result = await caller.contact.send({
@@ -62,5 +68,37 @@ describe('contact router (unit — core.contact is pure, no DB)', () => {
       caller.contact.send({ name: 'Jane', email: 'jane@example.com', message: '' }),
     );
     expect(err.code).toBe('BAD_REQUEST');
+  });
+});
+
+describe('contact router — email delivery via injected EmailSender (SP-4a Task 2)', () => {
+  it('send with a valid payload calls the injected sender exactly once', async () => {
+    const send = vi.fn(async (_msg: EmailMessage) => {});
+    const caller = createCaller({ actor: null, email: { send } });
+
+    const result = await caller.contact.send({
+      name: 'Jane Doctor',
+      email: 'jane@example.com',
+      message: 'I have a question about DocJob.',
+    });
+
+    expect(result).toEqual({ sent: true });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].subject).toBeTruthy();
+  });
+
+  it('send with the honeypot field filled resolves { sent: true } without calling the sender', async () => {
+    const send = vi.fn(async (_msg: EmailMessage) => {});
+    const caller = createCaller({ actor: null, email: { send } });
+
+    const result = await caller.contact.send({
+      name: 'Bot',
+      email: 'bot@example.com',
+      message: 'Buy cheap watches now.',
+      company: 'I am a bot and filled this hidden field',
+    });
+
+    expect(result).toEqual({ sent: true });
+    expect(send).not.toHaveBeenCalled();
   });
 });

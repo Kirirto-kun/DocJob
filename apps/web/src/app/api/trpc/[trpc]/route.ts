@@ -1,7 +1,18 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
+import type { EmailSender } from '@docjob/core';
 import { appRouter, createContext } from '@docjob/api';
 import { verificationKeys } from '@/lib/auth-keys';
 import { assertSameOrigin } from '@/lib/csrf';
+import { sendEmail } from '@/lib/email';
+
+/**
+ * `EmailSender` adapter (SP-4a Task 2) backing `ApiContext.email` for every
+ * request through this mount — wraps the Resend-backed `sendEmail`
+ * (`@/lib/email`) so `core.contact.sendContactMessage` (and any future core
+ * flow that takes an `EmailSender`) can deliver mail without `@docjob/api`/
+ * `@docjob/core` importing the `resend` package or its env vars directly.
+ */
+const webEmailSender: EmailSender = { send: (message) => sendEmail(message) };
 
 // Node runtime: `createContext` (see packages/api/src/context.ts) verifies
 // the access token with jose (Edge-safe on its own) but then re-reads the
@@ -42,7 +53,7 @@ function handler(req: Request) {
     endpoint: '/api/trpc',
     req,
     router: appRouter,
-    createContext: ({ req }) => createContext({ req, keys: verificationKeys() }),
+    createContext: ({ req }) => createContext({ req, keys: verificationKeys(), email: webEmailSender }),
   });
 }
 

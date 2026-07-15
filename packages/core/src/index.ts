@@ -1,6 +1,14 @@
 export * from './shared/errors';
 export * from './shared/actor';
 export * from './shared/pagination';
+// Flat: the injectable EmailSender port (SP-4a Task 2) + pure email-content
+// builders moved out of apps/web/src/lib/email.ts. Domain services (e.g.
+// contact.service.ts's sendContactMessage) take an EmailSender via `deps`
+// rather than importing an email provider SDK directly, keeping
+// @docjob/core transport-agnostic; the web app injects a Resend-backed
+// adapter at request time (packages/api/src/context.ts's ApiContext).
+export * from './shared/email-port';
+export * from './shared/email-templates';
 
 // Flat: mapper types + serializeCase (other domains, e.g. search.service,
 // reuse serializeCase directly).

@@ -1,4 +1,4 @@
-import type { Actor } from '@docjob/core';
+import type { Actor, EmailSender } from '@docjob/core';
 import { verifyAccessToken, type SigningKey } from '@docjob/auth';
 import { prisma } from '@docjob/db';
 
@@ -18,7 +18,16 @@ import { prisma } from '@docjob/db';
  */
 const ACCESS_COOKIE_NAMES = ['docjob-access', '__Host-docjob-access'];
 
-export type ApiContext = { actor: Actor | null };
+/**
+ * `email` (SP-4a Task 2): an injected `EmailSender` port so domain services
+ * called through this context (e.g. `core.contact.sendContactMessage`) can
+ * deliver mail without `@docjob/api`/`@docjob/core` importing an email
+ * provider SDK directly — the web mount injects a Resend-backed adapter
+ * (`apps/web/src/app/api/trpc/[trpc]/route.ts`), the in-process caller
+ * (`apps/web/src/lib/trpc/server.ts`) reuses the same adapter, and tests
+ * inject a spy/no-op.
+ */
+export type ApiContext = { actor: Actor | null; email: EmailSender };
 
 function bearerToken(req: Request): string | undefined {
   const header = req.headers.get('authorization');
@@ -68,15 +77,19 @@ function extractToken(req: Request): string | undefined {
  * `{ actor: null }` rather than throwing; procedures that require a caller
  * use `protectedProcedure` (see trpc.ts) to enforce that.
  */
-export async function createContext(opts: { req: Request; keys: SigningKey[] }): Promise<ApiContext> {
+export async function createContext(opts: {
+  req: Request;
+  keys: SigningKey[];
+  email: EmailSender;
+}): Promise<ApiContext> {
   const token = extractToken(opts.req);
-  if (!token) return { actor: null };
+  if (!token) return { actor: null, email: opts.email };
 
   const claims = await verifyAccessToken(token, opts.keys);
-  if (!claims) return { actor: null };
+  if (!claims) return { actor: null, email: opts.email };
 
   const user = await prisma.user.findUnique({ where: { id: claims.sub } });
-  if (!user) return { actor: null };
+  if (!user) return { actor: null, email: opts.email };
 
-  return { actor: { id: user.id, role: user.role, approvedAt: user.approvedAt } };
+  return { actor: { id: user.id, role: user.role, approvedAt: user.approvedAt }, email: opts.email };
 }
