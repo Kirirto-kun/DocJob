@@ -10,6 +10,7 @@
     "@trpc/client": "^11",
     "@trpc/react-query": "^11",
     "expo": "~57.0.6",
+    "expo-constants": "~57.0.5",
     "expo-localization": "~57.0.1",
     "expo-router": "~57.0.6",
     "expo-secure-store": "~57.0.1",
