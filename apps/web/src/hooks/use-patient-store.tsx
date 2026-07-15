@@ -1,14 +1,8 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import {
-  getCases,
-  createCase,
-  updateCase as updateCaseAction,
-  deleteCase as deleteCaseAction,
-  type SerializedCase,
-  type SerializedCaseImage,
-} from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
+import type { SerializedCase, SerializedCaseImage } from '@docjob/core';
 import type { CaseBody } from '@/lib/case-schema';
 import { useUserStore } from './use-user-store';
 
@@ -46,7 +40,7 @@ export type Patient = {
 };
 
 function serializedToPatient(c: SerializedCase): Patient {
-  const images = c.images.map<PatientImage>((i) => ({
+  const images = c.images.map<PatientImage>((i: SerializedCaseImage) => ({
     id: i.id,
     filename: i.filename,
     mimeType: i.mimeType,
@@ -92,28 +86,40 @@ const PatientContext = createContext<PatientStore | null>(null);
 
 const ACTIVE_PATIENT_KEY = (userId: string) => `activePatient_${userId}`;
 
+/**
+ * The case-catalog store (misleadingly named `Patient*` — a holdover from
+ * the pre-rebuild chat-simulator product). Migrated off the `getCases`/
+ * `createCase`/`updateCase`/`deleteCase` Server Actions to `trpc.cases.*`
+ * (SP-2 Task 3): `trpc.cases.list.useQuery` backs `patients`/
+ * `refreshPatients`, and `trpc.cases.{create,update,delete}.useMutation`
+ * back the (currently uncalled, kept for public-API compat) `addPatient`/
+ * `updatePatient`/`deletePatient` mutators. Public API is unchanged so
+ * every existing consumer (`app/page.tsx`, `cases/[subgroup]/page.tsx`)
+ * keeps working without modification.
+ */
 export function PatientProvider({ children }: { children: React.ReactNode }) {
-  const [patients, setPatients] = useState<Patient[]>([]);
   const [activePatientId, setActivePatientIdState] = useState<string | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
   const { currentUser, isInitialized: userIsInitialized } = useUserStore();
+  const utils = trpc.useUtils();
+
+  const hasUser = Boolean(currentUser);
+  const listQuery = trpc.cases.list.useQuery(undefined, {
+    enabled: userIsInitialized && hasUser,
+  });
+
+  const patients = useMemo(
+    () => (hasUser ? (listQuery.data ?? []).map(serializedToPatient) : []),
+    [hasUser, listQuery.data],
+  );
+
+  // Mirrors the original store's isLoaded bookkeeping: true once the fetch
+  // attempt has settled (success or error) for a logged-in user, or
+  // immediately once we know there's no user to fetch cases for.
+  const isLoaded = !hasUser || listQuery.isFetched || listQuery.isError;
 
   const refreshPatients = useCallback(async () => {
-    const res = await getCases();
-    if (res.success) {
-      setPatients(res.data.map(serializedToPatient));
-    }
-    setIsLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (userIsInitialized && currentUser) {
-      void refreshPatients();
-    } else if (userIsInitialized && !currentUser) {
-      setPatients([]);
-      setIsLoaded(true);
-    }
-  }, [userIsInitialized, currentUser, refreshPatients]);
+    await listQuery.refetch();
+  }, [listQuery.refetch]);
 
   useEffect(() => {
     if (currentUser && isLoaded) {
@@ -143,9 +149,20 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
     [currentUser]
   );
 
+  const invalidateLists = useCallback(async () => {
+    await Promise.all([
+      utils.cases.list.invalidate(),
+      utils.cases.listPaged.invalidate(),
+    ]);
+  }, [utils]);
+
+  const createMutation = trpc.cases.create.useMutation();
+  const updateMutation = trpc.cases.update.useMutation();
+  const deleteMutation = trpc.cases.delete.useMutation();
+
   const addPatient = useCallback(
     async (patient: Patient) => {
-      const res = await createCase({
+      await createMutation.mutateAsync({
         name: patient.name,
         age: patient.age,
         gender: patient.gender,
@@ -159,15 +176,14 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
         tags: patient.tags ?? [],
         imageFilenames: (patient.images ?? []).map((i) => ({ filename: i.filename, mimeType: i.mimeType })),
       });
-      if (!res.success) throw new Error(res.error);
-      await refreshPatients();
+      await invalidateLists();
     },
-    [refreshPatients]
+    [createMutation, invalidateLists]
   );
 
   const updatePatient = useCallback(
     async (patient: Patient) => {
-      const res = await updateCaseAction({
+      await updateMutation.mutateAsync({
         id: patient.id,
         name: patient.name,
         age: patient.age,
@@ -181,20 +197,18 @@ export function PatientProvider({ children }: { children: React.ReactNode }) {
         specialty: patient.specialty ?? undefined,
         tags: patient.tags ?? [],
       });
-      if (!res.success) throw new Error(res.error);
-      await refreshPatients();
+      await invalidateLists();
     },
-    [refreshPatients]
+    [updateMutation, invalidateLists]
   );
 
   const deletePatient = useCallback(
     async (id: string) => {
-      const res = await deleteCaseAction(id);
-      if (!res.success) throw new Error(res.error);
+      await deleteMutation.mutateAsync(id);
       if (activePatientId === id) setActivePatient(null);
-      await refreshPatients();
+      await invalidateLists();
     },
-    [activePatientId, refreshPatients, setActivePatient]
+    [deleteMutation, activePatientId, invalidateLists, setActivePatient]
   );
 
   return (

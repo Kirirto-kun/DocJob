@@ -173,104 +173,27 @@ export async function deleteUser(userId: string): Promise<ActionResult<{ id: str
 
 // ───────────────────────── Cases
 //
-// Pure domain logic (validation, auth rules, Prisma calls) lives in
-// @docjob/core's case.service — these are thin transport wrappers: resolve
-// the actor, call core, translate thrown DomainErrors back into
-// ActionResult, and run the Next.js-specific side effects (revalidatePath,
-// the fire-and-forget embedding upsert, attachment-file deletion) that
-// can't live in a transport-agnostic package.
-
-export type CaseInput = core.cases.CreateCaseInput;
-
-export async function createCase(input: CaseInput): Promise<ActionResult<SerializedCase>> {
-  try {
-    const actor = await getActor();
-    const data = await core.cases.createCase(actor, input);
-    revalidatePath('/');
-    revalidatePath('/cases/[subgroup]', 'page');
-    // Fire-and-forget: never block or break case creation on embedding.
-    void core.search.upsertCaseEmbedding(data.id).catch(() => {});
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function updateCase(input: core.cases.UpdateCaseInput): Promise<ActionResult<SerializedCase>> {
-  try {
-    const actor = await getActor();
-    const data = await core.cases.updateCase(actor, input);
-    revalidatePath('/');
-    revalidatePath(`/cases/${data.subgroup ?? ''}/${data.id}`);
-    // Fire-and-forget: re-embed on edit without blocking the update.
-    void core.search.upsertCaseEmbedding(data.id).catch(() => {});
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function deleteCase(id: string): Promise<ActionResult<{ id: string }>> {
-  try {
-    const actor = await getActor();
-    const data = await core.cases.deleteCase(actor, id);
-    revalidatePath('/');
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function getCases(filters?: { subgroup?: string; specialty?: string }): Promise<ActionResult<SerializedCase[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.cases.listCases(actor, filters);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-// ───────────────────────── Paginated cases listing (admin catalog / search)
-
-export type SerializedCaseListItem = core.SerializedCaseListItem;
-export type CasesPage = core.CasesPage;
-
-export async function getCasesPaged(
-  input?: core.cases.ListCasesPagedInput,
-): Promise<ActionResult<CasesPage>> {
-  try {
-    const actor = await getActor();
-    const data = await core.cases.listCasesPaged(actor, input);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-export async function getCaseById(id: string): Promise<ActionResult<SerializedCase>> {
-  try {
-    const actor = await getActor();
-    const data = await core.cases.getCase(actor, id);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
-
-// ───────────────────────── Case attachments (admin)
-
-export async function updateCaseAttachment(
-  input: core.cases.UpdateCaseAttachmentInput,
-): Promise<ActionResult<SerializedCaseAttachment>> {
-  try {
-    const actor = await getActor();
-    const data = await core.cases.updateCaseAttachment(actor, input);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
+// SP-2 Task 3: `createCase`/`updateCase`/`deleteCase`/`getCases`/
+// `getCasesPaged`/`getCaseById`/`updateCaseAttachment`/`searchCases` were
+// retired here — every caller now goes through `trpc.cases.*`/
+// `trpc.search.search` (client components) or `serverCaller().cases.*`
+// (Server Components), see `packages/api/src/routers/cases.ts` /
+// `search.ts`. The fire-and-forget embedding upsert `createCase`/
+// `updateCase` used to do post-write moved into the tRPC router's
+// `create`/`update` mutations so it's not duplicated per web call site.
+//
+// `deleteCaseAttachment` stays here (not migrated) because it has a
+// Next.js/filesystem side effect — deleting the file from `UPLOAD_DIR` via
+// `@/lib/storage`'s `deleteAttachmentFile` — that `@docjob/core`/
+// `@docjob/api` can't perform (no filesystem access, same reasoning as the
+// `MediaStorage` scaffold not being wired in yet). Same pattern SP-2 Task 5
+// uses for `sendContactMessage` (kept on the action for email delivery).
+//
+// The `SerializedCase`/`SerializedCaseImage`/`SerializedCaseAttachment` type
+// aliases further down this file stay — they're pure type re-exports (not
+// actions) still imported by several non-migrated files
+// (`case-info-panel.tsx`, `case-page-client.tsx`, etc.) via
+// `import type { SerializedCase } from '@/app/actions'`.
 
 export async function deleteCaseAttachment(id: string): Promise<ActionResult<{ id: string }>> {
   try {
@@ -819,20 +742,9 @@ export async function updateCaseSubmissionStatus(
 
 // ───────────────────────── Search
 //
-// Pure domain logic (LLM intent extraction, embedding, pgvector KNN,
-// substring fallback) lives in @docjob/core's search.service — this is a
-// thin transport wrapper: resolve the actor, call core, translate thrown
-// DomainErrors back into ActionResult.
-
-export async function searchCases(query: string): Promise<ActionResult<SerializedCase[]>> {
-  try {
-    const actor = await getActor();
-    const data = await core.search.searchCases(actor, query);
-    return ok(data);
-  } catch (e) {
-    return toActionResult(e);
-  }
-}
+// `searchCases` retired (SP-2 Task 3) — `ai-search/page.tsx` now calls
+// `trpc.search.search` (`utils.search.search.fetch({ query })`) directly;
+// see `packages/api/src/routers/search.ts`.
 
 // ───────────────────────── Password reset
 

@@ -1,78 +1,39 @@
 import { notFound } from 'next/navigation';
-import { prisma } from '@docjob/db';
-import { getCurrentUser } from '@/lib/session';
-import {
-  EMPTY_BODY,
-  caseBodySchema,
-  type CaseBody,
-  type CaseMode,
-} from '@/lib/case-schema';
-import type { SerializedCase } from '@/app/actions';
+import { TRPCError } from '@trpc/server';
+import { serverCaller } from '@/lib/trpc/server';
 import { CasePageClient } from './_components/case-page-client';
 
 type CasePageParams = {
   params: Promise<{ subgroup: string; caseId: string }>;
 };
 
+/**
+ * Server Component — case detail load moved from a hand-rolled
+ * `prisma.case.findUnique` + manual `SerializedCase` construction (which
+ * duplicated `@docjob/core`'s `serializeCase`) to the in-process tRPC server
+ * caller (`api.cases.byId`, SP-2 Task 3). `core.cases.getCase` asserts an
+ * *approved* actor (`assertApproved`), one notch stricter than the previous
+ * "any logged-in user" check this page did inline — now consistent with the
+ * case-list page (`getCases`/`trpc.cases.list`, which always required
+ * approval). Missing/unauthorized/unapproved all fall through to the same
+ * `notFound()` the old `!user` branch used.
+ */
 export default async function CasePage({ params }: CasePageParams) {
   const { subgroup, caseId } = await params;
 
-  const user = await getCurrentUser();
-  if (!user) notFound();
+  const api = await serverCaller();
 
-  const c = await prisma.case.findUnique({
-    where: { id: caseId },
-    include: {
-      images: { orderBy: { order: 'asc' } },
-      attachments: { orderBy: { createdAt: 'asc' } },
-    },
-  });
-  if (!c) notFound();
-  if (c.subgroup && c.subgroup !== subgroup) notFound();
+  let caseData;
+  try {
+    caseData = await api.cases.byId(caseId);
+  } catch (e) {
+    if (e instanceof TRPCError && (e.code === 'NOT_FOUND' || e.code === 'UNAUTHORIZED' || e.code === 'FORBIDDEN')) {
+      notFound();
+    }
+    throw e;
+  }
 
-  const bodyParse = caseBodySchema.safeParse(c.body);
-  const body: CaseBody = bodyParse.success ? bodyParse.data : EMPTY_BODY;
-
-  const caseData: SerializedCase = {
-    id: c.id,
-    authorId: c.authorId,
-    name: c.name,
-    age: c.age,
-    gender: c.gender,
-    primaryCondition: c.primaryCondition,
-    history: c.history,
-    scenarioDescription: c.scenarioDescription,
-    learningObjectives: c.learningObjectives,
-    comorbidities: c.comorbidities,
-    subgroup: c.subgroup,
-    specialty: c.specialty,
-    tags: c.tags,
-    teaser: c.teaser,
-    mode: c.mode as CaseMode,
-    body,
-    images: c.images.map((i) => ({
-      id: i.id,
-      filename: i.filename,
-      mimeType: i.mimeType,
-      order: i.order,
-      url: `/api/images/${i.filename}`,
-    })),
-    attachments: c.attachments.map((a) => ({
-      id: a.id,
-      filename: a.filename,
-      originalName: a.originalName,
-      title: a.title,
-      description: a.description,
-      mimeType: a.mimeType,
-      size: a.size,
-      kind: a.kind,
-      order: a.order,
-      url: `/api/attachments/${a.filename}`,
-      createdAt: a.createdAt.toISOString(),
-    })),
-    createdAt: c.createdAt.toISOString(),
-    updatedAt: c.updatedAt.toISOString(),
-  };
+  if (caseData.subgroup && caseData.subgroup !== subgroup) notFound();
 
   return <CasePageClient subgroup={subgroup} caseData={caseData} />;
 }

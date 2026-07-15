@@ -25,7 +25,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import { createCase } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 import {
   CASE_MODE_BY_SUBGROUP,
   EMPTY_BODY,
@@ -72,6 +72,8 @@ export default function NewCasePage() {
   const { currentUser, isInitialized } = useUserStore();
   const { toast } = useToast();
   const router = useRouter();
+  const utils = trpc.useUtils();
+  const createMutation = trpc.cases.create.useMutation();
 
   const [subgroupSlug, setSubgroupSlug] = useState<SubgroupSlug | ''>('');
   const [specialty, setSpecialty] = useState('');
@@ -155,7 +157,7 @@ export default function NewCasePage() {
     setIsSubmitting(true);
     try {
       const ageNum = age.trim() ? Number.parseInt(age, 10) : null;
-      const result = await createCase({
+      const result = await createMutation.mutateAsync({
         name: trimmedName,
         age: showDemographics && Number.isFinite(ageNum) ? ageNum : null,
         gender: showDemographics && gender ? gender : null,
@@ -167,12 +169,17 @@ export default function NewCasePage() {
         body,
         attachmentIds: attachments.map((a) => a.id),
       });
-      if (!result.success) {
-        toast({ variant: 'destructive', title: 'Ошибка', description: result.error });
-        return;
-      }
       toast({ title: 'Кейс создан' });
-      router.push(`/cases/${subgroup.slug}/${result.data.id}`);
+      // RSC cache coherence: a brand-new case must show up in the case
+      // catalog (use-patient-store's trpc.cases.list) and the admin list —
+      // replaces the old `createCase` action's `revalidatePath('/')` +
+      // `revalidatePath('/cases/[subgroup]', 'page')`.
+      await Promise.all([
+        utils.cases.list.invalidate(),
+        utils.cases.listPaged.invalidate(),
+      ]);
+      router.refresh();
+      router.push(`/cases/${subgroup.slug}/${result.id}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Не удалось создать кейс';
       toast({ variant: 'destructive', title: 'Ошибка', description: msg });

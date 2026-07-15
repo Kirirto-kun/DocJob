@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -34,11 +34,7 @@ import {
 } from '@/components/ui/pagination';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import {
-  deleteCase,
-  getCasesPaged,
-  type CasesPage,
-} from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 import { CASE_MODES, type CaseMode } from '@/lib/case-schema';
 
 const PAGE_SIZE = 20;
@@ -98,9 +94,10 @@ export default function AdminCasesPage() {
   const mode: CaseMode | undefined = isCaseMode(modeParam) ? modeParam : undefined;
   const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
 
-  const [data, setData] = useState<CasesPage | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const isAdmin = isInitialized && !!currentUser && currentUser.role === 'admin';
+  const utils = trpc.useUtils();
 
   // Role gate
   useEffect(() => {
@@ -119,41 +116,35 @@ export default function AdminCasesPage() {
     }
   }, [currentUser, isInitialized, router, toast, t]);
 
-  const fetchPage = useCallback(
-    async (signal?: { cancelled: boolean }) => {
-      setLoading(true);
-      const res = await getCasesPaged({
-        search: q || undefined,
-        subgroup: subgroup || undefined,
-        specialty: specialty || undefined,
-        mode,
-        page,
-        pageSize: PAGE_SIZE,
-      });
-      if (signal?.cancelled) return;
-      if (res.success) {
-        setData(res.data);
-      } else {
-        setData(null);
-        toast({
-          variant: 'destructive',
-          title: t('toast.errorTitle'),
-          description: t('toast.loadFailed'),
-        });
-      }
-      setLoading(false);
-    },
-    [q, subgroup, specialty, mode, page, t, toast],
+  const listInput = useMemo(
+    () => ({
+      search: q || undefined,
+      subgroup: subgroup || undefined,
+      specialty: specialty || undefined,
+      mode,
+      page,
+      pageSize: PAGE_SIZE,
+    }),
+    [q, subgroup, specialty, mode, page],
   );
 
+  const listQuery = trpc.cases.listPaged.useQuery(listInput, { enabled: isAdmin });
+  const data = listQuery.data ?? null;
+  const loading = listQuery.isFetching;
+
+  // TanStack Query v5 dropped useQuery's onError callback — surface load
+  // failures the same way the original fetchPage's `!res.success` branch did.
   useEffect(() => {
-    if (!isInitialized || !currentUser || currentUser.role !== 'admin') return;
-    const signal = { cancelled: false };
-    void fetchPage(signal);
-    return () => {
-      signal.cancelled = true;
-    };
-  }, [isInitialized, currentUser, fetchPage]);
+    if (!listQuery.isError) return;
+    toast({
+      variant: 'destructive',
+      title: t('toast.errorTitle'),
+      description: t('toast.loadFailed'),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listQuery.isError, listQuery.error]);
+
+  const deleteMutation = trpc.cases.delete.useMutation();
 
   const dateFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale === 'kk' ? 'kk-KZ' : 'ru-RU', { dateStyle: 'short' }),
@@ -171,29 +162,36 @@ export default function AdminCasesPage() {
 
   const handleDelete = async (id: string, name: string) => {
     setBusyId(id);
-    const res = await deleteCase(id);
-    setBusyId(null);
-    if (res.success) {
-      toast({
-        title: t('toast.deletedTitle'),
-        description: t('toast.deletedDescription', { name }),
-      });
-      // Re-fetch the current page to keep total / pageCount accurate.
-      // If the page was the last and now empty, step back one.
-      if (data && data.items.length === 1 && data.page > 1) {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set('page', String(data.page - 1));
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-      } else {
-        await fetchPage();
-      }
-    } else {
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (e) {
+      setBusyId(null);
       toast({
         variant: 'destructive',
         title: t('toast.errorTitle'),
-        description: res.error ?? t('toast.deleteFailed'),
+        description: e instanceof Error ? e.message : t('toast.deleteFailed'),
       });
+      return;
     }
+    setBusyId(null);
+    toast({
+      title: t('toast.deletedTitle'),
+      description: t('toast.deletedDescription', { name }),
+    });
+    // RSC cache coherence: a deleted case must disappear from the case
+    // catalog (use-patient-store's trpc.cases.list) and this page's own
+    // trpc.cases.listPaged — replaces the old `deleteCase` action's
+    // `revalidatePath('/')`.
+    await utils.cases.list.invalidate();
+    // Re-fetch the current page to keep total / pageCount accurate.
+    // If the page was the last and now empty, step back one.
+    if (data && data.items.length === 1 && data.page > 1) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('page', String(data.page - 1));
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }
+    await utils.cases.listPaged.invalidate();
+    router.refresh();
   };
 
   const goToPage = (next: number) => {

@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { deleteCaseAttachment, updateCaseAttachment } from '@/app/actions';
+import { deleteCaseAttachment } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
 import { authFetch } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 
@@ -50,6 +51,7 @@ export function AttachmentsManager({ attachments, onChange, className }: Attachm
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(0);
   const [dragOver, setDragOver] = useState(false);
+  const updateAttachmentMutation = trpc.cases.updateAttachment.useMutation();
 
   const uploadFiles = useCallback(
     async (files: FileList | File[]) => {
@@ -104,12 +106,13 @@ export function AttachmentsManager({ attachments, onChange, className }: Attachm
   ) => {
     const next = attachments.map((a) => (a.id === id ? { ...a, [field]: value || null } : a));
     onChange(next);
-    const result = await updateCaseAttachment({ id, [field]: value || null });
-    if (!result.success) {
+    try {
+      await updateAttachmentMutation.mutateAsync({ id, [field]: value || null });
+    } catch (e) {
       toast({
         variant: 'destructive',
         title: 'Не удалось сохранить',
-        description: result.error,
+        description: e instanceof Error ? e.message : String(e),
       });
     }
   };

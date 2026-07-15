@@ -55,13 +55,28 @@ export const casesRouter = router({
     .input(z.string())
     .query(({ ctx, input }) => core.cases.getCase(ctx.actor, input)),
 
+  // create/update fire-and-forget the case embedding upsert after the write
+  // succeeds — moved here verbatim from the (now-retired) `createCase`/
+  // `updateCase` Server Actions (SP-2 Task 3) so every caller (web tRPC
+  // hooks AND the in-process server caller) gets the same behavior, instead
+  // of duplicating this side effect at every transport call site. Guarded
+  // internally (embeddings.ts): a missing OPENAI_API_KEY or any embedding
+  // error is logged and swallowed, never surfaced to the caller.
   create: adminProcedure
     .input(z.custom<core.cases.CreateCaseInput>(isPlainObject))
-    .mutation(({ ctx, input }) => core.cases.createCase(ctx.actor, input)),
+    .mutation(async ({ ctx, input }) => {
+      const data = await core.cases.createCase(ctx.actor, input);
+      void core.search.upsertCaseEmbedding(data.id).catch(() => {});
+      return data;
+    }),
 
   update: adminProcedure
     .input(z.custom<core.cases.UpdateCaseInput>(isPlainObject))
-    .mutation(({ ctx, input }) => core.cases.updateCase(ctx.actor, input)),
+    .mutation(async ({ ctx, input }) => {
+      const data = await core.cases.updateCase(ctx.actor, input);
+      void core.search.upsertCaseEmbedding(data.id).catch(() => {});
+      return data;
+    }),
 
   delete: adminProcedure
     .input(z.string())

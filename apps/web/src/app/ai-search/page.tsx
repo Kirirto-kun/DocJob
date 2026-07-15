@@ -17,7 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useUserStore } from '@/hooks/use-user-store';
-import { searchCases, type SerializedCase } from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
+import type { SerializedCase } from '@docjob/core';
 import { caseBodyPreview } from '@/lib/case-body-text';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +33,7 @@ export default function AiSearchPage() {
   const [searching, setSearching] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const utils = trpc.useUtils();
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -60,12 +62,8 @@ export default function AiSearchPage() {
     if (!text || searching) return;
     setSearching(true);
     try {
-      const res = await searchCases(text);
-      if (res.success) {
-        setResults(res.data);
-      } else {
-        setResults([]);
-      }
+      const data = await utils.search.search.fetch({ query: text });
+      setResults(data);
     } catch {
       setResults([]);
     } finally {

@@ -15,11 +15,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { TagPicker } from '@/components/tag-picker';
 import { useToast } from '@/hooks/use-toast';
 import { useUserStore } from '@/hooks/use-user-store';
-import {
-  getCaseById,
-  updateCase,
-  type SerializedCase,
-} from '@/app/actions';
+import { trpc } from '@/lib/trpc/react';
+import type { SerializedCase } from '@docjob/core';
 
 type AdminCaseEditPageProps = {
   params: Promise<{ id: string }>;
@@ -32,12 +29,11 @@ export default function AdminCaseEditPage({ params }: AdminCaseEditPageProps) {
   const { toast } = useToast();
   const t = useTranslations('admin.edit');
 
-  const [caseData, setCaseData] = useState<SerializedCase | null>(null);
-  const [loadError, setLoadError] = useState(false);
   const [name, setName] = useState('');
   const [teaser, setTeaser] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [seededFor, setSeededFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -50,26 +46,26 @@ export default function AdminCaseEditPage({ params }: AdminCaseEditPageProps) {
     }
   }, [currentUser, isInitialized, router]);
 
+  const isAdmin = isInitialized && !!currentUser && currentUser.role === 'admin';
+  const utils = trpc.useUtils();
+  // retry: false mirrors the original getCaseById action's single-attempt
+  // load — a missing/forbidden case should surface loadError immediately,
+  // not after react-query's default retry/backoff.
+  const caseQuery = trpc.cases.byId.useQuery(caseId, { enabled: isAdmin, retry: false });
+  const caseData: SerializedCase | null = caseQuery.data ?? null;
+  const loadError = caseQuery.isError;
+
+  // Seed the editable local fields once per loaded case (mirrors the
+  // original one-shot `getCaseById` -> setState effect).
   useEffect(() => {
-    if (!isInitialized || !currentUser || currentUser.role !== 'admin') return;
-    let cancelled = false;
-    (async () => {
-      const caseRes = await getCaseById(caseId);
-      if (cancelled) return;
-      if (!caseRes.success) {
-        setLoadError(true);
-        return;
-      }
-      const c = caseRes.data;
-      setCaseData(c);
-      setName(c.name);
-      setTeaser(c.teaser ?? '');
-      setTags(c.tags);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [caseId, isInitialized, currentUser]);
+    if (!caseData || seededFor === caseData.id) return;
+    setName(caseData.name);
+    setTeaser(caseData.teaser ?? '');
+    setTags(caseData.tags);
+    setSeededFor(caseData.id);
+  }, [caseData, seededFor]);
+
+  const updateMutation = trpc.cases.update.useMutation();
 
   const handleSave = async () => {
     if (!caseData) return;
@@ -80,17 +76,21 @@ export default function AdminCaseEditPage({ params }: AdminCaseEditPageProps) {
     }
     setIsSaving(true);
     try {
-      const result = await updateCase({
+      await updateMutation.mutateAsync({
         id: caseData.id,
         name: trimmedName,
         teaser: teaser.trim() || null,
         tags,
       });
-      if (!result.success) {
-        toast({ variant: 'destructive', title: t('errorTitle'), description: result.error });
-        return;
-      }
       toast({ title: t('savedTitle') });
+      // RSC cache coherence: replaces the old `updateCase` action's
+      // `revalidatePath('/')` + `revalidatePath('/cases/${subgroup}/${id}')`.
+      await Promise.all([
+        utils.cases.list.invalidate(),
+        utils.cases.listPaged.invalidate(),
+        utils.cases.byId.invalidate(caseData.id),
+      ]);
+      router.refresh();
       router.push('/admin/cases');
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('saveFailed');
