@@ -105,6 +105,21 @@ describe('cases router (integration, real Postgres)', () => {
     expect(fetched.id).toBe(result.id);
   });
 
+  it('byId returns bodyHtml rendered server-side from the BlockNote body', async () => {
+    const caller = createCaller({ actor: adminActor });
+    const created = await caller.cases.create({
+      name: 'API Router Test Case (bodyHtml)',
+      subgroup: 'clinical',
+      specialty: 'Cardiology',
+      body: { blocks: [{ type: 'paragraph', content: [{ type: 'text', text: 'hello', styles: {} }] }] },
+    });
+    createdCaseIds.push(created.id);
+
+    const fetched = await caller.cases.byId(created.id);
+    expect(typeof fetched.bodyHtml).toBe('string');
+    expect(fetched.bodyHtml).toContain('<p>');
+  });
+
   it('list({}) returns an array that includes the created case', async () => {
     const caller = createCaller({ actor: adminActor });
     const result = await caller.cases.list({});

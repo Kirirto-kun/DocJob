@@ -1,5 +1,6 @@
 import type { Prisma } from '@docjob/db';
 import { caseBodySchema, EMPTY_BODY, type CaseBody, type CaseMode } from '@docjob/types';
+import { caseBodyToHtml } from './case-body-html';
 
 export type SerializedCaseImage = {
   id: string;
@@ -40,6 +41,15 @@ export type SerializedCase = {
   teaser: string | null;
   mode: CaseMode;
   body: CaseBody;
+  /**
+   * Server-rendered HTML of `body` (via `caseBodyToHtml`) — lets the mobile
+   * client (react-native-webview, no BlockNote React renderer available)
+   * display the case body without shipping a BlockNote-JSON parser. Only on
+   * the full case shape (`serializeCase`, used by `cases.byId`); the lighter
+   * `SerializedCaseListItem` used by list/listPaged intentionally omits it —
+   * list views never render the body.
+   */
+  bodyHtml: string;
   images: SerializedCaseImage[];
   attachments: SerializedCaseAttachment[];
   createdAt: string;
@@ -99,6 +109,7 @@ export function serializeCase(c: CaseWithRelations): SerializedCase {
     teaser: c.teaser,
     mode: c.mode as CaseMode,
     body,
+    bodyHtml: caseBodyToHtml(body),
     images: c.images.map((i) => ({
       id: i.id,
       filename: i.filename,
