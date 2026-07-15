@@ -32,9 +32,9 @@ export async function POST(req: NextRequest) {
   const csrfFailure = assertSameOrigin(req);
   if (csrfFailure) return csrfFailure;
 
-  let body: { email?: unknown; password?: unknown };
+  let body: { email?: unknown; password?: unknown; deviceLabel?: unknown };
   try {
-    body = (await req.json()) as { email?: unknown; password?: unknown };
+    body = (await req.json()) as { email?: unknown; password?: unknown; deviceLabel?: unknown };
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
@@ -42,16 +42,27 @@ export async function POST(req: NextRequest) {
   if (typeof body.email !== 'string' || typeof body.password !== 'string') {
     return NextResponse.json({ error: 'email and password are required' }, { status: 400 });
   }
+  const deviceLabel = typeof body.deviceLabel === 'string' ? body.deviceLabel : undefined;
 
   const result = await login(
-    { email: body.email, password: body.password, ip: clientIp(req) },
+    { email: body.email, password: body.password, ip: clientIp(req), deviceLabel },
     signingKey(),
     limiter,
   );
 
   switch (result.status) {
     case 'ok': {
-      const res = NextResponse.json({ user: result.user });
+      // The body also carries the raw tokens (in addition to the cookies
+      // below) so a mobile/native client — which never receives the
+      // httpOnly cookies at all — can read `access`/`refresh` directly. This
+      // is the SAME token pair minted above, not a second mint: exactly one
+      // successful response ever carries the raw refresh token.
+      const res = NextResponse.json({
+        user: result.user,
+        access: result.access,
+        refresh: result.refresh,
+        refreshExpiresAt: result.refreshExpiresAt,
+      });
       setAuthCookies(res, {
         access: result.access,
         refresh: result.refresh,

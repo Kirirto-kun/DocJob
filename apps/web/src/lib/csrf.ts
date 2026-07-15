@@ -40,20 +40,32 @@ function allowedOrigin(req: Request): string | null {
  * cookies automatically — is rejected here before it ever reaches
  * `auth.login`/`auth.rotateRefresh`.
  *
- * Requests authenticating via a Bearer `Authorization` header (and *no*
- * cookie) are exempt: CSRF specifically exploits the browser's automatic
- * cookie attachment, and a malicious page has no way to read or attach an
- * `Authorization` header to a cross-origin request, so bearer-only callers
- * (future native/API clients) aren't vulnerable to it. This guard only
- * needs to cover today's cookie-based web login/refresh/logout routes.
+ * Requests that carry NO `cookie` header at all are exempt from this check.
+ * CSRF is only possible because a browser *automatically* attaches a
+ * victim's cookies to a cross-site request without the forging page ever
+ * seeing or choosing them; a request with no cookie header carries no such
+ * ambient credential, so it cannot be a CSRF forgery no matter what other
+ * headers/body it does or doesn't carry. This covers both:
+ *  - a Bearer-authenticated request (a malicious page has no way to read or
+ *    attach an `Authorization` header to a cross-origin request either), and
+ *  - a cookieless mobile-transport refresh/logout call (SP-4a T5), which
+ *    presents its refresh token via the JSON body or an `X-Refresh-Token`
+ *    header instead of a cookie, and so — same as login — never has a
+ *    `cookie` header to exploit in the first place.
+ * A native/mobile client authenticates itself explicitly on every request
+ * and never relies on the browser/OS to attach anything ambient, so the
+ * "no cookie" test alone correctly captures every such caller without
+ * needing to special-case Bearer vs. body/header tokens.
+ *
+ * The web flow always sends its httpOnly auth cookies, so it keeps getting
+ * the full Origin/Referer check below, completely unchanged.
  *
  * Returns a `403` `NextResponse` to short-circuit the caller when the check
  * fails, or `null` when the request should proceed.
  */
 export function assertSameOrigin(req: Request): NextResponse | null {
-  const authHeader = req.headers.get('authorization');
   const hasCookie = !!req.headers.get('cookie');
-  if (authHeader?.toLowerCase().startsWith('bearer ') && !hasCookie) {
+  if (!hasCookie) {
     return null;
   }
 

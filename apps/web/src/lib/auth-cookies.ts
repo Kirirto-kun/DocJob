@@ -1,4 +1,4 @@
-import type { NextResponse } from 'next/server';
+import type { NextRequest, NextResponse } from 'next/server';
 
 /**
  * The minimal cookie-jar shape `getAccessToken`/`getRefreshToken` need to
@@ -118,4 +118,31 @@ export function getAccessToken(cookies: CookieJar): string | undefined {
 /** Reads the refresh-token cookie out of any `CookieJar` (request or `next/headers` store), if present. */
 export function getRefreshToken(cookies: CookieJar): string | undefined {
   return cookies.get(refreshCookieName())?.value;
+}
+
+/**
+ * Resolves the refresh token for `POST /api/auth/refresh|logout`, accepting
+ * either transport: the httpOnly cookie (web — unchanged, and checked
+ * first so today's web flow is completely unaffected), or a token-in-body
+ * (`{ refresh: '...' }`) / `X-Refresh-Token` header (a mobile/native client,
+ * which never carries cookies at all — see SP-4a T5).
+ *
+ * The JSON-body read is wrapped in try/catch because the web cookie-only
+ * flow's POST has no body at all, and `req.json()` throws on an empty body
+ * — that's an expected, non-error case here, not a real failure.
+ */
+export async function getRefreshTokenFromRequest(req: NextRequest): Promise<string | undefined> {
+  const cookieToken = getRefreshToken(req.cookies);
+  if (cookieToken) return cookieToken;
+
+  const headerToken = req.headers.get('x-refresh-token');
+  if (headerToken) return headerToken;
+
+  try {
+    const body = (await req.json()) as { refresh?: unknown };
+    if (typeof body.refresh === 'string' && body.refresh) return body.refresh;
+  } catch {
+    // No JSON body present (e.g. the web cookie-only flow) — nothing to read.
+  }
+  return undefined;
 }

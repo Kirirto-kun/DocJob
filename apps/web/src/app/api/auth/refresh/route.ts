@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { rotateRefresh, revokeFamily, signAccessToken } from '@docjob/auth';
 import * as core from '@docjob/core';
 import { assertSameOrigin } from '@/lib/csrf';
-import { getRefreshToken, setAuthCookies, clearAuthCookies } from '@/lib/auth-cookies';
+import { getRefreshTokenFromRequest, setAuthCookies, clearAuthCookies } from '@/lib/auth-cookies';
 import { signingKey } from '@/lib/auth-keys';
 
 // Node runtime: rotates the refresh token in Postgres and (on success)
@@ -13,7 +13,9 @@ export async function POST(req: NextRequest) {
   const csrfFailure = assertSameOrigin(req);
   if (csrfFailure) return csrfFailure;
 
-  const raw = getRefreshToken(req.cookies);
+  // Cookie first (web, unchanged), then body `{ refresh }` / `X-Refresh-Token`
+  // header (mobile/native — never carries a cookie at all).
+  const raw = await getRefreshTokenFromRequest(req);
   if (!raw) {
     const res = NextResponse.json({ error: 'No refresh token' }, { status: 401 });
     clearAuthCookies(res);
@@ -44,7 +46,17 @@ export async function POST(req: NextRequest) {
     signingKey(),
   );
 
-  const res = NextResponse.json({ user });
+  // Same additive body-vs-cookie shape as login: the rotated tokens are
+  // returned in the JSON body too, for a mobile client with no cookies to
+  // read them from. Still the single rotation performed above — the
+  // `newRaw` handed to the client here is the only copy that will ever
+  // work (the old raw is now single-use-spent).
+  const res = NextResponse.json({
+    user,
+    access,
+    refresh: rotated.newRaw,
+    refreshExpiresAt: rotated.expiresAt,
+  });
   setAuthCookies(res, {
     access,
     refresh: rotated.newRaw,

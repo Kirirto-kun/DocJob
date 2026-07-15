@@ -37,8 +37,14 @@ export async function getCurrentUser(): Promise<User | null> {
   return resolveUser(getAccessToken(cookieStore));
 }
 
-/** Extracts a bearer token from `Authorization: Bearer <jwt>`, if present. */
-function bearerToken(req: Request): string | undefined {
+/**
+ * Extracts a bearer token from `Authorization: Bearer <jwt>`, if present.
+ * Exported so route handlers that need Bearer-first/cookie-fallback token
+ * resolution but must return a *serialized* user (`GET /api/auth/me` — see
+ * that route) can reuse this single parse instead of `getUserFromRequest`
+ * below, which resolves to the raw Prisma `User` row.
+ */
+export function bearerToken(req: Request): string | undefined {
   const header = req.headers.get('authorization');
   if (!header) return undefined;
   const match = /^Bearer\s+(.+)$/i.exec(header.trim());
