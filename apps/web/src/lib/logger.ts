@@ -22,6 +22,28 @@ function serializeValue(value: unknown): unknown {
   return value;
 }
 
+/**
+ * `JSON.stringify` throws on values it can't serialize — a circular
+ * reference or a `BigInt` field, either of which can show up in an
+ * arbitrary `unknown` value the logger is asked to serialize (this logger
+ * is wired into generic catch-alls like `logger.error(msg, { err: e })`
+ * where `e` is whatever a `core.*` call threw). The logger is meant to be
+ * the error-safety net, so it must NEVER throw itself: fall back to a
+ * minimal safe line, and if even that somehow fails, fall back to a plain
+ * string literal (no interpolation that could itself throw).
+ */
+function safeStringify(entry: LogFields, level: LogLevel, msg: string): string {
+  try {
+    return JSON.stringify(entry);
+  } catch {
+    try {
+      return JSON.stringify({ level, time: new Date().toISOString(), msg, note: 'log payload not serializable' });
+    } catch {
+      return '{"level":"error","msg":"log payload not serializable"}';
+    }
+  }
+}
+
 function write(level: LogLevel, msg: string, fields?: LogFields): void {
   const entry: LogFields = { level, time: new Date().toISOString(), msg };
   if (fields) {
@@ -29,7 +51,7 @@ function write(level: LogLevel, msg: string, fields?: LogFields): void {
       entry[key] = serializeValue(value);
     }
   }
-  const line = JSON.stringify(entry);
+  const line = safeStringify(entry, level, msg);
   // eslint-disable-next-line no-console
   if (level === 'error') console.error(line);
   // eslint-disable-next-line no-console

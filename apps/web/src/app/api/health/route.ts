@@ -24,16 +24,22 @@ const DB_CHECK_TIMEOUT_MS = 2500;
 type DbCheckResult = { up: true } | { up: false; error: unknown };
 
 async function checkDb(): Promise<DbCheckResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([
       prisma.$queryRaw`SELECT 1`,
       new Promise((_resolve, reject) => {
-        setTimeout(() => reject(new Error('db healthcheck timed out')), DB_CHECK_TIMEOUT_MS);
+        timer = setTimeout(() => reject(new Error('db healthcheck timed out')), DB_CHECK_TIMEOUT_MS);
       }),
     ]);
     return { up: true };
   } catch (error) {
     return { up: false, error };
+  } finally {
+    // Clear the race's loser: on the success path the timeout promise never
+    // settles, so without this its timer would keep the event loop busy for
+    // up to DB_CHECK_TIMEOUT_MS after every successful check.
+    clearTimeout(timer);
   }
 }
 

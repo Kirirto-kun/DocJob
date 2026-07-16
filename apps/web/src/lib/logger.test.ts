@@ -48,6 +48,35 @@ describe('logger', () => {
     expect(typeof parsed.err.stack).toBe('string');
   });
 
+  it('error() does not throw when a field is circular, and still emits a fallback JSON line', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const circular: Record<string, unknown> = { a: 1 };
+    circular.self = circular;
+
+    expect(() => logger.error('unexpected error', { bad: circular })).not.toThrow();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const line = spy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(line);
+    expect(parsed.level).toBe('error');
+    expect(typeof parsed.msg).toBe('string');
+  });
+
+  it('error() does not throw when a field is a BigInt, and still emits a fallback JSON line', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // BigInt(1) rather than a `1n` literal — this package's tsconfig targets
+    // ES2017, which rejects BigInt literal syntax even though the `esnext`
+    // lib still types/allows the BigInt value itself at runtime.
+    expect(() => logger.error('unexpected error', { big: BigInt(1) })).not.toThrow();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const line = spy.mock.calls[0][0] as string;
+    const parsed = JSON.parse(line);
+    expect(parsed.level).toBe('error');
+    expect(typeof parsed.msg).toBe('string');
+  });
+
   it('newRequestId() returns a non-empty string, unique across calls', () => {
     const a = newRequestId();
     const b = newRequestId();

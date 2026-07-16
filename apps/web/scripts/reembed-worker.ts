@@ -17,7 +17,7 @@ config({ path: '.env' });
 let shuttingDown = false;
 
 function requestShutdown(signal: NodeJS.Signals): void {
-  if (shuttingDown) return; // second signal: let the process die immediately
+  if (shuttingDown) return; // repeat signal ignored; Docker will SIGKILL after the grace period
   shuttingDown = true;
   console.log(`[reembed] received ${signal}, finishing current sweep then exiting…`);
 }

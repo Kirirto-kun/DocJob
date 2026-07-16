@@ -95,6 +95,13 @@ services:
       dockerfile: Dockerfile
       target: build
     restart: unless-stopped
+    # A single sweep (up to `limit` 200 cases at concurrency 3, each an
+    # OpenAI embedding call) can easily take longer than Docker's 10s
+    # default grace period between SIGTERM and SIGKILL. reembed-worker.ts's
+    # SIGTERM handler finishes the current sweep before exiting (see the
+    # script), so give it comfortably more room than a realistic sweep
+    # needs to actually complete that drain instead of being killed mid-sweep.
+    stop_grace_period: 60s
     depends_on:
       postgres:
         condition: service_healthy

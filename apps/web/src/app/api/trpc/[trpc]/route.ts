@@ -89,7 +89,12 @@ function handler(req: Request) {
       // a real bug, a Prisma error, an OpenAI SDK error, ...) is worth an
       // operator's attention.
       if (error.code === 'INTERNAL_SERVER_ERROR') {
-        logger.error('unhandled tRPC error', { requestId, path, type, err: error });
+        // `error` itself is tRPC's wrapper (`getTRPCErrorFromUnknown`); the
+        // original raw thrown value (a real bug, a Prisma error, an OpenAI
+        // SDK error, ...) is stashed on `.cause`. Log that so the stack
+        // trace points at the actual throw site, not tRPC's wrapping code.
+        const original = error.cause instanceof Error ? error.cause : error;
+        logger.error('unhandled tRPC error', { requestId, path, type, err: original });
       }
     },
   });
