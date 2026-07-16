@@ -23,6 +23,14 @@ services:
       context: .
       dockerfile: Dockerfile
       # default target ("runner") — the minimal standalone image.
+      args:
+        # NEXT_PUBLIC_SITE_URL is inlined into the client bundle at `next
+        # build` time, NOT read at runtime — it must be passed as a build
+        # arg, not a runtime `environment:` var (see Dockerfile's `build`
+        # stage). Changing this in `.env` requires a rebuild
+        # (`docker compose up -d --build web`), a restart alone won't pick
+        # it up.
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://docjob.kz}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -45,8 +53,10 @@ services:
       # beyond a few back-compat wrappers). Optional.
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       # SEO: canonical links / sitemap.xml / Open Graph + search-engine
-      # ownership verification (read at runtime in metadata; server-side only).
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://docjob.kz}
+      # ownership verification, read at runtime in metadata (server-side
+      # only). NEXT_PUBLIC_SITE_URL is NOT here — it's a NEXT_PUBLIC_* var,
+      # inlined at build time only, so it's wired as a build arg above
+      # instead (see `build.args` on this service and the Dockerfile).
       GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
       YANDEX_VERIFICATION: ${YANDEX_VERIFICATION:-}
       # Email (password reset) via Resend. Read at runtime by src/lib/email.ts.

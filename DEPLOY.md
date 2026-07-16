@@ -87,7 +87,7 @@ file; see `CLAUDE.md`). Edit `/opt/docjob/.env` and set at minimum:
 | `PASSWORD_RESET_URL_BASE` | usually leave unset | falls back to `AUTH_URL`; only set it separately if reset links should point at a different host than the API origin (e.g. a marketing domain). |
 | `OPENAI_API_KEY` | your OpenAI key | leave blank to run search in FTS/lexical-fallback-only mode. |
 | `RESEND_API_KEY` / `EMAIL_FROM` | your Resend key / a verified sender | leave `RESEND_API_KEY` blank to log password-reset/contact emails to the container's stdout instead of sending them (fine for a first smoke test, not for real users). `EMAIL_FROM`'s domain must be verified in Resend. |
-| `NEXT_PUBLIC_SITE_URL` | `https://docjob.example.com` | canonical links / sitemap / Open Graph. **Next.js inlines `NEXT_PUBLIC_*` vars at build time** — if you change this later, `docker compose up -d --build web` (a rebuild, not just a restart) is required for it to take effect. |
+| `NEXT_PUBLIC_SITE_URL` | `https://docjob.example.com` | canonical links / sitemap / Open Graph. **This is a build ARG, not a runtime env var** — `docker-compose.yml` passes it into `web`'s `build.args`, and Next.js inlines `NEXT_PUBLIC_*` vars into the bundle at `next build` time only (never read at container runtime). Set it in `.env` **before** first building, and any time you change it afterwards you must rebuild — `docker compose up -d --build web` (a plain restart will NOT pick it up, since the old value is already baked into the image). |
 | `POSTGRES_HOST_PORT` | `5433` (default) | only change if that host port is already taken; not exposed publicly either way. |
 
 Everything else in `.env.example` has a safe default or is optional
@@ -390,6 +390,11 @@ their Redis-backed adapters automatically (see `packages/config`'s
 `packages/core` — selected at runtime, no code change needed). Unset
 `REDIS_URL` (or stop the `redis` service) any time to fall back to in-memory
 — safe for a single instance, incorrect across multiple.
+
+Note: with `REDIS_URL` set, the rate-limiters (login/search/reset) fail
+**open** during a Redis outage — a Redis blip temporarily disables
+rate-limiting rather than locking users out (availability over strictness).
+The in-memory default (no `REDIS_URL`) is unaffected by this tradeoff.
 
 **Running multiple `web` instances:** `docker-compose.yml`'s `web` service
 binds a fixed host port (`127.0.0.1:3000:3000`), so `docker compose up -d
