@@ -18,10 +18,11 @@ coverage
 .modified
 .DS_Store
 
-# Env files (passed in at `docker run` / compose time, never baked into the image)
-.env
-.env.local
-.env.*.local
+# Env files (passed in at `docker run` / compose time, never baked into the image).
+# Blanket-ignore every .env* so a future .env.production/.env.staging can't leak
+# into the build context; keep the non-secret template copyable.
+.env*
+!.env.example
 
 # Logs
 npm-debug.log*
