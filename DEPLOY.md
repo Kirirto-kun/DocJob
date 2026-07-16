@@ -171,10 +171,13 @@ docker compose exec -T postgres psql -U docjob -d docjob \
 
 ## 5. Nginx + TLS
 
-Install Nginx and certbot:
+Install Nginx and certbot. Only the core `certbot` package is needed — the
+webroot bootstrap below deliberately avoids `python3-certbot-nginx` (the
+`certbot --nginx` plugin edits the live vhost in place, which is unsafe for
+this config; see the bootstrap note below):
 
 ```bash
-sudo apt update && sudo apt -y install nginx certbot python3-certbot-nginx
+sudo apt update && sudo apt -y install nginx certbot
 sudo mkdir -p /var/www/certbot
 ```
 
@@ -188,33 +191,54 @@ sudo ln -sf /etc/nginx/sites-available/docjob.conf /etc/nginx/sites-enabled/docj
 sudo rm -f /etc/nginx/sites-enabled/default
 ```
 
-**Bootstrap order matters** — `deploy/nginx/docjob.conf`'s HTTPS (443) server
-block references certificate files that don't exist yet on a brand-new
-domain, and `nginx -t` fails on a *missing* cert file, not just a bad one.
-Get the certificate first, with only the HTTP block active:
+**Bootstrap order matters, and `certbot --nginx` is the WRONG tool here** —
+it edits the matched vhost's config in place, and the port-80 block's
+`location /` is a redirect-only `return 301 https://$host$request_uri;` (no
+`proxy_pass`). If `certbot --nginx` were run against it, it would add
+`listen 443 ssl` directly to that redirect-only block, so the resulting
+HTTPS listener would inherit the unconditional `return 301` — an infinite
+redirect loop on every `https://` request. Use the **webroot** method
+instead, which obtains the certificate over plain HTTP without touching
+nginx's config at all:
 
 ```bash
-# 1. Temporarily comment out the whole second `server { listen 443 ssl ...` block
+# 1. Create the webroot certbot will drop its ACME challenge files into.
+#    deploy/nginx/docjob.conf's port-80 block already serves this path via
+#    `location /.well-known/acme-challenge/ { root /var/www/certbot; }`.
+sudo mkdir -p /var/www/certbot
+
+# 2. Temporarily comment out the whole second `server { listen 443 ssl ...` block
 #    (everything from the second `server {` to its matching closing `}`) in
-#    /etc/nginx/sites-enabled/docjob.conf, so nginx can start with just the
-#    HTTP block (which never references the cert).
+#    /etc/nginx/sites-enabled/docjob.conf, so nginx can start even though the
+#    cert files it references don't exist yet.
 sudo nginx -t && sudo systemctl reload nginx
 
-# sanity check the HTTP block works before asking Let's Encrypt for anything:
-curl -s -o /dev/null -w "%{http_code}\n" -H "Host: docjob.YOUR-REAL-DOMAIN" http://127.0.0.1/api/health   # 200
+# sanity check the HTTP block is alive before asking Let's Encrypt for
+# anything — with the 443 block still commented out, every path (including
+# /api/health) hits the port-80 catch-all `location /`, which is a redirect,
+# not the app itself:
+curl -s -o /dev/null -w "%{http_code}\n" -H "Host: docjob.YOUR-REAL-DOMAIN" http://127.0.0.1/api/health   # 301
 
-# 2. Obtain the certificate. `certbot --nginx` both issues the cert AND edits
-#    the live config to add a working HTTPS server block + HTTP->HTTPS
-#    redirect for you — this supersedes (safely overlaps with) the manual
-#    443 block you commented out above; you can leave the manual block
-#    commented out from here on, or restore it (both work — certbot's own
-#    edit takes precedence either way once it runs).
-sudo certbot --nginx -d docjob.YOUR-REAL-DOMAIN -d www.docjob.YOUR-REAL-DOMAIN
+# 3. Obtain the certificate via the webroot plugin. This ONLY writes cert
+#    files under /etc/letsencrypt/ — it never edits nginx's config, so there
+#    is no risk of it redirect-looping the 443 block.
+sudo certbot certonly --webroot -w /var/www/certbot \
+  -d docjob.YOUR-REAL-DOMAIN -d www.docjob.YOUR-REAL-DOMAIN
+
+# 4. Uncomment the 443 block you commented out in step 2 (it already has the
+#    correct proxy_pass, security headers, and the standard certbot cert
+#    paths — nothing left to edit) and reload:
+sudo nginx -t && sudo systemctl reload nginx
+
+# now the real app answers on both ports:
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1/api/health                                        # 301 (redirect, as before)
+curl -s -o /dev/null -w "%{http_code}\n" -H "Host: docjob.YOUR-REAL-DOMAIN" https://127.0.0.1/api/health -k  # 200
 ```
 
-Certbot will ask for an email + ToS agreement and offer to redirect HTTP to
-HTTPS — accept the redirect. Confirm auto-renewal (certbot installs a
-systemd timer / cron job on its own; this just dry-runs it):
+Certbot will ask for an email + ToS agreement on first run. Set up renewal —
+the webroot plugin re-uses the same `-w /var/www/certbot` on every renewal,
+so the standard certbot-installed systemd timer / cron job works with no
+extra config; this just dry-runs it:
 
 ```bash
 sudo certbot renew --dry-run
@@ -447,7 +471,7 @@ docker compose exec postgres psql -U docjob -d docjob
 | Symptom | Likely cause / fix |
 |---|---|
 | `certbot` "challenge failed" | DNS doesn't point here yet, or port 80 isn't reachable. Check `dig +short docjob.YOUR-REAL-DOMAIN` and `sudo ufw status`. |
-| Site works on http, not https | The 443 block wasn't active when certbot ran, or certbot errored. Re-run `sudo certbot --nginx -d ... -d ...`. |
+| Site works on http, not https | The cert doesn't exist yet, or the 443 block was never uncommented/reloaded after obtaining it. Re-run `sudo certbot certonly --webroot -w /var/www/certbot -d ... -d ...`, then uncomment the 443 block and `sudo nginx -t && sudo systemctl reload nginx`. Don't use `certbot --nginx` — it edits the redirect-only port-80 block in place and causes an https:// redirect loop (see §5). |
 | `502 Bad Gateway` | `web` container isn't up/healthy. `docker compose ps`, `docker compose logs web`. |
 | `413 Request Entity Too Large` on attachment upload | Confirm you copied `deploy/nginx/docjob.conf` (has `client_max_body_size 30m;`) and reloaded nginx (`sudo nginx -t && sudo systemctl reload nginx`). |
 | Search returns nothing useful / "no results" | No embeddings yet, or no/invalid `OPENAI_API_KEY`. `docker compose exec worker pnpm --filter web embed:cases`; check `docker compose logs worker` for `insufficient_quota` or auth errors. |

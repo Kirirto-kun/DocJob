@@ -1,18 +1,18 @@
 
 # DocJob
 
-**AI-симулятор клинических кейсов.** Сократический ассистент проводит обучающегося через клинические инциденты, санитарно-эпидемиологические расследования, лучшие практики и управленческие кейсы — постепенно раскрывая findings по запросу и автоматически оценивая финальный ответ относительно скрытого эталона.
+**Курируемая библиотека клинических кейсов.** Админы создают/импортируют кейсы (клинические инциденты, санитарно-эпидемиологические расследования, лучшие практики, управленческие кейсы), врачи ищут их через AI-поиск (гибрид pgvector + LLM), сохраняют, оставляют отзывы и предлагают новые кейсы через воркфлоу заявок. Никакого чата/тьютора — только библиотека и поиск.
 
 ## Tech stack
 
-- **Framework**: Next.js 15 (App Router, Server Actions)
+- **Framework**: Next.js 15 (App Router, Server Actions + tRPC)
 - **Language**: TypeScript
 - **UI**: Tailwind 3 + shadcn/ui + BlockNote (редактор кейсов)
-- **DB**: PostgreSQL 16 + Prisma ORM
-- **Auth**: NextAuth v5 (credentials + JWT + bcrypt)
-- **AI**: OpenAI (`gpt-4.1`) через `chat.completions.parse` со строгой Zod-схемой
+- **DB**: PostgreSQL 16 + pgvector + Prisma ORM
+- **Auth**: кастомный JWT-auth (`@docjob/auth`) — argon2id-хэширование паролей, короткоживущие access-токены (jose) + ротируемые refresh-токены. NextAuth не используется.
+- **AI**: OpenAI (`gpt-4.1` + `text-embedding-3-small`) — гибридный семантический поиск по кейсам и markdown-импорт кейсов, оба через `@docjob/core`
 - **Локализация**: next-intl (ru / kk)
-- **Деплой**: Docker Compose (postgres + web), production-overlay через `docker-compose.prod.yml`
+- **Деплой**: Docker Compose (postgres + web + worker) на VPS — см. [`DEPLOY.md`](DEPLOY.md)
 
 ## Quick start (local dev)
 
