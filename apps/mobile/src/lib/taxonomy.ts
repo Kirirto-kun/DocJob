@@ -1,0 +1,98 @@
+/**
+ * Mobile's OWN copy of the case taxonomy (4 subgroups + Russian labels +
+ * specialty lists). Deliberately duplicated, NOT imported, from
+ * `apps/web/src/lib/case-taxonomy.ts` — that file lives under `apps/web` and
+ * importing across app boundaries isn't wired into this workspace's build
+ * graph (and would defeat the point of `apps/mobile` being an independently
+ * bundlable Expo project, see `src/__tests__/boundary.test.ts`'s RN-bundle
+ * boundary note). Keep this in sync by hand if the web taxonomy ever changes
+ * (labels/specialties are product content, not something that changes often).
+ *
+ * `SubgroupSlug` matches `@docjob/types`' `CASE_MODE_BY_SUBGROUP` keys and
+ * the wire values of `SerializedCase['subgroup']` / `CaseListItem['subgroup']`
+ * (see `../lib/api-types.ts`) — a case's `subgroup` field is one of these
+ * four slugs (or `null` for a case with no subgroup assigned yet).
+ */
+export type SubgroupSlug = 'clinical' | 'sanepid' | 'best_practices' | 'management';
+
+export type Subgroup = {
+  slug: SubgroupSlug;
+  label: string;
+  specialties: string[];
+};
+
+export const SUBGROUPS: Subgroup[] = [
+  {
+    slug: 'clinical',
+    label: 'Кейсы клинических инцидентов',
+    specialties: [
+      'Акушерство – гинекология',
+      'Хирургия',
+      'Педиатрия',
+      'Онкология',
+      'Фтизиатрия',
+      'Офтальмология',
+      'Неврология',
+      'Кардиология',
+      'Урология и нефрология',
+      'Анестезиология и реаниматология',
+      'Инфекционные болезни',
+      'Травматология и ортопедия',
+      'Гастроэнтерология',
+      'Эндокринология',
+      'Психиатрия и наркология',
+      'Отоларингология',
+      'Дерматовенерология',
+      'Гематология',
+      'Ревматология',
+      'Пульмонология',
+      'Стоматология и ЧЛХ',
+      'Клиническая фармакология',
+      'Скорая медицинская помощь',
+      'Медицинская реабилитация',
+      'Другое',
+    ],
+  },
+  {
+    slug: 'sanepid',
+    label: 'Кейсы санитарно-эпидемиологических инцидентов',
+    specialties: [
+      'Внутрибольничные инфекции (ИСМП)',
+      'Нарушения инфекционного контроля',
+      'Дезинфекция и стерилизация',
+      'Отравления',
+      'Эпидемиологические вспышки и расследования',
+      'Производственный контроль и санитарный надзор',
+      'Профессиональные болезни',
+    ],
+  },
+  {
+    slug: 'best_practices',
+    label: 'Кейсы лучших практик',
+    specialties: ['Клиническая медицина', 'Санитарно-эпидемиологическая служба'],
+  },
+  {
+    slug: 'management',
+    label: 'Кейсы в менеджменте здравоохранения',
+    specialties: [
+      'Успешный кейс в менеджменте',
+      'Ошибка менеджмента',
+      'Лидерство и командное управление',
+      'Работа в условиях пандемии и ЧС',
+      'Опыт реорганизации и оптимизации',
+      'Управление конфликтами',
+      'Цифровизация и ИИ',
+      'Стратегическое и антикризисное управление',
+      'Финансовая устойчивость',
+    ],
+  },
+];
+
+export function findSubgroup(slug: string): Subgroup | undefined {
+  return SUBGROUPS.find((s) => s.slug === slug);
+}
+
+export function subgroupLabel(slug: string | null | undefined): string {
+  if (!slug) return 'Без подгруппы';
+  return findSubgroup(slug)?.label ?? slug;
+}
