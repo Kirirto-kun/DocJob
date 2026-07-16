@@ -1,0 +1,14 @@
+# deploy/backup/crontab.example
+#
+# Example cron schedule for DocJob's Postgres + uploads backups. Install with
+# (as the user that has `docker` group access on this host — see DEPLOY.md):
+#   crontab -e
+#
+# Daily Postgres dump at 03:15, uploads archive at 03:30 (staggered so the two
+# don't compete for disk I/O). Both scripts rotate their own output (default:
+# keep the last 14 dumps/archives), so no separate cleanup entry is needed.
+#
+# Adjust /opt/docjob below to wherever you actually cloned the repo.
+
+15 3 * * * /opt/docjob/deploy/backup/pg-backup.sh      >> /var/log/docjob-backup.log 2>&1
+30 3 * * * /opt/docjob/deploy/backup/uploads-backup.sh >> /var/log/docjob-backup.log 2>&1

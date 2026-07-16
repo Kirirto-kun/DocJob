@@ -1,0 +1,90 @@
+name: CI
+
+# Push + PR only — this workflow verifies the monorepo (typecheck/test/build).
+# It deliberately does NOT build/push a Docker image or deploy anywhere; the
+# user deploys manually per DEPLOY.md.
+on:
+  push:
+  pull_request:
+
+env:
+  # Pinned to match the repo's `packageManager` field (package.json) and the
+  # Dockerfile's `corepack prepare pnpm@9.12.0`.
+  PNPM_VERSION: 9.12.0
+  NODE_VERSION: 20
+
+jobs:
+  test:
+    name: typecheck + test + build
+    runs-on: ubuntu-latest
+
+    # A real Postgres with the pgvector extension available — the core/api
+    # test suites hit it directly (e.g. packages/core/src/search/
+    # fts.integration.test.ts asserts the SP-3 FTS migration's GIN/trgm
+    # indexes exist; search.service.test.ts round-trips real embeddings/
+    # lexical queries). `pgvector/pgvector:pg16` matches docker-compose.yml's
+    # `postgres` service image so CI mirrors prod as closely as possible.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: docjob
+          POSTGRES_PASSWORD: docjob_ci
+          POSTGRES_DB: docjob
+        ports:
+          - 5432:5432
+        # Gate every later step on Postgres actually being ready to accept
+        # connections, not just the container having started.
+        options: >-
+          --health-cmd "pg_isready -U docjob -d docjob"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://docjob:docjob_ci@localhost:5432/docjob?schema=public
+      # Dummy secret — only needs to be a non-empty string for @docjob/auth's
+      # JWT signing/verification to work in tests; nothing here is a real
+      # deployment.
+      AUTH_SECRET: ci-dummy-auth-secret-not-for-production-use-only
+      AUTH_URL: http://localhost:3000
+      # Left blank on purpose: packages/core/src/search/search.service.ts
+      # (`hasKey = Boolean(process.env.OPENAI_API_KEY)`) falls back to the
+      # plain lexical/FTS search path whenever this is unset, so the search
+      # test suite is written to tolerate — and explicitly cover — the
+      # no-OpenAI-key path without needing a real (paid) API key in CI.
+      OPENAI_API_KEY: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        # `prisma migrate deploy` against the CI Postgres — required before
+        # `pnpm test`, since the integration tests assert against real schema
+        # (pgvector column + the FTS/pg_trgm migration's generated column and
+        # indexes), not just mocked Prisma calls.
+        run: pnpm --filter @docjob/db db:deploy
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build

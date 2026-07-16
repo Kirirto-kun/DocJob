@@ -1,374 +1,487 @@
-# Деплой DocJob на пустой сервер (docjob.kz) — step by step
+# DocJob — Deployment Runbook
 
-Полный гайд: от чистого VPS до работающего `https://docjob.kz`.
-Стек: **Docker + Postgres (pgvector) + Next.js + Nginx + Let's Encrypt**.
+This is the single source of truth for deploying DocJob to a production VPS.
+It assumes the SP-5 infra work: a pnpm/Turborepo-aware production
+`Dockerfile` (Next.js standalone), a `docker-compose.yml` stack
+(`postgres` + `web` + `worker` + optional `redis`), `/api/health`, and the
+Nginx/backup config under `deploy/`.
 
-> Гайд для **Ubuntu 22.04 / 24.04** (самый частый VPS). Проверь свою ОС:
-> `cat /etc/os-release`. Для Debian команды те же. Для CentOS/Alma/Rocky
-> вместо `apt` будет `dnf` — скажи, и я перепишу.
+**You (the operator) perform every step below** — nothing here deploys
+automatically. See ["What needs your accounts/domain/money"](#what-needs-your-accountsdomainmoney)
+for the parts that require something only you can provide.
 
-> ⚠️ **Монорепо (с SP-0): Docker-сборка СЛОМАНА.** Код в репозитории теперь
-> pnpm-воркспейс (`apps/web` + `packages/db`/`config`/`types`) вместо одного пакета
-> в корне. Переезд удалил корневой `package-lock.json`, а также корневые `prisma/` и
-> `src/` — при этом `Dockerfile` по-прежнему делает `COPY prisma ./prisma`, `npm ci`
-> и `npm run build` из корня, так что билд контейнера **не проходит**. Это плановая
-> работа **SP-5** (обновление `Dockerfile`/`docker-compose*.yml` под новый layout).
-> **Не выполняй** `docker compose ... up -d --build` (шаги 7, 9, 11 ниже), пока SP-5
-> не закрыт — сборка упадёт. SP-0 верифицирован локально через `pnpm build` /
-> `pnpm test` в корне монорепо, а не через контейнерную сборку.
+```
+Internet ── 443/80 ──> Nginx (host) ──127.0.0.1:3000──> web (Docker, Next.js)
+                                                            │
+                                                            ├── worker (Docker, embed sweep)
+                                                            │
+                                                            └── postgres (Docker, pgvector)
+                                                                  (+ optional redis, Docker)
+```
+
+- `web` and `postgres` are published to **loopback only** — Nginx on the host
+  is the only public entry point.
+- `worker` has no published port at all (it only talks to Postgres + OpenAI).
+- Docker volumes `postgres_data` and `uploads` persist across
+  rebuilds/restarts; only `docker compose down -v` (note the `-v`) destroys
+  them.
 
 ---
 
-## 0. Что нужно заранее
+## 1. Prerequisites
 
-- **IP сервера** и доступ по SSH (root или пользователь с `sudo`).
-- **Домен `docjob.kz`** с A-записью на IP сервера (ты уже поменял DNS — проверим в шаге 5).
-- **Доступ к репозиторию** `github.com/Kirirto-kun/DocJob` (приватный).
-- **OpenAI API-ключ** с балансом (для семантического поиска и эмбеддингов).
-
-> ⚠️ У меня **нет прямого доступа к твоему серверу** (нет SSH-ключей). Поэтому весь код
-> я запушил в GitHub (`origin/main`), а ты на сервере его `git clone`-нешь. Все команды
-> ниже выполняешь **ты на сервере** (после шага 1).
-
----
-
-## 1. Подключиться к серверу
-
-С твоего компьютера (Windows PowerShell или любой терминал):
-
-```bash
-ssh root@IP_СЕРВЕРА
-# или: ssh ТВОЙ_ЮЗЕР@IP_СЕРВЕРА
-```
-
-Дальше всё выполняется на сервере.
-
----
-
-## 2. Обновить систему и базовые пакеты
-
-```bash
-sudo apt update && sudo apt -y upgrade
-sudo apt -y install git curl ufw dnsutils
-```
-
-Файрвол — открываем только SSH, HTTP, HTTPS:
-
-```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw --force enable
-sudo ufw status
-```
-
-> Порт приложения (3000) и Postgres (5432) наружу НЕ открываем. В проде web слушает
-> только `127.0.0.1:3000` (через docker-compose.prod.yml), а Postgres вообще не
-> публикуется — оба доступны лишь локально, через Nginx.
+- **A VPS.** Minimum realistic spec: 2 vCPU / 4 GB RAM / 40 GB SSD (Postgres +
+  the Next.js server + the embed worker all run on one box). Ubuntu 22.04 or
+  24.04 LTS is assumed below; the commands are the same on Debian, substitute
+  `dnf`/`yum` on RHEL-family distros.
+- **Docker Engine + the Compose plugin** (`docker compose`, not the standalone
+  `docker-compose` v1 binary — this repo's compose file uses `profiles:`,
+  which needs Compose v2).
+  ```bash
+  curl -fsSL https://get.docker.com | sudo sh
+  sudo usermod -aG docker "$USER"   # log out/in (or `newgrp docker`) after this
+  docker compose version            # confirm v2.x
+  ```
+- **A domain name**, with an **A record** (and `www` A/CNAME, if you want
+  `www.` too) pointing at the VPS's public IP. TLS (step 6) cannot succeed
+  until DNS resolves to this server:
+  ```bash
+  curl -s ifconfig.me ; echo         # this server's public IP
+  dig +short docjob.example.com      # should return the same IP
+  ```
+- **Firewall**: only SSH, HTTP, and HTTPS need to be reachable from the
+  internet. Postgres and the app port (3000) are already loopback-only in
+  `docker-compose.yml` — don't additionally punch a hole for them.
+  ```bash
+  sudo ufw allow OpenSSH
+  sudo ufw allow 80/tcp
+  sudo ufw allow 443/tcp
+  sudo ufw --force enable
+  ```
+- **Repo access** — clone over HTTPS with a personal access token, or set up
+  a read-only deploy key, per your usual GitHub access pattern.
+- **An OpenAI API key with balance** (semantic search + embeddings +
+  markdown case import). The app degrades gracefully without one (search
+  falls back to plain lexical/FTS matching), but it's a materially worse
+  product without it.
 
 ---
 
-## 3. Установить Docker + Docker Compose
+## 2. First-time setup
 
 ```bash
-# убрать старые версии, если были
-sudo apt -y remove docker docker-engine docker.io containerd runc 2>/dev/null || true
-
-# ключ и репозиторий Docker
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-  https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-sudo apt update
-sudo apt -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-```
-
-Проверка:
-
-```bash
-sudo docker --version
-sudo docker compose version
-```
-
-(Опционально — чтобы не писать `sudo` перед docker; после этого перелогинься по SSH:)
-
-```bash
-sudo usermod -aG docker $USER
-newgrp docker
-```
-
----
-
-## 4. Подключить GitHub и склонировать репозиторий
-
-Репозиторий приватный → нужен доступ. Рекомендую **Deploy Key** (SSH-ключ только для чтения этого репо).
-
-### 4.1. Сгенерировать SSH-ключ на сервере
-
-```bash
-ssh-keygen -t ed25519 -C "docjob-server" -f ~/.ssh/docjob_deploy -N ""
-cat ~/.ssh/docjob_deploy.pub
-```
-
-Скопируй выведенную строку (`ssh-ed25519 AAAA...`).
-
-### 4.2. Добавить ключ в GitHub
-
-1. Открой `https://github.com/Kirirto-kun/DocJob` → **Settings** → **Deploy keys** → **Add deploy key**.
-2. Title: `docjob-server`. Key: вставь строку. **Allow write access** оставь выключенным.
-3. **Add key**.
-
-### 4.3. Настроить git и склонировать
-
-```bash
-cat >> ~/.ssh/config <<'EOF'
-Host github.com
-  IdentityFile ~/.ssh/docjob_deploy
-  IdentitiesOnly yes
-EOF
-
-ssh -T git@github.com   # ответит "Hi ...! You've successfully authenticated" — это норм
-
-sudo mkdir -p /opt/docjob && sudo chown $USER:$USER /opt/docjob
-git clone git@github.com:Kirirto-kun/DocJob.git /opt/docjob
+sudo mkdir -p /opt/docjob && sudo chown "$USER":"$USER" /opt/docjob
+git clone <your-repo-url> /opt/docjob
 cd /opt/docjob
+cp .env.example .env
 ```
 
-> **Альтернатива (проще)** — HTTPS + Personal Access Token: GitHub → Settings →
-> Developer settings → Personal access tokens → Fine-grained → доступ только к этому
-> репо (Contents: Read). Затем:
-> `git clone https://USERNAME:ТОКЕН@github.com/Kirirto-kun/DocJob.git /opt/docjob`
+`docker compose` reads **`.env`** (not `.env.local` — that's the local-dev
+file; see `CLAUDE.md`). Edit `/opt/docjob/.env` and set at minimum:
+
+| Variable | What to put | Notes |
+|---|---|---|
+| `POSTGRES_PASSWORD` | a strong random password | `openssl rand -hex 16` |
+| `AUTH_SECRET` | a strong random secret | `openssl rand -base64 48` — signs every access/refresh JWT. **Never reuse the dev value.** |
+| `AUTH_URL` | `https://docjob.example.com` | your real domain, `https://`, no trailing slash. Also the CSRF same-origin source of truth (`apps/web/src/lib/csrf.ts`). |
+| `PASSWORD_RESET_URL_BASE` | usually leave unset | falls back to `AUTH_URL`; only set it separately if reset links should point at a different host than the API origin (e.g. a marketing domain). |
+| `OPENAI_API_KEY` | your OpenAI key | leave blank to run search in FTS/lexical-fallback-only mode. |
+| `RESEND_API_KEY` / `EMAIL_FROM` | your Resend key / a verified sender | leave `RESEND_API_KEY` blank to log password-reset/contact emails to the container's stdout instead of sending them (fine for a first smoke test, not for real users). `EMAIL_FROM`'s domain must be verified in Resend. |
+| `NEXT_PUBLIC_SITE_URL` | `https://docjob.example.com` | canonical links / sitemap / Open Graph. **Next.js inlines `NEXT_PUBLIC_*` vars at build time** — if you change this later, `docker compose up -d --build web` (a rebuild, not just a restart) is required for it to take effect. |
+| `POSTGRES_HOST_PORT` | `5433` (default) | only change if that host port is already taken; not exposed publicly either way. |
+
+Everything else in `.env.example` has a safe default or is optional
+(`GOOGLE_SITE_VERIFICATION`, `YANDEX_VERIFICATION`, `REDIS_URL` — see
+[Scaling](#8-scaling-redis--multiple-web-instances) — `REEMBED_INTERVAL_MS`,
+`ADMIN_EMAIL`/`ADMIN_PASSWORD` for the seed step below).
+
+`.env` is git-ignored — it never leaves this server.
 
 ---
 
-## 5. Проверить, что домен смотрит на сервер
+## 3. Bring up the stack
 
 ```bash
-curl -s ifconfig.me ; echo     # IP этого сервера
-dig +short docjob.kz           # должен вернуть тот же IP
-dig +short www.docjob.kz       # желательно тот же IP (A или CNAME -> docjob.kz)
+cd /opt/docjob
+docker compose up -d
 ```
 
-Если `dig` показывает другой IP или пусто — DNS ещё не обновился (жди до 1–24 ч) или
-A-запись неверная. SSL (шаг 9) не выпустится, пока домен не указывает сюда.
+This builds the image (first run: a few minutes — installs the full pnpm
+workspace, generates the Prisma client, runs `next build`) and starts
+`postgres`, `web`, and `worker`. `web`'s container `CMD` runs
+`prisma migrate deploy` (applying every migration, including the pgvector and
+full-text-search ones) before starting the Next.js server, so the schema is
+always current on boot — no separate migration step needed.
+
+Verify:
+
+```bash
+docker compose ps                                             # postgres/web/worker all Up (postgres "healthy")
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/api/health   # 200
+docker compose logs web --tail 30                              # "Ready in ...", no errors
+docker compose logs worker --tail 10                           # "[reembed] processed=..." sweep lines
+```
+
+Redis is **off by default** — every rate-limiter and the query-embedding
+cache use a correct in-memory implementation that's fine for a single `web`
+instance. Don't start it unless you're doing the [multi-instance scale-out](#8-scaling-redis--multiple-web-instances) below.
 
 ---
 
-## 6. Создать файл окружения `.env`
+## 4. One-time bootstrap (admin user + case data)
 
-`docker compose` читает **`.env`** (не `.env.local`). Создаём на сервере:
+**Important:** run these against the **`worker`** service, not `web`. `web`
+runs the minimal Next.js standalone image (no `pnpm`, no `tsx`, no workspace
+source beyond the Prisma schema/migrations — see the Dockerfile's `runner`
+stage). `worker` runs the full `build`-stage image (complete monorepo source
++ dev tooling), which is what these scripts need.
 
 ```bash
 cd /opt/docjob
 
-cat > .env <<EOF
-# --- Postgres ---
-POSTGRES_PASSWORD=$(openssl rand -hex 16)
-
-# --- Auth (custom JWT, @docjob/auth — NextAuth was removed) ---
-AUTH_SECRET=$(openssl rand -base64 32)
-AUTH_URL=https://docjob.kz
-# Optional, only during a secret rotation: set AUTH_SECRET_PREVIOUS to the
-# OLD AUTH_SECRET after rotating AUTH_SECRET to a new value, so access
-# tokens signed with the old secret keep verifying until they expire
-# (~15m) instead of instantly logging everyone out. Remove it afterwards.
-# AUTH_SECRET_PREVIOUS=
-
-# --- OpenAI (рабочий ключ с балансом) ---
-OPENAI_API_KEY=""
-OPENAI_MODEL=gpt-4.1
-EOF
-
-# впиши OPENAI_API_KEY вручную:
-nano .env
-```
-
-> `.env` в `.gitignore` — секреты останутся только на сервере. `DATABASE_URL` для
-> контейнера web compose собирает сам из `POSTGRES_PASSWORD`.
-
----
-
-## 7. Поднять приложение (Docker)
-
-Поднимаем с продакшн-оверлеем (Postgres скрыт, web слушает только `127.0.0.1:3000`):
-
-```bash
-cd /opt/docjob
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-```
-
-Первый билд ~3–5 минут. Контейнер web при старте сам прогоняет миграции
-(включая `CREATE EXTENSION vector`). Проверь:
-
-```bash
-docker compose ps                                                      # postgres healthy, web up
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/login   # 200
-docker compose logs web --tail 30                                      # "Ready in ...", без ошибок
-```
-
-### 7.1. Заполнить данные и эмбеддинги
-
-```bash
-# админ/доктор/рецензент + теги + 4 демо-кейса.
-# Свои креды админа передаём через -e (НЕ через .env — там $ съест compose).
-# Пароль обязательно в ОДИНАРНЫХ кавычках, чтобы $ и ! не тронул shell.
+# Admin (+ demo doctor/reviewer, tags, demo cases). Re-run any time — it's
+# idempotent by email; ADMIN_PASSWORD is only (re)hashed when you pass it, so
+# omitting it on a re-seed leaves the existing password alone. Quote the
+# password so the shell doesn't touch `$`/`!` in it.
 docker compose exec \
-  -e ADMIN_EMAIL='docjob.admin@gmail.com' \
-  -e ADMIN_PASSWORD='ТВОЙ_ПАРОЛЬ' \
-  web npm run db:seed:prod
+  -e ADMIN_EMAIL='you@yourdomain.com' \
+  -e ADMIN_PASSWORD='a-strong-password' \
+  worker pnpm --filter @docjob/db db:seed:prod
 
-# эмбеддинги для семантического поиска (нужен рабочий OPENAI_API_KEY)
-docker compose exec web npm run embed:cases:prod
+# Bulk-import the reference markdown cases (idempotent by case name).
+docker compose exec worker pnpm --filter web import:cases
+
+# Backfill pgvector embeddings for every case without one (needs a working
+# OPENAI_API_KEY — skip/re-run later if you added the key after the fact).
+docker compose exec worker pnpm --filter web embed:cases
 ```
 
-> Используй именно `:prod`-варианты внутри контейнера — обычные `db:seed`/`embed:cases`
-> обёрнуты в dotenv и рассчитаны на локальную разработку (.env.local), которого в
-> контейнере нет.
+The demo doctor/reviewer accounts seeded alongside the admin
+(`doctor@docjob.local` / `reviewer@docjob.local`, both `password123`) are for
+smoke-testing only — **change or delete them** before real users register.
+If a prior seed created the default `admin@docjob.local` and you don't want
+it around:
 
-**Креды админа** берутся из `ADMIN_EMAIL` / `ADMIN_PASSWORD` при сидинге:
-- задал обе → админ создаётся (или ему обновляется пароль) с этими кредами;
-- НЕ задал `ADMIN_PASSWORD` при повторном сиде → существующий пароль НЕ сбрасывается;
-- вообще без переменных → дефолт `admin@docjob.local` / `password123` (только для теста).
-
-Демо-логины врача и рецензента (**смени пароли на проде**):
-- доктор: `doctor@docjob.local` / `password123`
-- рецензент: `reviewer@docjob.local` / `password123`
-
-Если раньше уже засеялся дефолтный админ — удали его, чтобы остался только твой:
 ```bash
-docker compose exec postgres psql -U docjob -d docjob \
+docker compose exec -T postgres psql -U docjob -d docjob \
   -c "DELETE FROM \"User\" WHERE email='admin@docjob.local';"
 ```
 
 ---
 
-## 8. Установить и настроить Nginx
+## 5. Nginx + TLS
+
+Install Nginx and certbot:
 
 ```bash
-sudo apt -y install nginx
+sudo apt update && sudo apt -y install nginx certbot python3-certbot-nginx
+sudo mkdir -p /var/www/certbot
+```
 
-sudo cp /opt/docjob/nginx/docjob.kz.conf /etc/nginx/sites-available/docjob.kz
-sudo ln -sf /etc/nginx/sites-available/docjob.kz /etc/nginx/sites-enabled/docjob.kz
+Copy the config and replace the placeholder domain **everywhere it appears**
+(`server_name` in both server blocks, plus both `ssl_certificate*` paths):
+
+```bash
+sudo cp /opt/docjob/deploy/nginx/docjob.conf /etc/nginx/sites-available/docjob.conf
+sudo sed -i 's/docjob\.example\.com/docjob.YOUR-REAL-DOMAIN/g' /etc/nginx/sites-available/docjob.conf
+sudo ln -sf /etc/nginx/sites-available/docjob.conf /etc/nginx/sites-enabled/docjob.conf
 sudo rm -f /etc/nginx/sites-enabled/default
-
-sudo nginx -t
-sudo systemctl reload nginx
 ```
 
-Проверка по HTTP (пока без сертификата):
+**Bootstrap order matters** — `deploy/nginx/docjob.conf`'s HTTPS (443) server
+block references certificate files that don't exist yet on a brand-new
+domain, and `nginx -t` fails on a *missing* cert file, not just a bad one.
+Get the certificate first, with only the HTTP block active:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" -H "Host: docjob.kz" http://127.0.0.1/login   # 200
+# 1. Temporarily comment out the whole second `server { listen 443 ssl ...` block
+#    (everything from the second `server {` to its matching closing `}`) in
+#    /etc/nginx/sites-enabled/docjob.conf, so nginx can start with just the
+#    HTTP block (which never references the cert).
+sudo nginx -t && sudo systemctl reload nginx
+
+# sanity check the HTTP block works before asking Let's Encrypt for anything:
+curl -s -o /dev/null -w "%{http_code}\n" -H "Host: docjob.YOUR-REAL-DOMAIN" http://127.0.0.1/api/health   # 200
+
+# 2. Obtain the certificate. `certbot --nginx` both issues the cert AND edits
+#    the live config to add a working HTTPS server block + HTTP->HTTPS
+#    redirect for you — this supersedes (safely overlaps with) the manual
+#    443 block you commented out above; you can leave the manual block
+#    commented out from here on, or restore it (both work — certbot's own
+#    edit takes precedence either way once it runs).
+sudo certbot --nginx -d docjob.YOUR-REAL-DOMAIN -d www.docjob.YOUR-REAL-DOMAIN
 ```
 
-Открой `http://docjob.kz` в браузере — должно открыться приложение (пока http).
-
----
-
-## 9. Включить HTTPS (Let's Encrypt, бесплатно, авто-продление)
-
-```bash
-sudo apt -y install certbot python3-certbot-nginx
-sudo certbot --nginx -d docjob.kz -d www.docjob.kz
-```
-
-Certbot спросит email и согласие, предложит редирект HTTP→HTTPS — **выбери редирект (2)**.
-Он сам впишет SSL-блок и перезагрузит nginx.
-
-Проверка авто-продления:
+Certbot will ask for an email + ToS agreement and offer to redirect HTTP to
+HTTPS — accept the redirect. Confirm auto-renewal (certbot installs a
+systemd timer / cron job on its own; this just dry-runs it):
 
 ```bash
 sudo certbot renew --dry-run
 ```
 
-Готово — открывай **`https://docjob.kz`** 🎉
-
----
-
-## 10. Финальная проверка
+Final check:
 
 ```bash
-curl -sI https://docjob.kz/login | head -n 1     # HTTP/2 200
-docker compose ps                                # всё up/healthy
+curl -sI https://docjob.YOUR-REAL-DOMAIN/api/health | head -n 1   # HTTP/2 200 (or HTTP/1.1 200)
 ```
-
-В браузере зайди на `https://docjob.kz`, залогинься админом и проверь:
-- `/ai-search` — введи «инфаркт миокарда» → возвращаются релевантные кейсы;
-- `/admin/announcements` — создай объявление с картинкой и ссылкой;
-- открой любой кейс — тело читаемое, светлое.
 
 ---
 
-## 11. Обновление приложения (когда появится новое в `main`)
+## 6. Health monitoring
+
+`apps/web/src/app/api/health/route.ts` is a cheap, unauthenticated
+`GET /api/health` that runs `SELECT 1` against Postgres with a 2.5s timeout —
+`200 {"status":"ok","db":"up",...}` when healthy, `503
+{"status":"degraded","db":"down",...}` when the DB is unreachable. Three
+things already poll it:
+
+1. **Docker's own healthcheck** on the `web` service (`docker compose ps`
+   shows `(healthy)`/`(unhealthy)`).
+2. **Nginx** proxies `/api/health` (see `deploy/nginx/docjob.conf`) —
+   point any external uptime monitor (UptimeRobot, Better Stack, a simple
+   cron `curl` + alert, etc.) at `https://docjob.YOUR-REAL-DOMAIN/api/health`.
+3. You, manually: `docker compose ps` / `curl .../api/health`.
+
+**Logs:**
+
+```bash
+docker compose logs -f web        # request/error logs (structured JSON via apps/web/src/lib/logger.ts)
+docker compose logs -f worker     # "[reembed] processed=X embedded=Y skipped=Z failed=W" per sweep
+docker compose logs -f postgres
+sudo tail -f /var/log/nginx/access.log /var/log/nginx/error.log
+```
+
+---
+
+## 7. Backups + restore
+
+Scripts live in `deploy/backup/` (both are POSIX `sh`, no bashisms):
+
+- `pg-backup.sh` — `pg_dump`s the `postgres` service to a gzip-compressed,
+  timestamped file under `<repo>/backups/`, rotates to the last 14 by
+  default (`PG_BACKUP_KEEP` to override).
+- `uploads-backup.sh` — tars the `uploads` Docker volume (case
+  attachments/images) to `<repo>/backups/`, same rotation
+  (`UPLOADS_BACKUP_KEEP`).
+
+Run manually once to sanity-check:
+
+```bash
+cd /opt/docjob
+./deploy/backup/pg-backup.sh
+./deploy/backup/uploads-backup.sh
+ls -lh backups/
+```
+
+Then cron them — see `deploy/backup/crontab.example` (daily, staggered,
+5 minutes apart):
+
+```bash
+crontab -e
+# paste the two lines from deploy/backup/crontab.example, with the path
+# adjusted to /opt/docjob if you cloned somewhere else
+```
+
+Consider also copying `backups/` off-box periodically (e.g. `rsync`/`rclone`
+to object storage) — these scripts only protect against data loss on *this*
+disk, not the disk itself dying.
+
+### Restore
+
+**Postgres** (⚠️ this replaces all current data in the `docjob` database):
+
+```bash
+cd /opt/docjob
+docker compose down web worker         # stop writers so the restore isn't racing live traffic
+gunzip -c backups/docjob-YYYYMMDD-HHMMSS.sql.gz | docker compose exec -T postgres psql -U docjob -d docjob
+docker compose up -d web worker
+```
+
+If the target database isn't empty, drop and recreate it first (also
+destructive — only do this on a genuinely broken/empty environment):
+
+```bash
+docker compose exec -T postgres psql -U docjob -d postgres \
+  -c 'DROP DATABASE docjob;' -c 'CREATE DATABASE docjob OWNER docjob;'
+```
+
+**Uploads:**
+
+```bash
+cd /opt/docjob
+docker compose down web
+VOLUME=$(docker volume ls --filter "label=com.docker.compose.volume=uploads" --format '{{.Name}}')
+docker run --rm -v "$VOLUME:/data" -v "$(pwd)/backups:/backup" alpine \
+  sh -c "rm -rf /data/* && tar xzf /backup/uploads-YYYYMMDD-HHMMSS.tar.gz -C /data"
+docker compose up -d web
+```
+
+---
+
+## 8. `AUTH_SECRET` rotation
+
+Rotating `AUTH_SECRET` without the overlap window would instantly invalidate
+every logged-in user's session. `AUTH_SECRET_PREVIOUS` avoids that: access
+tokens signed with the old secret keep verifying (via a `kid: 'previous'`
+tag) until they naturally expire (~15 minutes).
+
+```bash
+cd /opt/docjob
+OLD_SECRET=$(grep '^AUTH_SECRET=' .env | cut -d= -f2-)
+NEW_SECRET=$(openssl rand -base64 48)
+
+# In .env: set AUTH_SECRET to $NEW_SECRET, and AUTH_SECRET_PREVIOUS to $OLD_SECRET.
+# (edit by hand, or with sed — be careful with special characters in the secrets)
+
+docker compose up -d web     # recreate just `web` with the new env (worker doesn't use AUTH_SECRET)
+```
+
+Wait at least 15 minutes (the access-token TTL) for every outstanding old
+token to expire naturally, then remove `AUTH_SECRET_PREVIOUS` from `.env`
+entirely and `docker compose up -d web` once more. Don't leave
+`AUTH_SECRET_PREVIOUS` set indefinitely — it's only meant for the rotation
+window.
+
+---
+
+## 9. Scaling: Redis + multiple `web` instances
+
+Everything up to here runs correctly as a single `web` instance with
+in-memory rate-limiters and query cache. If you need more than one `web`
+instance (higher traffic, zero-downtime deploys via a blue/green swap, etc.),
+those in-memory structures stop being correct — each instance would keep an
+independent counter/cache — so bring Redis in first:
+
+```bash
+# Add REDIS_URL to .env, e.g.:
+#   REDIS_URL="redis://redis:6379"
+docker compose --profile redis up -d
+```
+
+With `REDIS_URL` set, the login rate-limiter, the search rate-limiter, the
+password-reset rate-limiter, and the query-embedding cache all switch to
+their Redis-backed adapters automatically (see `packages/config`'s
+`getRedis()` and the adapters in `packages/auth`/`packages/api`/
+`packages/core` — selected at runtime, no code change needed). Unset
+`REDIS_URL` (or stop the `redis` service) any time to fall back to in-memory
+— safe for a single instance, incorrect across multiple.
+
+**Running multiple `web` instances:** `docker-compose.yml`'s `web` service
+binds a fixed host port (`127.0.0.1:3000:3000`), so `docker compose up -d
+--scale web=N` won't work as-is (every replica would fight over the same
+port). The straightforward path is a small compose override defining
+additional instances on their own loopback ports, e.g. a
+`docker-compose.scale.yml`:
+
+```yaml
+services:
+  web2:
+    extends:
+      file: docker-compose.yml
+      service: web
+    ports:
+      - "127.0.0.1:3001:3000"
+  web3:
+    extends:
+      file: docker-compose.yml
+      service: web
+    ports:
+      - "127.0.0.1:3002:3000"
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.scale.yml up -d
+```
+
+Then point Nginx at all instances with an `upstream` block in place of the
+single `proxy_pass http://127.0.0.1:3000` in `deploy/nginx/docjob.conf`:
+
+```nginx
+upstream docjob_web {
+    server 127.0.0.1:3000;
+    server 127.0.0.1:3001;
+    server 127.0.0.1:3002;
+}
+# ...then proxy_pass http://docjob_web; in each `location` block instead.
+```
+
+Make sure `REDIS_URL` is set on **every** `web`/`worker`/`web2`/`web3`
+instance before scaling out — running multiple instances with in-memory
+limiters still silently "works" (no crash), it just stops actually
+rate-limiting or caching correctly across instances.
+
+---
+
+## 10. Updating
 
 ```bash
 cd /opt/docjob
 git pull
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
-# миграции применятся автоматически при старте контейнера
+docker compose up -d --build      # rebuilds the image, applies pending migrations on `web`'s boot, restarts web+worker
 ```
 
-Если добавились новые кейсы и нужны эмбеддинги:
+If new cases were added and need embeddings:
+
 ```bash
-docker compose exec web npm run embed:cases:prod
+docker compose exec worker pnpm --filter web embed:cases
 ```
 
 ---
 
-## 12. Полезные команды
+## 11. Useful commands
 
 ```bash
-# логи
+docker compose ps
 docker compose logs -f web
-docker compose logs -f postgres
-
-# перезапуск web
-docker compose -f docker-compose.yml -f docker-compose.prod.yml restart web
-
-# стоп / старт всего стека
-docker compose -f docker-compose.yml -f docker-compose.prod.yml down
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-
-# консоль БД
+docker compose restart web
+docker compose down                 # stop everything, KEEP volumes (data safe)
+docker compose down -v              # ⚠️ stop everything AND delete volumes (destroys DB + uploads)
 docker compose exec postgres psql -U docjob -d docjob
-
-# бэкап БД
-docker compose exec -T postgres pg_dump -U docjob docjob > backup_$(date +%F).sql
-
-# восстановление из бэкапа
-cat backup_2026-05-30.sql | docker compose exec -T postgres psql -U docjob -d docjob
 ```
 
 ---
 
-## 13. Troubleshooting
+## 12. Troubleshooting
 
-| Симптом | Причина и решение |
+| Symptom | Likely cause / fix |
 |---|---|
-| `certbot` «challenge failed» | Домен ещё не указывает на сервер (шаг 5) или 80 закрыт. Проверь `dig +short docjob.kz` и `sudo ufw status`. |
-| Сайт по http есть, по https нет | Certbot не отработал. Повтори `sudo certbot --nginx -d docjob.kz -d www.docjob.kz`. |
-| 502 Bad Gateway | Контейнер web не поднят/упал. `docker compose ps`, `docker compose logs web`. |
-| 413 при загрузке файла | nginx режет большой файл. В конфиге уже стоит `client_max_body_size 30M;` — проверь, что скопировал именно его, и `sudo systemctl reload nginx`. |
-| Поиск «не по смыслу» / пусто | Нет эмбеддингов или нет баланса OpenAI. `docker compose exec web npm run embed:cases:prod`, смотри логи на `insufficient_quota`. |
-| web падает `P1000 Authentication failed` | Несовпадение `POSTGRES_PASSWORD` со старым томом БД. Если БД пустая: `docker compose -f docker-compose.yml -f docker-compose.prod.yml down -v` (⚠️ удалит данные) и подними заново. |
-| `git pull` просит пароль | Deploy key не подхватился. Проверь `~/.ssh/config` (шаг 4.3) и `ssh -T git@github.com`. |
+| `certbot` "challenge failed" | DNS doesn't point here yet, or port 80 isn't reachable. Check `dig +short docjob.YOUR-REAL-DOMAIN` and `sudo ufw status`. |
+| Site works on http, not https | The 443 block wasn't active when certbot ran, or certbot errored. Re-run `sudo certbot --nginx -d ... -d ...`. |
+| `502 Bad Gateway` | `web` container isn't up/healthy. `docker compose ps`, `docker compose logs web`. |
+| `413 Request Entity Too Large` on attachment upload | Confirm you copied `deploy/nginx/docjob.conf` (has `client_max_body_size 30m;`) and reloaded nginx (`sudo nginx -t && sudo systemctl reload nginx`). |
+| Search returns nothing useful / "no results" | No embeddings yet, or no/invalid `OPENAI_API_KEY`. `docker compose exec worker pnpm --filter web embed:cases`; check `docker compose logs worker` for `insufficient_quota` or auth errors. |
+| `web` fails on boot with a Prisma auth error | `POSTGRES_PASSWORD` in `.env` doesn't match the password baked into the existing `postgres_data` volume (e.g. you changed it after first boot). If the DB is disposable: `docker compose down -v` and start over (⚠️ destroys data) — otherwise restore the old password. |
+| Login/reset suddenly rejecting everyone with a CSRF error | `AUTH_URL` doesn't match the domain you're actually serving from, or Nginx isn't forwarding `Host`/`X-Forwarded-Proto` (see the header-rationale comment atop `deploy/nginx/docjob.conf`). |
+| Everyone behind one office/NAT gets rate-limited together | Nginx isn't forwarding `X-Forwarded-For`/`X-Real-IP` correctly, so the login rate-limiter (`packages/auth/src/login.service.ts`) sees one IP for every request. Confirm the `proxy_set_header` lines are present and unmodified. |
 
 ---
 
-## Архитектура (что где живёт)
+## What needs YOUR accounts/domain/money
 
-```
-Интернет ── 443/80 ──> Nginx (хост) ──127.0.0.1:3000──> web (Docker, Next.js)
-                                                          │
-                                                          └── postgres (Docker, pgvector)
-                                                                только внутри docker-сети
-```
+Nothing in this repo can provision these for you — they require your own
+identity, payment method, or property:
 
-- **web** опубликован только на `127.0.0.1:3000` → снаружи напрямую недоступен, только через Nginx.
-- **postgres** не публикуется на хост → недоступен из интернета.
-- Тома Docker: `postgres_data` (БД) и `uploads` (картинки/вложения) переживают пересборку.
-- HTTPS-сертификат продлевается автоматически (systemd-таймер certbot).
+- **A domain name + DNS** — you own/register it and point an A record at the
+  VPS. (Ongoing cost: domain registration, typically ~$10-15/yr.)
+- **The VPS itself** — a server from any provider (Hetzner, DigitalOcean,
+  Vultr, etc.). Ongoing monthly cost depends on the provider/spec.
+- **The TLS certificate** — free via Let's Encrypt/certbot, but issuance is
+  gated on the domain above already resolving to this server.
+- **An OpenAI API key** — https://platform.openai.com, pay-as-you-go, funds
+  hybrid case search (embeddings + query understanding) and the markdown
+  case-import flow. The app runs without one (plain lexical search fallback),
+  but that's a materially degraded product.
+- **A Resend API key + a verified sending domain** — https://resend.com,
+  needed for password-reset and contact emails to actually be delivered
+  (without it, the app just logs the email content to the container's stdout
+  instead of sending — fine for testing, not for real users).
+- **For the mobile app** (`apps/mobile/`, not deployed by anything in this
+  document — see `apps/mobile/README.md` for the full mobile build/release
+  process): an **Expo/EAS account** (free tier covers dev/preview builds), an
+  **Apple Developer Program membership** (**$99/year**, required for any iOS
+  build beyond a simulator and mandatory for TestFlight/App Store
+  distribution), and a **Google Play Developer account** (**$25 one-time**,
+  required to publish to the Play Store). Store listing assets (screenshots,
+  privacy policy URL, description, content rating, data-safety form) are
+  first-party business/legal content only you can provide.
