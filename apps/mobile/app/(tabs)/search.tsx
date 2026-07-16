@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { trpc } from '../../src/lib/trpc';
 import { SearchResultCard } from '../../src/components/search-result-card';
 import { Banner } from '../../src/components/banner';
+import { colors } from '../../src/theme/colors';
 
 /**
  * AI hybrid-search tab (SP-4b Task 4). `trpc.search.search` wraps
@@ -73,7 +74,7 @@ export default function SearchScreen() {
           testID="search-input"
           style={styles.input}
           placeholder={t('search.placeholder')}
-          placeholderTextColor="#8a8a8a"
+          placeholderTextColor={colors.textMuted}
           value={query}
           onChangeText={setQuery}
           onSubmitEditing={onSubmit}
@@ -101,7 +102,7 @@ export default function SearchScreen() {
         </View>
       ) : searchQuery.isLoading ? (
         <View style={styles.centered} testID="search-loading">
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : searchQuery.isError ? (
         <View style={styles.centered} testID="search-error">
@@ -131,10 +132,12 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 12,
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
+    color: colors.text,
   },
   searchRow: {
     flexDirection: 'row',
@@ -143,14 +146,16 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#d0d0d0',
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
+    backgroundColor: colors.surfaceElevated,
+    color: colors.text,
   },
   submitButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingHorizontal: 16,
     justifyContent: 'center',
@@ -159,7 +164,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   submitButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   centered: {
@@ -171,13 +176,13 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
   },
   errorText: {
     fontSize: 14,
-    color: '#c0392b',
+    color: colors.danger,
     textAlign: 'center',
     lineHeight: 20,
   },

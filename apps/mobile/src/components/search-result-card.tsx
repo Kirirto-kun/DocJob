@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { SearchHit } from '../lib/api-types';
 import { stripSnippetHtml } from '../lib/html-text';
+import { colors } from '../theme/colors';
 
 type SearchResultCardProps = {
   hit: SearchHit;
@@ -68,32 +69,32 @@ export function SearchResultCard({ hit, onPress }: SearchResultCardProps) {
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 14,
     marginBottom: 10,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     gap: 6,
   },
   cardPressed: {
-    backgroundColor: '#f5f7fb',
-    borderColor: '#2563eb',
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.primary,
   },
   title: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: colors.text,
   },
   subtitle: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textMuted,
   },
   badgeRow: {
     flexDirection: 'row',
     gap: 6,
   },
   badge: {
-    backgroundColor: '#eef2ff',
+    backgroundColor: colors.surfaceElevated,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -101,11 +102,11 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#2563eb',
+    color: colors.primary,
   },
   snippet: {
     fontSize: 13,
-    color: '#444',
+    color: colors.textMuted,
     lineHeight: 18,
   },
 });

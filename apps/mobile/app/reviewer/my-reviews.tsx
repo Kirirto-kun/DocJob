@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { trpc } from '../../src/lib/trpc';
 import { subgroupLabel } from '../../src/lib/taxonomy';
 import type { SerializedReviewWithCase } from '../../src/lib/api-types';
+import { colors } from '../../src/theme/colors';
 
 /**
  * "Мои рецензии" — a reviewer/admin-only pushed route reached from
@@ -59,7 +60,7 @@ export default function MyReviewsScreen() {
 
       {reviewsQuery.isLoading ? (
         <View style={styles.centered} testID="my-reviews-loading">
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : reviewsQuery.isError ? (
         <View style={styles.centered} testID="my-reviews-error">
@@ -120,6 +121,7 @@ function ReviewRow({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
@@ -128,15 +130,16 @@ const styles = StyleSheet.create({
   },
   back: {
     fontSize: 14,
-    color: '#2563eb',
+    color: colors.primary,
     fontWeight: '600',
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
+    color: colors.text,
   },
   error: {
-    color: '#c0392b',
+    color: colors.danger,
     fontSize: 13,
   },
   centered: {
@@ -148,7 +151,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -157,25 +160,25 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 14,
     gap: 6,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   caseName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: colors.text,
   },
   caseSubgroup: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textMuted,
   },
   reviewBody: {
     fontSize: 13,
     lineHeight: 18,
-    color: '#333',
+    color: colors.text,
   },
   deleteButton: {
     alignSelf: 'flex-start',
@@ -183,7 +186,7 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontSize: 12,
-    color: '#c0392b',
+    color: colors.danger,
     fontWeight: '600',
   },
 });

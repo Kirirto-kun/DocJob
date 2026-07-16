@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CaseListItem } from '../lib/api-types';
+import { colors } from '../theme/colors';
 
 type CaseCardProps = {
   item: CaseListItem;
@@ -43,29 +44,29 @@ export function CaseCard({ item, onPress }: CaseCardProps) {
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 14,
     marginBottom: 10,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     gap: 6,
   },
   cardPressed: {
-    backgroundColor: '#f5f7fb',
-    borderColor: '#2563eb',
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.primary,
   },
   title: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: colors.text,
   },
   subtitle: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textMuted,
   },
   teaser: {
     fontSize: 13,
-    color: '#444',
+    color: colors.textMuted,
     lineHeight: 18,
   },
   tagRow: {
@@ -74,13 +75,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tag: {
-    backgroundColor: '#f1f1f1',
+    backgroundColor: colors.surfaceElevated,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   tagText: {
     fontSize: 11,
-    color: '#555',
+    color: colors.textMuted,
   },
 });

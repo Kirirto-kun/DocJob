@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { API_BASE_URL } from '../lib/config';
+import { colors } from '../theme/colors';
 
 type CaseBodyWebViewProps = {
   html: string;
@@ -49,11 +50,11 @@ export function CaseBodyWebView({ html }: CaseBodyWebViewProps) {
 /**
  * Wraps the server-rendered body fragment in a minimal standalone HTML
  * document with an inline `<style>` so the case text is readable against
- * the app's own light background (`app.json`'s `userInterfaceStyle:
- * "light"` — matches every other SP-4b Task 1-3 screen, e.g. `login.tsx`'s
- * white background / `#2563eb` accent) rather than relying on (or
- * fighting) the OS-level dark-mode auto-inversion some WebView
- * implementations apply to un-styled content.
+ * the app's own dark background (`app.json`'s `userInterfaceStyle: "dark"`
+ * — matches every other screen's deep-space-blue/cyan dark theme, see
+ * `../theme/colors.ts`) rather than relying on (or fighting) the OS-level
+ * dark-mode auto-inversion some WebView implementations apply to un-styled
+ * content.
  *
  * Review fix (whole-branch review, Minor): `source={{ html }}` loads this
  * document at the `about:blank` origin with no base URL, so a case body
@@ -75,30 +76,30 @@ export function CaseBodyWebView({ html }: CaseBodyWebViewProps) {
  */
 export function wrapCaseBodyHtml(bodyHtml: string): string {
   return `<!DOCTYPE html><html><head><base href="${API_BASE_URL}/" /><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" /><style>
-    :root { color-scheme: light; }
-    body { margin: 0; padding: 16px; background: #ffffff; color: #1a1a1a; font-family: -apple-system, Roboto, sans-serif; font-size: 16px; line-height: 1.55; }
-    h1, h2, h3, h4 { color: #111111; line-height: 1.3; }
+    :root { color-scheme: dark; }
+    body { margin: 0; padding: 16px; background: ${colors.background}; color: ${colors.text}; font-family: -apple-system, Roboto, sans-serif; font-size: 16px; line-height: 1.55; }
+    h1, h2, h3, h4 { color: ${colors.text}; line-height: 1.3; }
     p { margin: 0 0 12px; }
-    a { color: #2563eb; }
+    a { color: ${colors.primary}; }
     img { max-width: 100%; height: auto; border-radius: 6px; }
     ul, ol { padding-left: 20px; }
     table { width: 100%; border-collapse: collapse; }
-    td, th { border: 1px solid #ddd; padding: 6px; text-align: left; }
-    blockquote { margin: 0 0 12px; padding-left: 12px; border-left: 3px solid #d0d0d0; color: #444; }
-    mark { background: #fff3a3; }
+    td, th { border: 1px solid ${colors.border}; padding: 6px; text-align: left; }
+    blockquote { margin: 0 0 12px; padding-left: 12px; border-left: 3px solid ${colors.border}; color: ${colors.textMuted}; }
+    mark { background: rgba(34,211,238,0.25); color: inherit; }
   </style></head><body>${bodyHtml}</body></html>`;
 }
 
 const styles = StyleSheet.create({
   container: {
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
     borderRadius: 10,
     overflow: 'hidden',
     marginBottom: 16,
   },
   webview: {
     height: 480,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.background,
   },
 });

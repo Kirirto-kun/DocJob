@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { trpc } from '../../../src/lib/trpc';
 import { submissionStatusColors, submissionStatusLabel } from '../../../src/lib/submission-status';
 import { SubmissionThread } from '../../../src/components/submission-thread';
+import { colors as theme } from '../../../src/theme/colors';
 
 /**
  * Single case-submission detail, pushed from `./index.tsx`'s list.
@@ -23,7 +24,7 @@ export default function SubmissionDetailScreen() {
   if (submissionQuery.isLoading) {
     return (
       <View style={styles.centered} testID="submission-detail-loading">
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -71,6 +72,7 @@ export default function SubmissionDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: theme.background,
   },
   content: {
     padding: 16,
@@ -83,10 +85,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     gap: 12,
+    backgroundColor: theme.background,
   },
   back: {
     fontSize: 14,
-    color: '#2563eb',
+    color: theme.primary,
     fontWeight: '600',
   },
   header: {
@@ -99,7 +102,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 20,
     fontWeight: '700',
-    color: '#1a1a1a',
+    color: theme.text,
   },
   badge: {
     borderRadius: 6,
@@ -113,11 +116,11 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#333',
+    color: theme.text,
   },
   hint: {
     fontSize: 14,
-    color: '#666',
+    color: theme.textMuted,
     textAlign: 'center',
   },
 });

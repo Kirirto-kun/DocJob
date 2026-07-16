@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { trpc } from '../lib/trpc';
 import { useSession } from '../providers/session';
 import type { SerializedReview } from '../lib/api-types';
+import { colors } from '../theme/colors';
 
 type ReviewsPanelProps = {
   caseId: string;
@@ -80,7 +81,7 @@ export function ReviewsPanel({ caseId }: ReviewsPanelProps) {
             testID="review-draft-input"
             style={styles.input}
             placeholder={t('reviews.placeholder')}
-            placeholderTextColor="#8a8a8a"
+            placeholderTextColor={colors.textMuted}
             value={draft}
             onChangeText={setDraft}
             multiline
@@ -93,7 +94,7 @@ export function ReviewsPanel({ caseId }: ReviewsPanelProps) {
             onPress={() => void onSubmit()}
           >
             {createMutation.isPending ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={colors.onPrimary} />
             ) : (
               <Text style={styles.submitButtonText}>{t('reviews.submit')}</Text>
             )}
@@ -177,30 +178,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     textTransform: 'uppercase',
-    color: '#666',
+    color: colors.textMuted,
     letterSpacing: 0.5,
   },
   compose: {
     gap: 8,
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 12,
-    backgroundColor: '#fafafa',
+    backgroundColor: colors.surface,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d0d0d0',
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
     minHeight: 80,
     textAlignVertical: 'top',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surfaceElevated,
+    color: colors.text,
   },
   submitButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
@@ -209,12 +211,12 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   submitButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
     fontSize: 14,
   },
   error: {
-    color: '#c0392b',
+    color: colors.danger,
     fontSize: 12,
   },
   loading: {
@@ -222,18 +224,18 @@ const styles = StyleSheet.create({
   },
   empty: {
     fontSize: 13,
-    color: '#666',
+    color: colors.textMuted,
   },
   list: {
     gap: 10,
   },
   reviewItem: {
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 12,
     gap: 6,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -247,10 +249,11 @@ const styles = StyleSheet.create({
   reviewerName: {
     fontSize: 14,
     fontWeight: '600',
+    color: colors.text,
   },
   reviewMeta: {
     fontSize: 11,
-    color: '#666',
+    color: colors.textMuted,
   },
   deleteButton: {
     paddingHorizontal: 4,
@@ -258,12 +261,12 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontSize: 12,
-    color: '#c0392b',
+    color: colors.danger,
     fontWeight: '600',
   },
   reviewBody: {
     fontSize: 13,
     lineHeight: 18,
-    color: '#333',
+    color: colors.text,
   },
 });

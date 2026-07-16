@@ -2,6 +2,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SUBGROUPS } from '../../../src/lib/taxonomy';
+import { colors } from '../../../src/theme/colors';
 
 /**
  * Subgroup picker — the "Кейсы" tab's landing screen. Static taxonomy (no
@@ -38,10 +39,12 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 12,
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
+    color: colors.text,
   },
   listContent: {
     paddingBottom: 24,
@@ -49,20 +52,20 @@ const styles = StyleSheet.create({
   },
   item: {
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
     borderRadius: 10,
     paddingVertical: 16,
     paddingHorizontal: 14,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     marginBottom: 10,
   },
   itemPressed: {
-    backgroundColor: '#f5f7fb',
-    borderColor: '#2563eb',
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.primary,
   },
   itemLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: colors.text,
   },
 });

@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { trpc } from '../src/lib/trpc';
 import type { SerializedNewsItem } from '../src/lib/api-types';
+import { colors } from '../src/theme/colors';
 
 /**
  * Public news list — a pushed route (not a tab), reachable from
@@ -28,7 +29,7 @@ export default function NewsScreen() {
 
       {newsQuery.isLoading ? (
         <View style={styles.centered} testID="news-loading">
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : newsQuery.isError ? (
         <View style={styles.centered} testID="news-error">
@@ -73,18 +74,20 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 12,
+    backgroundColor: colors.background,
   },
   header: {
     gap: 4,
   },
   back: {
     fontSize: 14,
-    color: '#2563eb',
+    color: colors.primary,
     fontWeight: '600',
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
+    color: colors.text,
   },
   centered: {
     flex: 1,
@@ -95,7 +98,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -104,25 +107,25 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 14,
     marginBottom: 10,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     gap: 6,
   },
   cardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1a1a1a',
+    color: colors.text,
   },
   cardDate: {
     fontSize: 12,
-    color: '#999',
+    color: colors.textSubtle,
   },
   cardBody: {
     fontSize: 13,
     lineHeight: 18,
-    color: '#444',
+    color: colors.textMuted,
   },
 });

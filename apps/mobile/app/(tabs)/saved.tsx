@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { trpc } from '../../src/lib/trpc';
 import { CaseCard } from '../../src/components/case-card';
 import type { SavedCaseItem } from '../../src/lib/api-types';
+import { colors } from '../../src/theme/colors';
 
 /**
  * "Сохранённые" tab (SP-4b Task 5). `trpc.saved.list` resolves
@@ -59,7 +60,7 @@ export default function SavedScreen() {
 
       {savedQuery.isLoading ? (
         <View style={styles.centered} testID="saved-loading">
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : savedQuery.isError ? (
         <View style={styles.centered} testID="saved-error">
@@ -108,7 +109,7 @@ function SavedCaseRow({
         style={[styles.unsaveButton, unsaving && styles.unsaveButtonDisabled]}
       >
         {unsaving ? (
-          <ActivityIndicator size="small" color="#c0392b" />
+          <ActivityIndicator size="small" color={colors.danger} />
         ) : (
           <Text style={styles.unsaveButtonText}>{t('saved.unsave')}</Text>
         )}
@@ -122,10 +123,12 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 12,
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
+    color: colors.text,
   },
   centered: {
     flex: 1,
@@ -136,12 +139,12 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
   },
   error: {
-    color: '#c0392b',
+    color: colors.danger,
     fontSize: 13,
   },
   listContent: {
@@ -162,7 +165,7 @@ const styles = StyleSheet.create({
   },
   unsaveButtonText: {
     fontSize: 12,
-    color: '#c0392b',
+    color: colors.danger,
     fontWeight: '600',
   },
 });

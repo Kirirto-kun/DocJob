@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { colors } from '../../../src/theme/colors';
 
 /**
  * The "Мои заявки" tab is itself a small nested stack (submissions list +
@@ -10,5 +11,9 @@ import { Stack } from 'expo-router';
  * the native stack header.
  */
 export default function SubmissionsLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}
+    />
+  );
 }

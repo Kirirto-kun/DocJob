@@ -7,6 +7,7 @@ import { useSession } from '../../src/providers/session';
 import { resolveMediaUrl } from '../../src/lib/config';
 import { ContactForm } from '../../src/components/contact-form';
 import { setLanguage, type SupportedLanguage } from '../../src/i18n';
+import { colors } from '../../src/theme/colors';
 
 /**
  * "Профиль" tab (SP-4b Task 5). Reads the current user via
@@ -97,7 +98,7 @@ export default function ProfileScreen() {
       <Text style={styles.title}>{t('profile.title')}</Text>
 
       {meQuery.isLoading ? (
-        <ActivityIndicator testID="profile-loading" size="large" color="#2563eb" />
+        <ActivityIndicator testID="profile-loading" size="large" color={colors.primary} />
       ) : !user ? (
         <Text style={styles.hint} testID="profile-error">
           {t('profile.loadError')}
@@ -134,7 +135,7 @@ export default function ProfileScreen() {
                 value={photoUrl}
                 onChangeText={setPhotoUrl}
                 placeholder="https://..."
-                placeholderTextColor="#8a8a8a"
+                placeholderTextColor={colors.textMuted}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -153,7 +154,7 @@ export default function ProfileScreen() {
                   disabled={updateMutation.isPending}
                 >
                   {updateMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#fff" />
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
                   ) : (
                     <Text style={styles.saveButtonText}>{t('profile.save')}</Text>
                   )}
@@ -228,7 +229,7 @@ export default function ProfileScreen() {
         disabled={isLoggingOut}
       >
         {isLoggingOut ? (
-          <ActivityIndicator color="#c0392b" />
+          <ActivityIndicator color={colors.danger} />
         ) : (
           <Text style={styles.logoutButtonText}>{t('profile.logout')}</Text>
         )}
@@ -240,6 +241,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
@@ -249,17 +251,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
+    color: colors.text,
   },
   hint: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
   },
   card: {
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     gap: 12,
   },
@@ -267,20 +270,20 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#eef2ff',
+    backgroundColor: colors.surfaceElevated,
   },
   avatarPlaceholder: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#eef2ff',
+    backgroundColor: colors.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitial: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#2563eb',
+    color: colors.primary,
   },
   info: {
     alignItems: 'center',
@@ -289,22 +292,22 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#1a1a1a',
+    color: colors.text,
   },
   email: {
     fontSize: 13,
-    color: '#666',
+    color: colors.textMuted,
   },
   editButton: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#2563eb',
+    borderColor: colors.primary,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   editButtonText: {
-    color: '#2563eb',
+    color: colors.primary,
     fontWeight: '600',
     fontSize: 13,
   },
@@ -315,18 +318,20 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#444',
+    color: colors.textMuted,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d0d0d0',
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
+    backgroundColor: colors.surfaceElevated,
+    color: colors.text,
   },
   error: {
-    color: '#c0392b',
+    color: colors.danger,
     fontSize: 12,
   },
   formButtons: {
@@ -336,26 +341,26 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     flex: 1,
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
   },
   saveButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
     fontSize: 14,
   },
   cancelButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#d0d0d0',
+    borderColor: colors.border,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#444',
+    color: colors.textMuted,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -366,7 +371,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
-    color: '#666',
+    color: colors.textMuted,
     letterSpacing: 0.5,
   },
   languageRow: {
@@ -375,22 +380,22 @@ const styles = StyleSheet.create({
   },
   langChip: {
     borderWidth: 1,
-    borderColor: '#d0d0d0',
+    borderColor: colors.border,
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surfaceElevated,
   },
   langChipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   langChipText: {
     fontSize: 13,
-    color: '#444',
+    color: colors.textMuted,
   },
   langChipTextActive: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   linkRow: {
@@ -398,24 +403,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 14,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   linkRowText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: colors.text,
   },
   linkRowChevron: {
     fontSize: 16,
-    color: '#999',
+    color: colors.textSubtle,
   },
   logoutButton: {
     borderWidth: 1,
-    borderColor: '#c0392b',
+    borderColor: colors.danger,
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
@@ -425,7 +430,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   logoutButtonText: {
-    color: '#c0392b',
+    color: colors.danger,
     fontWeight: '600',
     fontSize: 15,
   },

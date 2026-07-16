@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSession } from '../../src/providers/session';
 import { LoadingView } from '../../src/components/LoadingView';
 import { AnnouncementModal } from '../../src/components/announcement-modal';
+import { colors } from '../../src/theme/colors';
 
 /**
  * The 5-tab product shell (SP-4b Task 3 scope: shell + placeholder screens
@@ -53,7 +54,15 @@ export default function TabsLayout() {
   return (
     <>
       <AnnouncementModal />
-      <Tabs screenOptions={{ headerShown: false }}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          sceneStyle: { backgroundColor: colors.background },
+          tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.textMuted,
+        }}
+      >
         <Tabs.Screen
           name="search"
           options={{

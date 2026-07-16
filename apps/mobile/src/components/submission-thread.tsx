@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { useTranslation } from 'react-i18next';
 import { trpc } from '../lib/trpc';
 import type { SerializedSubmissionMessage } from '../lib/api-types';
+import { colors } from '../theme/colors';
 
 /** `SerializedSubmissionMessage['senderRole']` is the wire-level uppercase role string (see CLAUDE.md's "Roles on the wire are UPPERCASE" note); anything unrecognized falls back to the raw value rather than crashing. */
 function senderRoleLabel(role: string, t: ReturnType<typeof useTranslation>['t']): string {
@@ -95,7 +96,7 @@ export function SubmissionThread({ submissionId, messages }: SubmissionThreadPro
           testID="submission-message-input"
           style={styles.input}
           placeholder={t('submissionThread.placeholder')}
-          placeholderTextColor="#8a8a8a"
+          placeholderTextColor={colors.textMuted}
           value={draft}
           onChangeText={setDraft}
           multiline
@@ -107,7 +108,7 @@ export function SubmissionThread({ submissionId, messages }: SubmissionThreadPro
           disabled={!canSend}
         >
           {sendMutation.isPending ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
             <Text style={styles.sendButtonText}>{t('submissionThread.send')}</Text>
           )}
@@ -125,23 +126,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     textTransform: 'uppercase',
-    color: '#666',
+    color: colors.textMuted,
     letterSpacing: 0.5,
   },
   empty: {
     fontSize: 13,
-    color: '#666',
+    color: colors.textMuted,
   },
   list: {
     gap: 10,
   },
   message: {
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 12,
     gap: 4,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   messageHeader: {
     flexDirection: 'row',
@@ -150,18 +151,19 @@ const styles = StyleSheet.create({
   senderName: {
     fontSize: 13,
     fontWeight: '600',
+    color: colors.text,
   },
   senderRole: {
     fontSize: 11,
-    color: '#666',
+    color: colors.textMuted,
   },
   messageBody: {
     fontSize: 13,
     lineHeight: 18,
-    color: '#333',
+    color: colors.text,
   },
   error: {
-    color: '#c0392b',
+    color: colors.danger,
     fontSize: 12,
   },
   composer: {
@@ -169,17 +171,18 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d0d0d0',
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
     minHeight: 60,
     textAlignVertical: 'top',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surfaceElevated,
+    color: colors.text,
   },
   sendButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
@@ -188,7 +191,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   sendButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
     fontSize: 14,
   },

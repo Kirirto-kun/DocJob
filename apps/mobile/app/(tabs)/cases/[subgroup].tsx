@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { trpc } from '../../../src/lib/trpc';
 import { subgroupLabel } from '../../../src/lib/taxonomy';
 import { CaseCard } from '../../../src/components/case-card';
+import { colors } from '../../../src/theme/colors';
 
 // Comfortably above any real subgroup's case count for this product
 // (a curated case library, not a mass catalog) — a single page keeps this
@@ -37,7 +38,7 @@ export default function CasesBySubgroupScreen() {
 
       {casesQuery.isLoading ? (
         <View style={styles.centered} testID="cases-list-loading">
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : casesQuery.isError ? (
         <View style={styles.centered} testID="cases-list-error">
@@ -67,18 +68,20 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 12,
+    backgroundColor: colors.background,
   },
   header: {
     gap: 4,
   },
   back: {
     fontSize: 14,
-    color: '#2563eb',
+    color: colors.primary,
     fontWeight: '600',
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
+    color: colors.text,
   },
   centered: {
     flex: 1,
@@ -89,7 +92,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
   },

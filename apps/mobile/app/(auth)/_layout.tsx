@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Stack, router, usePathname } from 'expo-router';
 import { useSession } from '../../src/providers/session';
+import { colors } from '../../src/theme/colors';
 
 /**
  * Layout for the unauthenticated/pending auth stack (`login`, `register`,
@@ -38,7 +39,9 @@ export default function AuthLayout() {
   }, [status, pathname]);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}
+    >
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
       <Stack.Screen name="pending" />

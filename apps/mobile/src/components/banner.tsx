@@ -2,6 +2,7 @@ import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { trpc } from '../lib/trpc';
 import { resolveMediaUrl } from '../lib/config';
 import type { BannerInfo } from '../lib/api-types';
+import { colors } from '../theme/colors';
 
 /**
  * Renders every filled slot of the admin-uploaded banner manifest
@@ -77,11 +78,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
   },
   image: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: '#eef2ff',
+    backgroundColor: colors.surfaceElevated,
   },
 });

@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next';
+import { colors } from '../theme/colors';
 
 /**
  * `CaseSubmission.status` (`packages/core/src/submissions/submission.service.ts`'s
@@ -30,11 +31,11 @@ const KNOWN_STATUSES: readonly KnownSubmissionStatus[] = [
 export type SubmissionStatusColors = { bg: string; text: string };
 
 const COLORS: Record<KnownSubmissionStatus, SubmissionStatusColors> = {
-  new: { bg: '#eef2ff', text: '#2563eb' },
-  in_review: { bg: '#fff7e6', text: '#b45309' },
-  accepted: { bg: '#ecfdf3', text: '#15803d' },
-  rejected: { bg: '#fef2f2', text: '#b91c1c' },
-  done: { bg: '#f1f5f9', text: '#334155' },
+  new: { bg: colors.surfaceElevated, text: colors.primary },
+  in_review: { bg: colors.surfaceElevated, text: colors.warning },
+  accepted: { bg: colors.surfaceElevated, text: colors.success },
+  rejected: { bg: colors.dangerSurface, text: colors.danger },
+  done: { bg: colors.surfaceElevated, text: colors.textMuted },
 };
 
 function isKnownStatus(status: string): status is KnownSubmissionStatus {
@@ -46,5 +47,5 @@ export function submissionStatusLabel(status: string, t: TFunction): string {
 }
 
 export function submissionStatusColors(status: string): SubmissionStatusColors {
-  return isKnownStatus(status) ? COLORS[status] : { bg: '#f1f1f1', text: '#555555' };
+  return isKnownStatus(status) ? COLORS[status] : { bg: colors.surfaceElevated, text: colors.textMuted };
 }

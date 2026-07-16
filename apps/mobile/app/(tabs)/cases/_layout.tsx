@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { colors } from '../../../src/theme/colors';
 
 /**
  * The "Кейсы" tab is itself a small nested stack (subgroup picker ->
@@ -10,5 +11,9 @@ import { Stack } from 'expo-router';
  * header/back affordance instead of the native stack header.
  */
 export default function CasesLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}
+    />
+  );
 }

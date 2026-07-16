@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Linking, Modal, Pressable, StyleSheet, Text, 
 import { useTranslation } from 'react-i18next';
 import { trpc } from '../lib/trpc';
 import { resolveMediaUrl } from '../lib/config';
+import { colors } from '../theme/colors';
 
 /**
  * Admin-authored popup ad, shown once per authenticated session
@@ -130,7 +131,7 @@ export function AnnouncementModal() {
             disabled={dismissMutation.isPending}
           >
             {dismissMutation.isPending ? (
-              <ActivityIndicator size="small" color="#666" />
+              <ActivityIndicator size="small" color={colors.textMuted} />
             ) : (
               <Text style={styles.dismissButtonText}>{t('announcement.dismiss')}</Text>
             )}
@@ -144,7 +145,7 @@ export function AnnouncementModal() {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 400,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 20,
     gap: 10,
@@ -162,32 +163,32 @@ const styles = StyleSheet.create({
     height: 160,
     borderRadius: 8,
     marginBottom: 4,
-    backgroundColor: '#eef2ff',
+    backgroundColor: colors.surfaceElevated,
   },
   title: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#1a1a1a',
+    color: colors.text,
   },
   body: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#333',
+    color: colors.text,
   },
   linkButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
     marginTop: 4,
   },
   linkButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
     fontSize: 14,
   },
   dismissError: {
-    color: '#c0392b',
+    color: colors.danger,
     fontSize: 12,
     textAlign: 'center',
   },
@@ -196,7 +197,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   dismissButtonText: {
-    color: '#666',
+    color: colors.textMuted,
     fontWeight: '600',
     fontSize: 13,
   },

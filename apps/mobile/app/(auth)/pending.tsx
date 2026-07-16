@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSession } from '../../src/providers/session';
+import { colors } from '../../src/theme/colors';
 
 /**
  * Shown after registration (`register.tsx` pushes here directly — see its
@@ -42,7 +43,7 @@ export default function PendingScreen() {
         disabled={isLoggingOut}
       >
         {isLoggingOut ? (
-          <ActivityIndicator color="#2563eb" />
+          <ActivityIndicator color={colors.primary} />
         ) : (
           <Text style={styles.buttonText}>{t('auth.pending.logout')}</Text>
         )}
@@ -58,22 +59,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     gap: 16,
+    backgroundColor: colors.background,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',
+    color: colors.text,
   },
   body: {
     fontSize: 15,
     textAlign: 'center',
-    color: '#666',
+    color: colors.textMuted,
     lineHeight: 22,
   },
   button: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#2563eb',
+    borderColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 24,
@@ -83,7 +86,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: '#2563eb',
+    color: colors.primary,
     fontWeight: '600',
     fontSize: 15,
   },

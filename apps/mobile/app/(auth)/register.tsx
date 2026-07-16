@@ -13,6 +13,7 @@ import {
 import { Link, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { trpc } from '../../src/lib/trpc';
+import { colors } from '../../src/theme/colors';
 
 /**
  * Self-registration screen. Calls the public `trpc.users.register`
@@ -72,7 +73,7 @@ export default function RegisterScreen() {
             testID="register-name-input"
             style={styles.input}
             placeholder={t('auth.register.namePlaceholder')}
-            placeholderTextColor="#8a8a8a"
+            placeholderTextColor={colors.textMuted}
             value={name}
             onChangeText={setName}
           />
@@ -84,7 +85,7 @@ export default function RegisterScreen() {
             testID="register-email-input"
             style={styles.input}
             placeholder="doctor@example.com"
-            placeholderTextColor="#8a8a8a"
+            placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
@@ -99,7 +100,7 @@ export default function RegisterScreen() {
             testID="register-password-input"
             style={styles.input}
             placeholder={t('auth.register.passwordPlaceholder')}
-            placeholderTextColor="#8a8a8a"
+            placeholderTextColor={colors.textMuted}
             secureTextEntry
             value={password}
             onChangeText={setPassword}
@@ -119,7 +120,7 @@ export default function RegisterScreen() {
           disabled={!canSubmit}
         >
           {registerMutation.isPending ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.buttonText}>{t('auth.register.submit')}</Text>
           )}
@@ -143,17 +144,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     gap: 4,
+    backgroundColor: colors.background,
   },
   brand: {
     fontSize: 28,
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 4,
+    color: colors.text,
   },
   title: {
     fontSize: 16,
     textAlign: 'center',
-    color: '#666',
+    color: colors.textMuted,
     marginBottom: 24,
   },
   field: {
@@ -163,22 +166,25 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
+    color: colors.text,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d0d0d0',
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
+    backgroundColor: colors.surfaceElevated,
+    color: colors.text,
   },
   error: {
-    color: '#c0392b',
+    color: colors.danger,
     fontSize: 13,
     marginBottom: 10,
   },
   button: {
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',
@@ -188,7 +194,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
     fontSize: 15,
   },
@@ -198,10 +204,10 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   hint: {
-    color: '#666',
+    color: colors.textMuted,
   },
   link: {
-    color: '#2563eb',
+    color: colors.primary,
     fontWeight: '600',
   },
 });

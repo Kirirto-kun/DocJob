@@ -1,5 +1,7 @@
 import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { AppProviders } from '../src/providers/app-providers';
+import { colors } from '../src/theme/colors';
 
 /**
  * Root layout: mounts the full provider stack (QueryClient + tRPC +
@@ -17,7 +19,10 @@ import { AppProviders } from '../src/providers/app-providers';
 export default function RootLayout() {
   return (
     <AppProviders>
-      <Stack screenOptions={{ headerShown: false }} />
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}
+      />
     </AppProviders>
   );
 }

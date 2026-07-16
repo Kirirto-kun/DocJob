@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { trpc } from '../lib/trpc';
+import { colors } from '../theme/colors';
 
 /**
  * Optional "contact support" form, embedded in `app/(tabs)/profile.tsx`
@@ -65,7 +66,7 @@ export function ContactForm() {
             testID="contact-name-input"
             style={styles.input}
             placeholder={t('contact.namePlaceholder')}
-            placeholderTextColor="#8a8a8a"
+            placeholderTextColor={colors.textMuted}
             value={name}
             onChangeText={setName}
           />
@@ -73,7 +74,7 @@ export function ContactForm() {
             testID="contact-email-input"
             style={styles.input}
             placeholder={t('contact.emailPlaceholder')}
-            placeholderTextColor="#8a8a8a"
+            placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
@@ -84,7 +85,7 @@ export function ContactForm() {
             testID="contact-message-input"
             style={[styles.input, styles.textarea]}
             placeholder={t('contact.messagePlaceholder')}
-            placeholderTextColor="#8a8a8a"
+            placeholderTextColor={colors.textMuted}
             value={message}
             onChangeText={setMessage}
             multiline
@@ -102,7 +103,7 @@ export function ContactForm() {
             disabled={!canSubmit}
           >
             {sendMutation.isPending ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text style={styles.submitButtonText}>{t('contact.submit')}</Text>
             )}
@@ -117,42 +118,43 @@ const styles = StyleSheet.create({
   container: {
     gap: 8,
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 14,
-    backgroundColor: '#fafafa',
+    backgroundColor: colors.surface,
   },
   heading: {
     fontSize: 14,
     fontWeight: '700',
     textTransform: 'uppercase',
-    color: '#666',
+    color: colors.textMuted,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d0d0d0',
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surfaceElevated,
+    color: colors.text,
   },
   textarea: {
     minHeight: 80,
     textAlignVertical: 'top',
   },
   error: {
-    color: '#c0392b',
+    color: colors.danger,
     fontSize: 12,
   },
   success: {
-    color: '#15803d',
+    color: colors.success,
     fontSize: 13,
   },
   submitButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
@@ -161,7 +163,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   submitButtonText: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontWeight: '600',
     fontSize: 14,
   },

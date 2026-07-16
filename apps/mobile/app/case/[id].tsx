@@ -6,6 +6,7 @@ import { subgroupLabel } from '../../src/lib/taxonomy';
 import { CaseBodyWebView } from '../../src/components/case-body-webview';
 import { ReviewsPanel } from '../../src/components/reviews-panel';
 import { SaveButton } from '../../src/components/save-button';
+import { colors } from '../../src/theme/colors';
 
 /**
  * Case detail — a pushed route (NOT a tab), reached from a search hit
@@ -30,7 +31,7 @@ export default function CaseDetailScreen() {
   if (caseQuery.isLoading) {
     return (
       <View style={styles.centered} testID="case-detail-loading">
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -91,6 +92,7 @@ export default function CaseDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
@@ -103,10 +105,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     gap: 12,
+    backgroundColor: colors.background,
   },
   back: {
     fontSize: 14,
-    color: '#2563eb',
+    color: colors.primary,
     fontWeight: '600',
     marginBottom: 8,
   },
@@ -117,11 +120,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#1a1a1a',
+    color: colors.text,
   },
   meta: {
     fontSize: 13,
-    color: '#666',
+    color: colors.textMuted,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -129,24 +132,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   badge: {
-    backgroundColor: '#eef2ff',
+    backgroundColor: colors.surfaceElevated,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   badgeOutline: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#d0d0d0',
+    borderColor: colors.border,
   },
   badgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#2563eb',
+    color: colors.primary,
   },
   hint: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textMuted,
     textAlign: 'center',
   },
 });

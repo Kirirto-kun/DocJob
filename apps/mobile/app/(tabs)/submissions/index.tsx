@@ -6,6 +6,7 @@ import { trpc } from '../../../src/lib/trpc';
 import { SUBGROUPS } from '../../../src/lib/taxonomy';
 import { submissionStatusColors, submissionStatusLabel } from '../../../src/lib/submission-status';
 import type { SerializedSubmission } from '../../../src/lib/api-types';
+import { colors as theme } from '../../../src/theme/colors';
 
 const MIN_TITLE_LENGTH = 3;
 const MIN_DESCRIPTION_LENGTH = 10;
@@ -85,7 +86,7 @@ export default function SubmissionsIndexScreen() {
             testID="submission-title-input"
             style={styles.input}
             placeholder={t('submissions.titlePlaceholder')}
-            placeholderTextColor="#8a8a8a"
+            placeholderTextColor={theme.textMuted}
             value={title}
             onChangeText={setTitle}
           />
@@ -93,7 +94,7 @@ export default function SubmissionsIndexScreen() {
             testID="submission-description-input"
             style={[styles.input, styles.textarea]}
             placeholder={t('submissions.descriptionPlaceholder')}
-            placeholderTextColor="#8a8a8a"
+            placeholderTextColor={theme.textMuted}
             value={description}
             onChangeText={setDescription}
             multiline
@@ -128,7 +129,7 @@ export default function SubmissionsIndexScreen() {
             disabled={!canSubmit}
           >
             {createMutation.isPending ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={theme.onPrimary} />
             ) : (
               <Text style={styles.submitButtonText}>{t('submissions.submit')}</Text>
             )}
@@ -138,7 +139,7 @@ export default function SubmissionsIndexScreen() {
 
       {mineQuery.isLoading ? (
         <View style={styles.centered} testID="submissions-loading">
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : mineQuery.isError ? (
         <View style={styles.centered} testID="submissions-error">
@@ -190,6 +191,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 12,
+    backgroundColor: theme.background,
   },
   header: {
     flexDirection: 'row',
@@ -199,34 +201,36 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
+    color: theme.text,
   },
   toggleButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: theme.primary,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   toggleButtonText: {
-    color: '#fff',
+    color: theme.onPrimary,
     fontWeight: '600',
     fontSize: 13,
   },
   form: {
     gap: 10,
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: theme.border,
     borderRadius: 10,
     padding: 12,
-    backgroundColor: '#fafafa',
+    backgroundColor: theme.surface,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d0d0d0',
+    borderColor: theme.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    backgroundColor: '#fff',
+    backgroundColor: theme.surfaceElevated,
+    color: theme.text,
   },
   textarea: {
     minHeight: 90,
@@ -239,30 +243,30 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: '#d0d0d0',
+    borderColor: theme.border,
     borderRadius: 16,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#fff',
+    backgroundColor: theme.surfaceElevated,
   },
   chipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#2563eb',
+    backgroundColor: theme.primary,
+    borderColor: theme.primary,
   },
   chipText: {
     fontSize: 12,
-    color: '#444',
+    color: theme.textMuted,
   },
   chipTextActive: {
-    color: '#fff',
+    color: theme.onPrimary,
     fontWeight: '600',
   },
   error: {
-    color: '#c0392b',
+    color: theme.danger,
     fontSize: 12,
   },
   submitButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: theme.primary,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
@@ -271,7 +275,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   submitButtonText: {
-    color: '#fff',
+    color: theme.onPrimary,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -284,7 +288,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 14,
-    color: '#666',
+    color: theme.textMuted,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -293,16 +297,16 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderColor: '#e2e2e2',
+    borderColor: theme.border,
     borderRadius: 10,
     padding: 14,
     marginBottom: 10,
-    backgroundColor: '#fff',
+    backgroundColor: theme.surface,
     gap: 6,
   },
   cardPressed: {
-    backgroundColor: '#f5f7fb',
-    borderColor: '#2563eb',
+    backgroundColor: theme.surfaceElevated,
+    borderColor: theme.primary,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -314,7 +318,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: theme.text,
   },
   badge: {
     borderRadius: 6,
@@ -327,6 +331,6 @@ const styles = StyleSheet.create({
   },
   cardMeta: {
     fontSize: 12,
-    color: '#666',
+    color: theme.textMuted,
   },
 });

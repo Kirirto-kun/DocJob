@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { trpc } from '../lib/trpc';
+import { colors } from '../theme/colors';
 
 type SaveButtonProps = {
   caseId: string;
@@ -53,7 +54,7 @@ export function SaveButton({ caseId }: SaveButtonProps) {
       style={[styles.button, saved && styles.buttonSaved, disabled && styles.buttonDisabled]}
     >
       {pending ? (
-        <ActivityIndicator size="small" color={saved ? '#fff' : '#2563eb'} />
+        <ActivityIndicator size="small" color={saved ? colors.onPrimary : colors.primary} />
       ) : (
         <Text style={[styles.text, saved && styles.textSaved]} testID="save-button-label">
           {saved ? t('saveButton.saved') : t('saveButton.save')}
@@ -71,7 +72,7 @@ export function SaveButton({ caseId }: SaveButtonProps) {
 const styles = StyleSheet.create({
   button: {
     borderWidth: 1,
-    borderColor: '#2563eb',
+    borderColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -79,21 +80,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonSaved: {
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   text: {
-    color: '#2563eb',
+    color: colors.primary,
     fontWeight: '600',
     fontSize: 14,
   },
   textSaved: {
-    color: '#fff',
+    color: colors.onPrimary,
   },
   error: {
-    color: '#c0392b',
+    color: colors.danger,
     fontSize: 11,
     marginTop: 4,
   },

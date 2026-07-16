@@ -1,4 +1,5 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { colors } from '../theme/colors';
 
 /**
  * Shared full-screen spinner for every place a route needs to WAIT OUT
@@ -19,7 +20,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 export function LoadingView({ testID = 'root-loading' }: { testID?: string }) {
   return (
     <View style={styles.container} testID={testID}>
-      <ActivityIndicator size="large" />
+      <ActivityIndicator size="large" color={colors.primary} />
     </View>
   );
 }
@@ -29,5 +30,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.background,
   },
 });
