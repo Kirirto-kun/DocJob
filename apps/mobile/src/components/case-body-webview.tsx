@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { API_BASE_URL } from '../lib/config';
 
 type CaseBodyWebViewProps = {
   html: string;
@@ -53,9 +54,27 @@ export function CaseBodyWebView({ html }: CaseBodyWebViewProps) {
  * white background / `#2563eb` accent) rather than relying on (or
  * fighting) the OS-level dark-mode auto-inversion some WebView
  * implementations apply to un-styled content.
+ *
+ * Review fix (whole-branch review, Minor): `source={{ html }}` loads this
+ * document at the `about:blank` origin with no base URL, so a case body
+ * embedding an image via a server-relative path (e.g.
+ * `<img src="/api/images/...">`, the same relative shape `resolveMediaUrl`
+ * (`../lib/config.ts`) resolves for native `<Image>` elsewhere in the app)
+ * has nothing to resolve against and silently fails to load. Injecting
+ * `<base href="${API_BASE_URL}/">` gives the document an origin to resolve
+ * relative subresource URLs against, same as a browser tab actually
+ * navigated to that origin would. This only fixes PUBLIC inline images
+ * (`/api/images/*`, no auth required — see `apps/web/src/app/api/images/*`);
+ * body images stored under `/api/attachments/*` require a `Bearer` header
+ * this webview has no way to attach to an `<img>` subresource request, so
+ * those still won't render on mobile. That's a known, documented limitation
+ * left for a future signed-URL or Bearer-proxy pass — out of scope here.
+ * `javaScriptEnabled={false}` and `originWhitelist` above are unaffected: a
+ * `<base>` tag only changes how relative URLs resolve, it does not grant
+ * navigation or script execution on the new origin.
  */
 export function wrapCaseBodyHtml(bodyHtml: string): string {
-  return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" /><style>
+  return `<!DOCTYPE html><html><head><base href="${API_BASE_URL}/" /><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" /><style>
     :root { color-scheme: light; }
     body { margin: 0; padding: 16px; background: #ffffff; color: #1a1a1a; font-family: -apple-system, Roboto, sans-serif; font-size: 16px; line-height: 1.55; }
     h1, h2, h3, h4 { color: #111111; line-height: 1.3; }

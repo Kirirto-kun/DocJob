@@ -393,10 +393,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  languageHint: {
-    fontSize: 11,
-    color: '#999',
-  },
   linkRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

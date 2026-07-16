@@ -7,7 +7,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchMe, login as authLogin, logout as authLogout, onLogout, type LoginResult } from '../lib/auth-client';
+import { PERSIST_KEY } from '../lib/query-persist';
 import type { SerializedUser } from '../lib/api-types';
 
 /**
@@ -55,6 +58,7 @@ function statusForUser(user: SerializedUser | null): SessionStatus {
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SerializedUser | null>(null);
   const [status, setStatus] = useState<SessionStatus>('loading');
+  const queryClient = useQueryClient();
 
   /**
    * Guards against `onLogout` firing more than once for the same
@@ -78,6 +82,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setUser(me);
     setStatus(statusForUser(me));
   }, []);
+
+  /**
+   * Review fix (whole-branch review, Important): the offline-persist cache
+   * (T6, `../lib/query-persist.ts`) writes the WHOLE React Query cache to
+   * AsyncStorage under `PERSIST_KEY`, and query keys are per-procedure+input
+   * — NOT per-user. Left uncleared on logout, a shared device would let the
+   * NEXT user who logs in instantly see the PREVIOUS user's cached
+   * `users.me`/`saved.list`/`submissions.mine`/`reviews.mine` (all PII),
+   * either from the in-memory `QueryClient` (`staleTime` 5min, no refetch
+   * needed) or from the persisted blob (up to `PERSIST_MAX_AGE_MS` = 24h,
+   * even across an app restart) — a real cross-user data-exposure seam for a
+   * medical app. `queryClient.clear()` empties the in-memory cache;
+   * `AsyncStorage.removeItem(PERSIST_KEY)` drops the on-disk snapshot so a
+   * subsequent `restoreClient()` (next app start, before any user is logged
+   * in) has nothing stale to rehydrate. Both operations are idempotent, so
+   * this is safe to call from multiple logout paths without guarding against
+   * double-invocation.
+   */
+  const clearAllCaches = useCallback(async () => {
+    queryClient.clear();
+    await AsyncStorage.removeItem(PERSIST_KEY);
+  }, [queryClient]);
 
   const refetch = useCallback(async () => {
     try {
@@ -121,9 +147,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       loggedOutRef.current = true;
       setUser(null);
       setStatus('unauthenticated');
+      // A forced logout (refresh failure — expired/revoked/reused refresh
+      // token) must wipe the cache exactly like an explicit `logout()` does;
+      // otherwise the next user to log in on this device would still
+      // restore the previous user's cached PII. `loggedOutRef` above already
+      // de-dupes the onLogout burst for a single failed-refresh episode, so
+      // this only runs once per episode (and `clearAllCaches` is idempotent
+      // regardless).
+      void clearAllCaches();
     });
     return unsubscribe;
-  }, []);
+  }, [clearAllCaches]);
 
   const login = useCallback(
     async (email: string, password: string, deviceLabel?: string): Promise<LoginResult> => {
@@ -146,7 +180,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await authLogout();
     applyMe(null);
-  }, [applyMe]);
+    await clearAllCaches();
+  }, [applyMe, clearAllCaches]);
 
   const value: Session = { user, status, login, logout, refetch };
 

@@ -28,21 +28,28 @@ import type { Persister } from '@tanstack/react-query-persist-client';
  * raw form input, e.g. `contact.send`'s message body or `users.updateProfile`'s
  * fields; being explicit here removes any doubt rather than relying on a
  * library default nobody re-reads).
+ *
+ * Exported (SP-4b Task 6 review fix) so `../providers/session.tsx` can drop
+ * the persisted blob directly on logout — query keys are per-procedure+input,
+ * NOT per-user, so on a shared device the NEXT user to log in would otherwise
+ * restore the PREVIOUS user's cached `users.me`/`saved.list`/`submissions.mine`/
+ * `reviews.mine` (all PII) straight from disk. See `SessionProvider`'s
+ * `clearAllCaches` for the in-memory + on-disk clear this key backs.
  */
-const PERSIST_STORAGE_KEY = 'docjob.query-cache';
+export const PERSIST_KEY = 'docjob.query-cache';
 
 export function createAsyncStoragePersister(): Persister {
   return {
     persistClient: async (persistedClient) => {
-      await AsyncStorage.setItem(PERSIST_STORAGE_KEY, JSON.stringify(persistedClient));
+      await AsyncStorage.setItem(PERSIST_KEY, JSON.stringify(persistedClient));
     },
     restoreClient: async () => {
-      const raw = await AsyncStorage.getItem(PERSIST_STORAGE_KEY);
+      const raw = await AsyncStorage.getItem(PERSIST_KEY);
       if (!raw) return undefined;
       return JSON.parse(raw);
     },
     removeClient: async () => {
-      await AsyncStorage.removeItem(PERSIST_STORAGE_KEY);
+      await AsyncStorage.removeItem(PERSIST_KEY);
     },
   };
 }
