@@ -1,18 +1,34 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Redirect } from 'expo-router';
+import { useSession } from '../src/providers/session';
 
 /**
- * Trivial placeholder screen for SP-4b Task 1 (the scaffold/feasibility
- * gate). Real screens (auth stack, tabs, search, cases, ...) land in
- * subsequent SP-4b tasks (see .superpowers/sdd/task-1-brief.md and the
- * sibling task briefs).
+ * The initial "/" gateway route. Cold-launches the app here; once
+ * `useSession().status` resolves (T3's `SessionProvider`, mounted by the
+ * root layout), redirects into the approval-gated auth stack or the tab
+ * shell — mirrors the web app's `isInitialized`-gated role branch
+ * (`apps/web/src/app/page.tsx`).
+ *
+ * `'pending'` routes to `(auth)` too (not a route of its own) — `(auth)`'s
+ * own layout (`app/(auth)/_layout.tsx`) is what actually lands a pending
+ * session on the `pending` screen specifically.
  */
 export default function Index() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>DocJob Mobile</Text>
-      <Text style={styles.subtitle}>Scaffold OK — screens land in later SP-4b tasks.</Text>
-    </View>
-  );
+  const { status } = useSession();
+
+  if (status === 'loading') {
+    return (
+      <View style={styles.container} testID="root-loading">
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (status === 'authenticated') {
+    return <Redirect href="/(tabs)/search" />;
+  }
+
+  return <Redirect href="/(auth)/login" />;
 }
 
 const styles = StyleSheet.create({
@@ -20,14 +36,5 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
   },
 });

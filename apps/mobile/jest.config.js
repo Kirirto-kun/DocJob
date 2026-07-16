@@ -3,7 +3,15 @@ module.exports = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['<rootDir>/jest-setup.ts'],
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)',
+    // `standard-navigation` added on top of jest-expo's default list: it's a
+    // transitive dependency `expo-router` itself needs once code actually
+    // imports router primitives beyond the bare `Stack` (T1's scaffold never
+    // exercised this path) — `Redirect`, `Tabs`, `Stack.Protected`, etc.
+    // (T3). Its `main` entry ships un-transpiled ESM (`import`/`export`),
+    // so without this it fails with "Cannot use import statement outside a
+    // module" the first time anything in the mobile app imports from
+    // `expo-router` beyond the trivial root `Stack`.
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|standard-navigation)',
   ],
   // This monorepo's pnpm hoisting mixes a React 18 web app (apps/web) with
   // this React 19 RN app in the SAME hoisted node_modules root (see
