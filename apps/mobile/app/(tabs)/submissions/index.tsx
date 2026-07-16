@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../../../src/lib/trpc';
 import { SUBGROUPS } from '../../../src/lib/taxonomy';
 import { submissionStatusColors, submissionStatusLabel } from '../../../src/lib/submission-status';
@@ -26,6 +27,7 @@ const MIN_DESCRIPTION_LENGTH = 10;
  * `../cases/index.tsx` -> `../cases/[subgroup].tsx`.
  */
 export default function SubmissionsIndexScreen() {
+  const { t } = useTranslation();
   const utils = trpc.useUtils();
   const mineQuery = trpc.submissions.mine.useQuery();
   const createMutation = trpc.submissions.create.useMutation();
@@ -58,20 +60,22 @@ export default function SubmissionsIndexScreen() {
       setShowForm(false);
       await utils.submissions.mine.invalidate();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось отправить предложение.');
+      setError(e instanceof Error ? e.message : t('submissions.createErrorFallback'));
     }
   };
 
   return (
     <View style={styles.container} testID="submissions-screen">
       <View style={styles.header}>
-        <Text style={styles.title}>Мои заявки</Text>
+        <Text style={styles.title}>{t('submissions.title')}</Text>
         <Pressable
           testID="submission-toggle-form"
           onPress={() => setShowForm((v) => !v)}
           style={styles.toggleButton}
         >
-          <Text style={styles.toggleButtonText}>{showForm ? 'Отмена' : 'Предложить кейс'}</Text>
+          <Text style={styles.toggleButtonText}>
+            {showForm ? t('submissions.toggleCancel') : t('submissions.toggleCreate')}
+          </Text>
         </Pressable>
       </View>
 
@@ -80,7 +84,7 @@ export default function SubmissionsIndexScreen() {
           <TextInput
             testID="submission-title-input"
             style={styles.input}
-            placeholder="Название кейса"
+            placeholder={t('submissions.titlePlaceholder')}
             placeholderTextColor="#8a8a8a"
             value={title}
             onChangeText={setTitle}
@@ -88,7 +92,7 @@ export default function SubmissionsIndexScreen() {
           <TextInput
             testID="submission-description-input"
             style={[styles.input, styles.textarea]}
-            placeholder="Опишите ситуацию (минимум 10 символов)"
+            placeholder={t('submissions.descriptionPlaceholder')}
             placeholderTextColor="#8a8a8a"
             value={description}
             onChangeText={setDescription}
@@ -126,7 +130,7 @@ export default function SubmissionsIndexScreen() {
             {createMutation.isPending ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.submitButtonText}>Отправить</Text>
+              <Text style={styles.submitButtonText}>{t('submissions.submit')}</Text>
             )}
           </Pressable>
         </View>
@@ -138,11 +142,11 @@ export default function SubmissionsIndexScreen() {
         </View>
       ) : mineQuery.isError ? (
         <View style={styles.centered} testID="submissions-error">
-          <Text style={styles.hint}>Не удалось загрузить заявки. Попробуйте ещё раз.</Text>
+          <Text style={styles.hint}>{t('submissions.loadError')}</Text>
         </View>
       ) : items.length === 0 ? (
         <View style={styles.centered} testID="submissions-empty">
-          <Text style={styles.hint}>Вы ещё не предложили ни одного кейса.</Text>
+          <Text style={styles.hint}>{t('submissions.empty')}</Text>
         </View>
       ) : (
         <FlatList
@@ -160,6 +164,7 @@ export default function SubmissionsIndexScreen() {
 }
 
 function SubmissionRow({ item, onPress }: { item: SerializedSubmission; onPress: () => void }) {
+  const { t } = useTranslation();
   const colors = submissionStatusColors(item.status);
   return (
     <Pressable
@@ -170,10 +175,12 @@ function SubmissionRow({ item, onPress }: { item: SerializedSubmission; onPress:
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{item.title}</Text>
         <View style={[styles.badge, { backgroundColor: colors.bg }]}>
-          <Text style={[styles.badgeText, { color: colors.text }]}>{submissionStatusLabel(item.status)}</Text>
+          <Text style={[styles.badgeText, { color: colors.text }]}>
+            {submissionStatusLabel(item.status, t)}
+          </Text>
         </View>
       </View>
-      <Text style={styles.cardMeta}>{item.messageCount} сообщений</Text>
+      <Text style={styles.cardMeta}>{t('submissions.messagesCount', { count: item.messageCount })}</Text>
     </Pressable>
   );
 }

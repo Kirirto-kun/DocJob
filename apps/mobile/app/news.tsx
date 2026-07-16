@@ -1,5 +1,6 @@
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../src/lib/trpc';
 import type { SerializedNewsItem } from '../src/lib/api-types';
 
@@ -12,6 +13,7 @@ import type { SerializedNewsItem } from '../src/lib/api-types';
  * the query itself requires a session.
  */
 export default function NewsScreen() {
+  const { t } = useTranslation();
   const newsQuery = trpc.news.list.useQuery();
   const items = newsQuery.data ?? [];
 
@@ -19,9 +21,9 @@ export default function NewsScreen() {
     <View style={styles.container} testID="news-screen">
       <View style={styles.header}>
         <Pressable testID="news-back" onPress={() => router.back()} hitSlop={8}>
-          <Text style={styles.back}>{'‹ Назад'}</Text>
+          <Text style={styles.back}>{t('news.back')}</Text>
         </Pressable>
-        <Text style={styles.title}>Новости</Text>
+        <Text style={styles.title}>{t('news.title')}</Text>
       </View>
 
       {newsQuery.isLoading ? (
@@ -30,11 +32,11 @@ export default function NewsScreen() {
         </View>
       ) : newsQuery.isError ? (
         <View style={styles.centered} testID="news-error">
-          <Text style={styles.hint}>Не удалось загрузить новости. Попробуйте ещё раз.</Text>
+          <Text style={styles.hint}>{t('news.loadError')}</Text>
         </View>
       ) : items.length === 0 ? (
         <View style={styles.centered} testID="news-empty">
-          <Text style={styles.hint}>Пока нет новостей.</Text>
+          <Text style={styles.hint}>{t('news.empty')}</Text>
         </View>
       ) : (
         <FlatList
@@ -50,8 +52,10 @@ export default function NewsScreen() {
 }
 
 function NewsItemCard({ item }: { item: SerializedNewsItem }) {
+  const { i18n } = useTranslation();
   const parsed = new Date(item.date);
-  const dateLabel = Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleDateString('ru-RU');
+  const dateLocale = i18n.language === 'kk' ? 'kk-KZ' : 'ru-RU';
+  const dateLabel = Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleDateString(dateLocale);
 
   return (
     <View style={styles.card} testID={`news-item-${item.id}`}>

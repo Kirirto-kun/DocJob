@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../../src/lib/trpc';
 import { subgroupLabel } from '../../src/lib/taxonomy';
 import { CaseBodyWebView } from '../../src/components/case-body-webview';
@@ -20,6 +21,7 @@ import { SaveButton } from '../../src/components/save-button';
  * `caseId` from here.
  */
 export default function CaseDetailScreen() {
+  const { t } = useTranslation();
   const { id: rawId } = useLocalSearchParams<{ id: string | string[] }>();
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
 
@@ -37,15 +39,15 @@ export default function CaseDetailScreen() {
     return (
       <View style={styles.centered} testID="case-detail-error">
         <Pressable testID="case-detail-back" onPress={() => router.back()} hitSlop={8}>
-          <Text style={styles.back}>{'‹ Назад'}</Text>
+          <Text style={styles.back}>{t('caseDetail.back')}</Text>
         </Pressable>
-        <Text style={styles.hint}>Не удалось загрузить кейс.</Text>
+        <Text style={styles.hint}>{t('caseDetail.loadError')}</Text>
       </View>
     );
   }
 
   const c = caseQuery.data;
-  const headerMeta = [c.age != null ? `${c.age} лет` : null, c.gender].filter(
+  const headerMeta = [c.age != null ? t('caseDetail.ageYears', { age: c.age }) : null, c.gender].filter(
     (v): v is string => Boolean(v),
   );
 
@@ -56,7 +58,7 @@ export default function CaseDetailScreen() {
       testID="case-detail-screen"
     >
       <Pressable testID="case-detail-back" onPress={() => router.back()} hitSlop={8}>
-        <Text style={styles.back}>{'‹ Назад'}</Text>
+        <Text style={styles.back}>{t('caseDetail.back')}</Text>
       </Pressable>
 
       <View style={styles.header}>

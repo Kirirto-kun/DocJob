@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../../src/lib/trpc';
 import { CaseCard } from '../../src/components/case-card';
 import type { SavedCaseItem } from '../../src/lib/api-types';
@@ -23,6 +24,7 @@ import type { SavedCaseItem } from '../../src/lib/api-types';
  * `save-button.tsx`'s own 3-way invalidation.
  */
 export default function SavedScreen() {
+  const { t } = useTranslation();
   const utils = trpc.useUtils();
   const savedQuery = trpc.saved.list.useQuery();
   const toggleMutation = trpc.saved.toggle.useMutation();
@@ -35,7 +37,7 @@ export default function SavedScreen() {
     try {
       await toggleMutation.mutateAsync(caseId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось убрать кейс из сохранённых.');
+      setError(e instanceof Error ? e.message : t('saved.unsaveErrorFallback'));
       return;
     }
     await Promise.all([
@@ -47,7 +49,7 @@ export default function SavedScreen() {
 
   return (
     <View style={styles.container} testID="saved-screen">
-      <Text style={styles.title}>Сохранённые</Text>
+      <Text style={styles.title}>{t('saved.title')}</Text>
 
       {error ? (
         <Text style={styles.error} testID="saved-error-banner">
@@ -61,11 +63,11 @@ export default function SavedScreen() {
         </View>
       ) : savedQuery.isError ? (
         <View style={styles.centered} testID="saved-error">
-          <Text style={styles.hint}>Не удалось загрузить сохранённые кейсы. Попробуйте ещё раз.</Text>
+          <Text style={styles.hint}>{t('saved.loadError')}</Text>
         </View>
       ) : items.length === 0 ? (
         <View style={styles.centered} testID="saved-empty">
-          <Text style={styles.hint}>У вас пока нет сохранённых кейсов.</Text>
+          <Text style={styles.hint}>{t('saved.empty')}</Text>
         </View>
       ) : (
         <FlatList
@@ -95,6 +97,7 @@ function SavedCaseRow({
   onUnsave: () => void;
   unsaving: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.row} testID={`saved-case-${item.caseId}`}>
       <CaseCard item={item.case} onPress={() => router.push(`/case/${item.caseId}`)} />
@@ -107,7 +110,7 @@ function SavedCaseRow({
         {unsaving ? (
           <ActivityIndicator size="small" color="#c0392b" />
         ) : (
-          <Text style={styles.unsaveButtonText}>Убрать из сохранённых</Text>
+          <Text style={styles.unsaveButtonText}>{t('saved.unsave')}</Text>
         )}
       </Pressable>
     </View>

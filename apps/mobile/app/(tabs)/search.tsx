@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../../src/lib/trpc';
 import { SearchResultCard } from '../../src/components/search-result-card';
 import { Banner } from '../../src/components/banner';
@@ -43,6 +44,7 @@ import { Banner } from '../../src/components/banner';
  * the admin-uploaded banner manifest has no active slots.
  */
 export default function SearchScreen() {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
   const hasQuery = submittedQuery.trim().length > 0;
@@ -64,13 +66,13 @@ export default function SearchScreen() {
   return (
     <View style={styles.container} testID="search-screen">
       <Banner />
-      <Text style={styles.title}>Поиск</Text>
+      <Text style={styles.title}>{t('search.title')}</Text>
 
       <View style={styles.searchRow}>
         <TextInput
           testID="search-input"
           style={styles.input}
-          placeholder="Например: боль в груди у пациента с диабетом"
+          placeholder={t('search.placeholder')}
           placeholderTextColor="#8a8a8a"
           value={query}
           onChangeText={setQuery}
@@ -83,20 +85,18 @@ export default function SearchScreen() {
           onPress={onSubmit}
           disabled={!query.trim()}
         >
-          <Text style={styles.submitButtonText}>Найти</Text>
+          <Text style={styles.submitButtonText}>{t('search.submit')}</Text>
         </Pressable>
       </View>
 
       {!hasQuery ? (
         <View style={styles.centered} testID="search-initial">
-          <Text style={styles.hint}>
-            Опишите клиническую ситуацию своими словами — мы найдём подходящие кейсы.
-          </Text>
+          <Text style={styles.hint}>{t('search.initialHint')}</Text>
         </View>
       ) : isRateLimited ? (
         <View style={styles.centered} testID="search-rate-limited">
           <Text style={styles.errorText}>
-            {searchQuery.error?.message || 'Слишком много запросов. Повторите чуть позже.'}
+            {searchQuery.error?.message || t('search.rateLimitFallback')}
           </Text>
         </View>
       ) : searchQuery.isLoading ? (
@@ -105,11 +105,11 @@ export default function SearchScreen() {
         </View>
       ) : searchQuery.isError ? (
         <View style={styles.centered} testID="search-error">
-          <Text style={styles.errorText}>Не удалось выполнить поиск. Попробуйте ещё раз.</Text>
+          <Text style={styles.errorText}>{t('search.errorFallback')}</Text>
         </View>
       ) : results.length === 0 ? (
         <View style={styles.centered} testID="search-empty">
-          <Text style={styles.hint}>Ничего не найдено по запросу «{submittedQuery}».</Text>
+          <Text style={styles.hint}>{t('search.emptyResult', { query: submittedQuery })}</Text>
         </View>
       ) : (
         <FlatList

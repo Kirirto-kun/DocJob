@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSession } from '../../src/providers/session';
 
 /**
@@ -15,6 +16,7 @@ import { useSession } from '../../src/providers/session';
  * tokens) DOES exist.
  */
 export default function PendingScreen() {
+  const { t } = useTranslation();
   const { logout } = useSession();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -30,11 +32,8 @@ export default function PendingScreen() {
 
   return (
     <View style={styles.container} testID="pending-screen">
-      <Text style={styles.title}>Заявка отправлена</Text>
-      <Text style={styles.body}>
-        Ваш аккаунт ожидает одобрения администратора. Мы сообщим, когда доступ
-        будет открыт — попробуйте войти чуть позже.
-      </Text>
+      <Text style={styles.title}>{t('auth.pending.title')}</Text>
+      <Text style={styles.body}>{t('auth.pending.body')}</Text>
 
       <Pressable
         testID="pending-logout"
@@ -45,7 +44,7 @@ export default function PendingScreen() {
         {isLoggingOut ? (
           <ActivityIndicator color="#2563eb" />
         ) : (
-          <Text style={styles.buttonText}>Выйти</Text>
+          <Text style={styles.buttonText}>{t('auth.pending.logout')}</Text>
         )}
       </Pressable>
     </View>

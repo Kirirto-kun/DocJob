@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../lib/trpc';
 import { useSession } from '../providers/session';
 import type { SerializedReview } from '../lib/api-types';
@@ -27,6 +28,7 @@ const MIN_REVIEW_LENGTH = 10;
  * server-side regardless, so a stale client can't bypass it).
  */
 export function ReviewsPanel({ caseId }: ReviewsPanelProps) {
+  const { t } = useTranslation();
   const { user } = useSession();
   const utils = trpc.useUtils();
   const reviewsQuery = trpc.reviews.forCase.useQuery(caseId);
@@ -51,7 +53,7 @@ export function ReviewsPanel({ caseId }: ReviewsPanelProps) {
         utils.reviews.mine.invalidate(),
       ]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось добавить рецензию.');
+      setError(e instanceof Error ? e.message : t('reviews.addErrorFallback'));
     }
   };
 
@@ -64,20 +66,20 @@ export function ReviewsPanel({ caseId }: ReviewsPanelProps) {
         utils.reviews.mine.invalidate(),
       ]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось удалить рецензию.');
+      setError(e instanceof Error ? e.message : t('reviews.deleteErrorFallback'));
     }
   };
 
   return (
     <View style={styles.container} testID="reviews-panel">
-      <Text style={styles.heading}>Рецензии</Text>
+      <Text style={styles.heading}>{t('reviews.heading')}</Text>
 
       {canWrite ? (
         <View style={styles.compose} testID="reviews-compose">
           <TextInput
             testID="review-draft-input"
             style={styles.input}
-            placeholder="Оставьте рецензию (минимум 10 символов)"
+            placeholder={t('reviews.placeholder')}
             placeholderTextColor="#8a8a8a"
             value={draft}
             onChangeText={setDraft}
@@ -93,7 +95,7 @@ export function ReviewsPanel({ caseId }: ReviewsPanelProps) {
             {createMutation.isPending ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.submitButtonText}>Добавить рецензию</Text>
+              <Text style={styles.submitButtonText}>{t('reviews.submit')}</Text>
             )}
           </Pressable>
         </View>
@@ -109,7 +111,7 @@ export function ReviewsPanel({ caseId }: ReviewsPanelProps) {
         <ActivityIndicator testID="reviews-loading" style={styles.loading} />
       ) : reviews.length === 0 ? (
         <Text style={styles.empty} testID="reviews-empty">
-          Пока нет ни одной рецензии.
+          {t('reviews.empty')}
         </Text>
       ) : (
         <View style={styles.list}>
@@ -139,6 +141,7 @@ function ReviewItem({
   onDelete: () => void;
   deleting: boolean;
 }) {
+  const { t } = useTranslation();
   const meta = [review.reviewerSpecialty, review.reviewerAcademicDegree, review.reviewerWorkplace]
     .filter(Boolean)
     .join(' · ');
@@ -157,7 +160,7 @@ function ReviewItem({
             disabled={deleting}
             style={styles.deleteButton}
           >
-            <Text style={styles.deleteButtonText}>Удалить</Text>
+            <Text style={styles.deleteButtonText}>{t('reviews.delete')}</Text>
           </Pressable>
         ) : null}
       </View>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../lib/trpc';
 
 /**
@@ -17,6 +18,7 @@ import { trpc } from '../lib/trpc';
  * legitimate mobile submission.
  */
 export function ContactForm() {
+  const { t } = useTranslation();
   const sendMutation = trpc.contact.send.useMutation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -45,24 +47,24 @@ export function ContactForm() {
       setEmail('');
       setMessage('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось отправить сообщение.');
+      setError(e instanceof Error ? e.message : t('contact.errorFallback'));
     }
   };
 
   return (
     <View style={styles.container} testID="contact-form">
-      <Text style={styles.heading}>Связаться с поддержкой</Text>
+      <Text style={styles.heading}>{t('contact.heading')}</Text>
 
       {sent ? (
         <Text style={styles.success} testID="contact-form-success">
-          Сообщение отправлено. Спасибо!
+          {t('contact.success')}
         </Text>
       ) : (
         <>
           <TextInput
             testID="contact-name-input"
             style={styles.input}
-            placeholder="Имя"
+            placeholder={t('contact.namePlaceholder')}
             placeholderTextColor="#8a8a8a"
             value={name}
             onChangeText={setName}
@@ -70,7 +72,7 @@ export function ContactForm() {
           <TextInput
             testID="contact-email-input"
             style={styles.input}
-            placeholder="Email"
+            placeholder={t('contact.emailPlaceholder')}
             placeholderTextColor="#8a8a8a"
             autoCapitalize="none"
             autoCorrect={false}
@@ -81,7 +83,7 @@ export function ContactForm() {
           <TextInput
             testID="contact-message-input"
             style={[styles.input, styles.textarea]}
-            placeholder="Сообщение"
+            placeholder={t('contact.messagePlaceholder')}
             placeholderTextColor="#8a8a8a"
             value={message}
             onChangeText={setMessage}
@@ -102,7 +104,7 @@ export function ContactForm() {
             {sendMutation.isPending ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.submitButtonText}>Отправить</Text>
+              <Text style={styles.submitButtonText}>{t('contact.submit')}</Text>
             )}
           </Pressable>
         </>

@@ -120,6 +120,27 @@ describe('SubmissionDetailScreen', () => {
     expect(screen.getByText('Первое сообщение.')).toBeTruthy();
   });
 
+  it('translates every sender role, not just ADMIN (SP-4b Task 6 folded T5 Minor fix)', async () => {
+    mockedByIdQuery.mockReturnValue({
+      data: makeSubmission({
+        messages: [
+          makeMessage({ id: 'm-admin', senderRole: 'ADMIN', body: 'От администратора.' }),
+          makeMessage({ id: 'm-doctor', senderRole: 'DOCTOR', body: 'От врача.' }),
+          makeMessage({ id: 'm-reviewer', senderRole: 'REVIEWER', body: 'От рецензента.' }),
+        ],
+      }),
+      isLoading: false,
+      isError: false,
+    });
+
+    await render(<SubmissionDetailScreen />);
+
+    await waitFor(() => expect(screen.getByTestId('submission-message-m-admin')).toBeTruthy());
+    expect(screen.getByText('Администратор')).toBeTruthy();
+    expect(screen.getByText('Врач')).toBeTruthy();
+    expect(screen.getByText('Рецензент')).toBeTruthy();
+  });
+
   it('sends a new message and invalidates byId + mine', async () => {
     mockedByIdQuery.mockReturnValue({ data: makeSubmission(), isLoading: false, isError: false });
     mockedSendMutateAsync.mockResolvedValue(makeMessage());

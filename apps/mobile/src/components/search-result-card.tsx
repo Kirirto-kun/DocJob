@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import type { SearchHit } from '../lib/api-types';
 import { stripSnippetHtml } from '../lib/html-text';
 
@@ -17,6 +18,7 @@ type SearchResultCardProps = {
  * webview (see that helper's doc comment).
  */
 export function SearchResultCard({ hit, onPress }: SearchResultCardProps) {
+  const { t } = useTranslation();
   const c = hit.case;
   const isSemantic = hit.matchedVia.includes('semantic');
   const isLexical = hit.matchedVia.includes('lexical');
@@ -39,12 +41,12 @@ export function SearchResultCard({ hit, onPress }: SearchResultCardProps) {
         <View style={styles.badgeRow}>
           {isSemantic ? (
             <View testID="badge-semantic" style={styles.badge}>
-              <Text style={styles.badgeText}>Смысл</Text>
+              <Text style={styles.badgeText}>{t('search.badgeSemantic')}</Text>
             </View>
           ) : null}
           {isLexical ? (
             <View testID="badge-lexical" style={styles.badge}>
-              <Text style={styles.badgeText}>Совпадение</Text>
+              <Text style={styles.badgeText}>{t('search.badgeLexical')}</Text>
             </View>
           ) : null}
         </View>

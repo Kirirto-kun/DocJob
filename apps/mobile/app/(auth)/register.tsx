@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Link, router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../../src/lib/trpc';
 
 /**
@@ -28,6 +29,7 @@ import { trpc } from '../../src/lib/trpc';
  * field set core actually requires.
  */
 export default function RegisterScreen() {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,7 +53,7 @@ export default function RegisterScreen() {
       });
       router.replace('/(auth)/pending');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось зарегистрироваться. Попробуйте ещё раз.');
+      setError(e instanceof Error ? e.message : t('auth.register.errorFallback'));
     }
   };
 
@@ -61,15 +63,15 @@ export default function RegisterScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.container} testID="register-screen">
-        <Text style={styles.brand}>DocJob</Text>
-        <Text style={styles.title}>Регистрация</Text>
+        <Text style={styles.brand}>{t('common.appName')}</Text>
+        <Text style={styles.title}>{t('auth.register.title')}</Text>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Имя</Text>
+          <Text style={styles.label}>{t('auth.register.nameLabel')}</Text>
           <TextInput
             testID="register-name-input"
             style={styles.input}
-            placeholder="Иван Иванов"
+            placeholder={t('auth.register.namePlaceholder')}
             placeholderTextColor="#8a8a8a"
             value={name}
             onChangeText={setName}
@@ -77,7 +79,7 @@ export default function RegisterScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>{t('auth.register.emailLabel')}</Text>
           <TextInput
             testID="register-email-input"
             style={styles.input}
@@ -92,11 +94,11 @@ export default function RegisterScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Пароль</Text>
+          <Text style={styles.label}>{t('auth.register.passwordLabel')}</Text>
           <TextInput
             testID="register-password-input"
             style={styles.input}
-            placeholder="Минимум 6 символов"
+            placeholder={t('auth.register.passwordPlaceholder')}
             placeholderTextColor="#8a8a8a"
             secureTextEntry
             value={password}
@@ -119,14 +121,14 @@ export default function RegisterScreen() {
           {registerMutation.isPending ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Зарегистрироваться</Text>
+            <Text style={styles.buttonText}>{t('auth.register.submit')}</Text>
           )}
         </Pressable>
 
         <View style={styles.linksRow}>
-          <Text style={styles.hint}>Уже есть аккаунт? </Text>
+          <Text style={styles.hint}>{t('auth.register.haveAccount')}</Text>
           <Link href="/(auth)/login" testID="register-login-link">
-            <Text style={styles.link}>Войти</Text>
+            <Text style={styles.link}>{t('auth.register.loginCta')}</Text>
           </Link>
         </View>
       </ScrollView>

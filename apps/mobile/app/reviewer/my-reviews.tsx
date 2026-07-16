@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../../src/lib/trpc';
 import { subgroupLabel } from '../../src/lib/taxonomy';
 import type { SerializedReviewWithCase } from '../../src/lib/api-types';
@@ -21,6 +22,7 @@ import type { SerializedReviewWithCase } from '../../src/lib/api-types';
  * `reviews.mine` on success so the deleted entry disappears immediately.
  */
 export default function MyReviewsScreen() {
+  const { t } = useTranslation();
   const utils = trpc.useUtils();
   const reviewsQuery = trpc.reviews.mine.useQuery();
   const deleteMutation = trpc.reviews.delete.useMutation();
@@ -34,7 +36,7 @@ export default function MyReviewsScreen() {
       await deleteMutation.mutateAsync(id);
       await utils.reviews.mine.invalidate();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось удалить рецензию.');
+      setError(e instanceof Error ? e.message : t('myReviews.deleteErrorFallback'));
     }
   };
 
@@ -45,9 +47,9 @@ export default function MyReviewsScreen() {
       testID="my-reviews-screen"
     >
       <Pressable testID="my-reviews-back" onPress={() => router.back()} hitSlop={8}>
-        <Text style={styles.back}>{'‹ Профиль'}</Text>
+        <Text style={styles.back}>{t('myReviews.back')}</Text>
       </Pressable>
-      <Text style={styles.title}>Мои рецензии</Text>
+      <Text style={styles.title}>{t('myReviews.title')}</Text>
 
       {error ? (
         <Text style={styles.error} testID="my-reviews-error-banner">
@@ -61,11 +63,11 @@ export default function MyReviewsScreen() {
         </View>
       ) : reviewsQuery.isError ? (
         <View style={styles.centered} testID="my-reviews-error">
-          <Text style={styles.hint}>Не удалось загрузить рецензии.</Text>
+          <Text style={styles.hint}>{t('myReviews.loadError')}</Text>
         </View>
       ) : items.length === 0 ? (
         <View style={styles.centered} testID="my-reviews-empty">
-          <Text style={styles.hint}>Вы ещё не оставили ни одной рецензии.</Text>
+          <Text style={styles.hint}>{t('myReviews.empty')}</Text>
         </View>
       ) : (
         <View style={styles.list} testID="my-reviews-list">
@@ -95,6 +97,7 @@ function ReviewRow({
   onDelete: () => void;
   deleting: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.card} testID={`my-review-${review.id}`}>
       <Pressable onPress={onPress} testID={`my-review-case-${review.id}`}>
@@ -108,7 +111,7 @@ function ReviewRow({
         disabled={deleting}
         style={styles.deleteButton}
       >
-        <Text style={styles.deleteButtonText}>Удалить</Text>
+        <Text style={styles.deleteButtonText}>{t('myReviews.delete')}</Text>
       </Pressable>
     </View>
   );

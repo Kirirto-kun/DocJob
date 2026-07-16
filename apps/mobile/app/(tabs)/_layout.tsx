@@ -1,5 +1,6 @@
 import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useSession } from '../../src/providers/session';
 import { LoadingView } from '../../src/components/LoadingView';
 import { AnnouncementModal } from '../../src/components/announcement-modal';
@@ -26,7 +27,7 @@ import { AnnouncementModal } from '../../src/components/announcement-modal';
  * requested tab — no bounce, no lost destination. Same discipline as
  * `app/index.tsx`'s `'loading'` branch, hence the shared `LoadingView`.
  *
- * Labels are plain Russian strings for now — i18n keys land in Task 6.
+ * Labels come from `tabs.*` i18n keys (SP-4b Task 6, `../../src/i18n/{ru,kk}.json`).
  * Icons via `@expo/vector-icons`'s `Ionicons` (bundled with Expo, no extra
  * native linking).
  *
@@ -38,6 +39,7 @@ import { AnnouncementModal } from '../../src/components/announcement-modal';
  * `enabled` flag.
  */
 export default function TabsLayout() {
+  const { t } = useTranslation();
   const { status } = useSession();
 
   if (status === 'loading') {
@@ -55,14 +57,14 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="search"
           options={{
-            title: 'Поиск',
+            title: t('tabs.search'),
             tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color} size={size} />,
           }}
         />
         <Tabs.Screen
           name="cases"
           options={{
-            title: 'Кейсы',
+            title: t('tabs.cases'),
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="folder-outline" color={color} size={size} />
             ),
@@ -71,7 +73,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="saved"
           options={{
-            title: 'Сохранённые',
+            title: t('tabs.saved'),
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="bookmark-outline" color={color} size={size} />
             ),
@@ -80,7 +82,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="submissions"
           options={{
-            title: 'Мои заявки',
+            title: t('tabs.submissions'),
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="document-text-outline" color={color} size={size} />
             ),
@@ -89,7 +91,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="profile"
           options={{
-            title: 'Профиль',
+            title: t('tabs.profile'),
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="person-outline" color={color} size={size} />
             ),

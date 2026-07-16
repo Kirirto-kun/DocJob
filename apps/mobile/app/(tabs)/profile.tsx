@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../../src/lib/trpc';
 import { useSession } from '../../src/providers/session';
 import { resolveMediaUrl } from '../../src/lib/config';
 import { ContactForm } from '../../src/components/contact-form';
+import { setLanguage, type SupportedLanguage } from '../../src/i18n';
 
 /**
  * "Профиль" tab (SP-4b Task 5). Reads the current user via
@@ -28,11 +30,16 @@ import { ContactForm } from '../../src/components/contact-form';
  * state — then replaces the stack root with `/(auth)/login`, same pattern as
  * `app/(auth)/pending.tsx`'s own logout button.
  *
- * The language toggle is a UI-only stub (SP-4b Task 5 brief: "wired in
- * Task 6, leave a stub") — it holds local component state and does not
- * persist or affect any rendered copy yet; i18next wiring lands in Task 6.
+ * The language toggle (SP-4b Task 6) calls `../../src/i18n`'s `setLanguage`
+ * directly — that module (not this screen) owns `i18next.changeLanguage` +
+ * the AsyncStorage persistence, so every screen's `useTranslation()` re-
+ * renders with the new catalog immediately and the choice survives an app
+ * restart. Highlighted chip reflects `i18n.language` (via `useTranslation()`
+ * itself, which re-renders on language change) rather than separate local
+ * state, so it can never disagree with what's actually active.
  */
 export default function ProfileScreen() {
+  const { t, i18n } = useTranslation();
   const { logout } = useSession();
   const utils = trpc.useUtils();
   const meQuery = trpc.users.me.useQuery();
@@ -43,10 +50,13 @@ export default function ProfileScreen() {
   const [photoUrl, setPhotoUrl] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [language, setLanguage] = useState<'ru' | 'kk'>('ru');
 
   const user = meQuery.data ?? null;
   const canReview = user?.role === 'ADMIN' || user?.role === 'REVIEWER';
+
+  const onSelectLanguage = (language: SupportedLanguage) => {
+    void setLanguage(language);
+  };
 
   const startEdit = () => {
     if (!user) return;
@@ -68,7 +78,7 @@ export default function ProfileScreen() {
       await utils.users.me.invalidate();
       setEditing(false);
     } catch (e) {
-      setEditError(e instanceof Error ? e.message : 'Не удалось сохранить профиль.');
+      setEditError(e instanceof Error ? e.message : t('profile.saveErrorFallback'));
     }
   };
 
@@ -84,13 +94,13 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} testID="profile-screen">
-      <Text style={styles.title}>Профиль</Text>
+      <Text style={styles.title}>{t('profile.title')}</Text>
 
       {meQuery.isLoading ? (
         <ActivityIndicator testID="profile-loading" size="large" color="#2563eb" />
       ) : !user ? (
         <Text style={styles.hint} testID="profile-error">
-          Не удалось загрузить профиль.
+          {t('profile.loadError')}
         </Text>
       ) : (
         <View style={styles.card} testID="profile-card">
@@ -110,14 +120,14 @@ export default function ProfileScreen() {
 
           {editing ? (
             <View style={styles.form} testID="profile-edit-form">
-              <Text style={styles.label}>Имя</Text>
+              <Text style={styles.label}>{t('profile.nameLabel')}</Text>
               <TextInput
                 testID="profile-name-input"
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
               />
-              <Text style={styles.label}>Ссылка на фото</Text>
+              <Text style={styles.label}>{t('profile.photoLabel')}</Text>
               <TextInput
                 testID="profile-photo-input"
                 style={styles.input}
@@ -145,7 +155,7 @@ export default function ProfileScreen() {
                   {updateMutation.isPending ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={styles.saveButtonText}>Сохранить</Text>
+                    <Text style={styles.saveButtonText}>{t('profile.save')}</Text>
                   )}
                 </Pressable>
                 <Pressable
@@ -153,7 +163,7 @@ export default function ProfileScreen() {
                   style={styles.cancelButton}
                   onPress={() => setEditing(false)}
                 >
-                  <Text style={styles.cancelButtonText}>Отмена</Text>
+                  <Text style={styles.cancelButtonText}>{t('profile.cancel')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -162,7 +172,7 @@ export default function ProfileScreen() {
               <Text style={styles.name}>{user.fullName || user.name}</Text>
               <Text style={styles.email}>{user.email}</Text>
               <Pressable testID="profile-edit-start" style={styles.editButton} onPress={startEdit}>
-                <Text style={styles.editButtonText}>Редактировать</Text>
+                <Text style={styles.editButtonText}>{t('profile.edit')}</Text>
               </Pressable>
             </View>
           )}
@@ -170,32 +180,31 @@ export default function ProfileScreen() {
       )}
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Язык</Text>
+        <Text style={styles.sectionTitle}>{t('profile.languageTitle')}</Text>
         <View style={styles.languageRow} testID="language-toggle">
           <Pressable
             testID="language-ru"
-            onPress={() => setLanguage('ru')}
-            style={[styles.langChip, language === 'ru' && styles.langChipActive]}
+            onPress={() => onSelectLanguage('ru')}
+            style={[styles.langChip, i18n.language === 'ru' && styles.langChipActive]}
           >
-            <Text style={[styles.langChipText, language === 'ru' && styles.langChipTextActive]}>
-              Русский
+            <Text style={[styles.langChipText, i18n.language === 'ru' && styles.langChipTextActive]}>
+              {t('profile.languageRu')}
             </Text>
           </Pressable>
           <Pressable
             testID="language-kk"
-            onPress={() => setLanguage('kk')}
-            style={[styles.langChip, language === 'kk' && styles.langChipActive]}
+            onPress={() => onSelectLanguage('kk')}
+            style={[styles.langChip, i18n.language === 'kk' && styles.langChipActive]}
           >
-            <Text style={[styles.langChipText, language === 'kk' && styles.langChipTextActive]}>
-              Қазақша
+            <Text style={[styles.langChipText, i18n.language === 'kk' && styles.langChipTextActive]}>
+              {t('profile.languageKk')}
             </Text>
           </Pressable>
         </View>
-        <Text style={styles.languageHint}>Переключение языка будет доступно позже.</Text>
       </View>
 
       <Pressable testID="profile-news-link" style={styles.linkRow} onPress={() => router.push('/news')}>
-        <Text style={styles.linkRowText}>Новости</Text>
+        <Text style={styles.linkRowText}>{t('profile.newsLink')}</Text>
         <Text style={styles.linkRowChevron}>›</Text>
       </Pressable>
 
@@ -205,7 +214,7 @@ export default function ProfileScreen() {
           style={styles.linkRow}
           onPress={() => router.push('/reviewer/my-reviews')}
         >
-          <Text style={styles.linkRowText}>Мои рецензии</Text>
+          <Text style={styles.linkRowText}>{t('profile.myReviewsLink')}</Text>
           <Text style={styles.linkRowChevron}>›</Text>
         </Pressable>
       ) : null}
@@ -221,7 +230,7 @@ export default function ProfileScreen() {
         {isLoggingOut ? (
           <ActivityIndicator color="#c0392b" />
         ) : (
-          <Text style={styles.logoutButtonText}>Выйти</Text>
+          <Text style={styles.logoutButtonText}>{t('profile.logout')}</Text>
         )}
       </Pressable>
     </ScrollView>

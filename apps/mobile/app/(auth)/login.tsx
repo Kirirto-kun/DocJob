@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Link } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSession } from '../../src/providers/session';
 
 /**
@@ -30,6 +31,7 @@ import { useSession } from '../../src/providers/session';
  * network/parse failure.
  */
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const { login } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -49,18 +51,16 @@ export default function LoginScreen() {
           // (auth)/_layout.tsx redirects once `status` flips to 'authenticated'.
           return;
         case 'pending':
-          setError('Ваш аккаунт ожидает одобрения администратора.');
+          setError(t('auth.login.errors.pending'));
           return;
         case 'locked':
-          setError(
-            `Слишком много попыток входа. Повторите через ${result.retryAfterSeconds} сек.`,
-          );
+          setError(t('auth.login.errors.locked', { seconds: result.retryAfterSeconds }));
           return;
         case 'invalid':
-          setError('Неверный email или пароль.');
+          setError(t('auth.login.errors.invalid'));
           return;
         default:
-          setError('Ошибка сети. Попробуйте ещё раз.');
+          setError(t('auth.login.errors.network'));
       }
     } finally {
       setIsSubmitting(false);
@@ -73,11 +73,11 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.container} testID="login-screen">
-        <Text style={styles.brand}>DocJob</Text>
-        <Text style={styles.title}>Вход в аккаунт</Text>
+        <Text style={styles.brand}>{t('common.appName')}</Text>
+        <Text style={styles.title}>{t('auth.login.title')}</Text>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>{t('auth.login.emailLabel')}</Text>
           <TextInput
             testID="login-email-input"
             style={styles.input}
@@ -92,7 +92,7 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Пароль</Text>
+          <Text style={styles.label}>{t('auth.login.passwordLabel')}</Text>
           <TextInput
             testID="login-password-input"
             style={styles.input}
@@ -119,14 +119,14 @@ export default function LoginScreen() {
           {isSubmitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Войти</Text>
+            <Text style={styles.buttonText}>{t('auth.login.submit')}</Text>
           )}
         </Pressable>
 
         <View style={styles.linksRow}>
-          <Text style={styles.hint}>Нет аккаунта? </Text>
+          <Text style={styles.hint}>{t('auth.login.noAccount')}</Text>
           <Link href="/(auth)/register" testID="login-register-link">
-            <Text style={styles.link}>Зарегистрироваться</Text>
+            <Text style={styles.link}>{t('auth.login.registerCta')}</Text>
           </Link>
         </View>
       </ScrollView>

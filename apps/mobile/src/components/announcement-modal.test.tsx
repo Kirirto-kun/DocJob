@@ -8,9 +8,11 @@ import type { SerializedAnnouncement } from '../lib/api-types';
  * `announcements.dismiss`, `useUtils`) only.
  */
 type ActiveResult = { data: SerializedAnnouncement[] | undefined };
+type DismissMutationResult = { mutateAsync: typeof mockedDismissMutateAsync; isPending: boolean };
 
 const mockedActiveQuery = jest.fn<() => ActiveResult>();
 const mockedDismissMutateAsync = jest.fn<(id: string) => Promise<{ dismissed: boolean }>>();
+const mockedDismissMutation = jest.fn<() => DismissMutationResult>();
 const mockedInvalidateActive = jest.fn();
 
 jest.mock('../lib/trpc', () => ({
@@ -22,7 +24,7 @@ jest.mock('../lib/trpc', () => ({
     announcements: {
       active: { useQuery: () => mockedActiveQuery() },
       dismiss: {
-        useMutation: () => ({ mutateAsync: mockedDismissMutateAsync, isPending: false }),
+        useMutation: () => mockedDismissMutation(),
       },
     },
   },
@@ -31,8 +33,10 @@ jest.mock('../lib/trpc', () => ({
 beforeEach(() => {
   mockedActiveQuery.mockReset();
   mockedDismissMutateAsync.mockReset();
+  mockedDismissMutation.mockReset();
   mockedInvalidateActive.mockReset();
   mockedDismissMutateAsync.mockResolvedValue({ dismissed: true });
+  mockedDismissMutation.mockReturnValue({ mutateAsync: mockedDismissMutateAsync, isPending: false });
 });
 
 function makeAnnouncement(overrides: Partial<SerializedAnnouncement> = {}): SerializedAnnouncement {
@@ -108,5 +112,46 @@ describe('AnnouncementModal', () => {
 
     await waitFor(() => expect(screen.getByTestId('announcement-link')).toBeTruthy());
     expect(screen.getByText('Узнать больше')).toBeTruthy();
+  });
+
+  it('falls back to the default "Подробнее" link label when linkLabel is not set', async () => {
+    mockedActiveQuery.mockReturnValue({
+      data: [makeAnnouncement({ linkUrl: 'https://docjob.example/promo', linkLabel: null })],
+    });
+
+    await render(<AnnouncementModal />);
+
+    await waitFor(() => expect(screen.getByTestId('announcement-link')).toBeTruthy());
+    expect(screen.getByText('Подробнее')).toBeTruthy();
+  });
+
+  // --- SP-4b Task 6 folded fix (T5 Minor) ---------------------------------
+
+  it('disables the dismiss control and does not double-fire the mutation while a dismiss is pending', async () => {
+    mockedActiveQuery.mockReturnValue({ data: [makeAnnouncement({ id: 'a1' })] });
+    mockedDismissMutation.mockReturnValue({ mutateAsync: mockedDismissMutateAsync, isPending: true });
+
+    await render(<AnnouncementModal />);
+
+    const dismissButton = await screen.findByTestId('announcement-dismiss');
+    expect(dismissButton.props.accessibilityState?.disabled).toBe(true);
+
+    await fireEvent.press(dismissButton);
+
+    expect(mockedDismissMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('shows an inline error and still invalidates when dismiss fails, without crashing', async () => {
+    mockedActiveQuery.mockReturnValue({ data: [makeAnnouncement({ id: 'a1' })] });
+    mockedDismissMutateAsync.mockRejectedValue(new Error('Сеть недоступна.'));
+
+    await render(<AnnouncementModal />);
+
+    await waitFor(() => expect(screen.getByTestId('announcement-dismiss')).toBeTruthy());
+    await fireEvent.press(screen.getByTestId('announcement-dismiss'));
+
+    await waitFor(() => expect(screen.getByTestId('announcement-dismiss-error')).toBeTruthy());
+    expect(screen.getByText('Сеть недоступна.')).toBeTruthy();
+    expect(mockedInvalidateActive).toHaveBeenCalled();
   });
 });

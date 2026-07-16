@@ -1,6 +1,7 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import ProfileScreen from './profile';
+import i18n from '../../src/i18n';
 import type { SerializedUser } from '../../src/lib/api-types';
 
 /**
@@ -59,6 +60,17 @@ beforeEach(() => {
   mockedPush.mockReset();
   mockedReplace.mockReset();
   mockedLogout.mockResolvedValue(undefined);
+});
+
+// The language toggle (SP-4b Task 6) drives the REAL global i18next
+// singleton (`../../src/i18n`, initialized once for the whole test process
+// by `jest-setup.ts`) — not a per-test mock, so a language switch in one
+// test genuinely persists across later `it()` blocks in this file (they all
+// share one module registry). Reset to the `ru` default afterward so this
+// file's other assertions (all written against Russian copy) stay valid
+// regardless of test order.
+afterEach(async () => {
+  await i18n.changeLanguage('ru');
 });
 
 function makeUser(overrides: Partial<SerializedUser> = {}): SerializedUser {
@@ -190,7 +202,7 @@ describe('ProfileScreen', () => {
     expect(screen.queryByTestId('profile-my-reviews-link')).toBeNull();
   });
 
-  it('renders the language toggle stub', async () => {
+  it('renders the language toggle and switches the active UI language (SP-4b Task 6)', async () => {
     mockedMeQuery.mockReturnValue({ data: makeUser(), isLoading: false });
 
     await render(<ProfileScreen />);
@@ -198,6 +210,13 @@ describe('ProfileScreen', () => {
     await waitFor(() => expect(screen.getByTestId('language-toggle')).toBeTruthy());
     expect(screen.getByTestId('language-ru')).toBeTruthy();
     expect(screen.getByTestId('language-kk')).toBeTruthy();
+    // Default (device locale mocked to `en` in jest-setup.ts, falls back to `ru`).
+    expect(screen.getByText('Редактировать')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('language-kk'));
+
+    await waitFor(() => expect(screen.getByText('Өңдеу')).toBeTruthy());
+    expect(screen.queryByText('Редактировать')).toBeNull();
   });
 
   it('submits the embedded contact form via trpc.contact.send', async () => {

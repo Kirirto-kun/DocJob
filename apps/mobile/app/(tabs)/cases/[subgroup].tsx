@@ -1,5 +1,6 @@
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../../../src/lib/trpc';
 import { subgroupLabel } from '../../../src/lib/taxonomy';
 import { CaseCard } from '../../../src/components/case-card';
@@ -13,6 +14,7 @@ const PAGE_SIZE = 100;
 
 /** Per-subgroup case list, reached from `./index.tsx`'s picker. */
 export default function CasesBySubgroupScreen() {
+  const { t } = useTranslation();
   const { subgroup: rawSubgroup } = useLocalSearchParams<{ subgroup: string | string[] }>();
   const subgroup = Array.isArray(rawSubgroup) ? rawSubgroup[0] : rawSubgroup;
 
@@ -28,7 +30,7 @@ export default function CasesBySubgroupScreen() {
     <View style={styles.container} testID="cases-list-screen">
       <View style={styles.header}>
         <Pressable testID="cases-back" onPress={() => router.back()} hitSlop={8}>
-          <Text style={styles.back}>{'‹ Кейсы'}</Text>
+          <Text style={styles.back}>{t('cases.back')}</Text>
         </Pressable>
         <Text style={styles.title}>{subgroupLabel(subgroup)}</Text>
       </View>
@@ -39,11 +41,11 @@ export default function CasesBySubgroupScreen() {
         </View>
       ) : casesQuery.isError ? (
         <View style={styles.centered} testID="cases-list-error">
-          <Text style={styles.hint}>Не удалось загрузить кейсы. Попробуйте ещё раз.</Text>
+          <Text style={styles.hint}>{t('cases.loadError')}</Text>
         </View>
       ) : items.length === 0 ? (
         <View style={styles.centered} testID="cases-list-empty">
-          <Text style={styles.hint}>В этой подгруппе пока нет кейсов.</Text>
+          <Text style={styles.hint}>{t('cases.empty')}</Text>
         </View>
       ) : (
         <FlatList

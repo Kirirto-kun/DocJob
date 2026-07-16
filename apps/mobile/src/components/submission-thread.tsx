@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../lib/trpc';
 import type { SerializedSubmissionMessage } from '../lib/api-types';
+
+/** `SerializedSubmissionMessage['senderRole']` is the wire-level uppercase role string (see CLAUDE.md's "Roles on the wire are UPPERCASE" note); anything unrecognized falls back to the raw value rather than crashing. */
+function senderRoleLabel(role: string, t: ReturnType<typeof useTranslation>['t']): string {
+  if (role === 'ADMIN' || role === 'DOCTOR' || role === 'REVIEWER') {
+    return t(`submissionThread.role.${role}`);
+  }
+  return role;
+}
 
 type SubmissionThreadProps = {
   submissionId: string;
@@ -30,6 +39,7 @@ type SubmissionThreadProps = {
  * invalidation shape.
  */
 export function SubmissionThread({ submissionId, messages }: SubmissionThreadProps) {
+  const { t } = useTranslation();
   const utils = trpc.useUtils();
   const sendMutation = trpc.submissions.sendMessage.useMutation();
   const [draft, setDraft] = useState('');
@@ -48,17 +58,17 @@ export function SubmissionThread({ submissionId, messages }: SubmissionThreadPro
         utils.submissions.mine.invalidate(),
       ]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось отправить сообщение.');
+      setError(e instanceof Error ? e.message : t('submissionThread.errorFallback'));
     }
   };
 
   return (
     <View style={styles.container} testID="submission-thread">
-      <Text style={styles.heading}>Обсуждение</Text>
+      <Text style={styles.heading}>{t('submissionThread.heading')}</Text>
 
       {messages.length === 0 ? (
         <Text style={styles.empty} testID="submission-thread-empty">
-          Сообщений пока нет.
+          {t('submissionThread.empty')}
         </Text>
       ) : (
         <View style={styles.list}>
@@ -66,7 +76,7 @@ export function SubmissionThread({ submissionId, messages }: SubmissionThreadPro
             <View key={m.id} style={styles.message} testID={`submission-message-${m.id}`}>
               <View style={styles.messageHeader}>
                 <Text style={styles.senderName}>{m.senderName}</Text>
-                <Text style={styles.senderRole}>{m.senderRole === 'ADMIN' ? 'Администратор' : m.senderRole}</Text>
+                <Text style={styles.senderRole}>{senderRoleLabel(m.senderRole, t)}</Text>
               </View>
               <Text style={styles.messageBody}>{m.body}</Text>
             </View>
@@ -84,7 +94,7 @@ export function SubmissionThread({ submissionId, messages }: SubmissionThreadPro
         <TextInput
           testID="submission-message-input"
           style={styles.input}
-          placeholder="Написать сообщение..."
+          placeholder={t('submissionThread.placeholder')}
           placeholderTextColor="#8a8a8a"
           value={draft}
           onChangeText={setDraft}
@@ -99,7 +109,7 @@ export function SubmissionThread({ submissionId, messages }: SubmissionThreadPro
           {sendMutation.isPending ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.sendButtonText}>Отправить</Text>
+            <Text style={styles.sendButtonText}>{t('submissionThread.send')}</Text>
           )}
         </Pressable>
       </View>

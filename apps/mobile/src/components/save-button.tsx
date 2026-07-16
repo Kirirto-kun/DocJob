@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../lib/trpc';
 
 type SaveButtonProps = {
@@ -19,6 +20,7 @@ type SaveButtonProps = {
  * required by the Task 4 brief ("invalidate isSaved + saved list on toggle").
  */
 export function SaveButton({ caseId }: SaveButtonProps) {
+  const { t } = useTranslation();
   const utils = trpc.useUtils();
   const isSavedQuery = trpc.saved.isSaved.useQuery(caseId);
   const toggleMutation = trpc.saved.toggle.useMutation();
@@ -33,7 +35,7 @@ export function SaveButton({ caseId }: SaveButtonProps) {
     try {
       await toggleMutation.mutateAsync(caseId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось изменить статус сохранения.');
+      setError(e instanceof Error ? e.message : t('saveButton.errorFallback'));
       return;
     }
     await Promise.all([
@@ -54,7 +56,7 @@ export function SaveButton({ caseId }: SaveButtonProps) {
         <ActivityIndicator size="small" color={saved ? '#fff' : '#2563eb'} />
       ) : (
         <Text style={[styles.text, saved && styles.textSaved]} testID="save-button-label">
-          {saved ? 'Сохранено' : 'Сохранить'}
+          {saved ? t('saveButton.saved') : t('saveButton.save')}
         </Text>
       )}
       {error ? (

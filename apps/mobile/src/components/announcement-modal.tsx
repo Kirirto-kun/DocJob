@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Image, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../lib/trpc';
 import { resolveMediaUrl } from '../lib/config';
 
@@ -30,22 +31,53 @@ import { resolveMediaUrl } from '../lib/config';
  * per-user) durable — so it also "won't reappear" on a later remount/
  * refetch, per the brief's explicit requirement, not just for the rest of
  * this session.
+ *
+ * **Folded fix (SP-4b Task 6, T5 Minor):** `onDismiss` now wraps
+ * `dismissMutation.mutateAsync` in try/catch and surfaces a small inline
+ * error (`announcement-dismiss-error`, same pattern every other screen's
+ * mutation-error handling uses — see e.g. `../../src/components/save-button.tsx`)
+ * instead of letting a rejection propagate as an unhandled promise
+ * rejection out of the fire-and-forget `() => void onDismiss()` handler. The
+ * optimistic `dismissedIds` hide is REVERTED on failure — the announcement
+ * would otherwise have nothing left to attach the error text to (this
+ * component returns `null` once `current` is `null`, and the failed
+ * announcement is the one thing that just got filtered out of `queue`) — so
+ * on a failed dismiss the user sees the SAME announcement again, plus the
+ * error, and can retry. Success still hides instantly (this only fires in
+ * the catch branch). The dismiss control is also now disabled while
+ * `dismissMutation.isPending` (`accessibilityState.disabled`), preventing a
+ * double-tap from firing `mutateAsync` twice for the same announcement.
  */
 export function AnnouncementModal() {
+  const { t } = useTranslation();
   const utils = trpc.useUtils();
   const activeQuery = trpc.announcements.active.useQuery();
   const dismissMutation = trpc.announcements.dismiss.useMutation();
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [dismissError, setDismissError] = useState<string | null>(null);
 
   const queue = (activeQuery.data ?? []).filter((a) => !dismissedIds.has(a.id));
   const current = queue[0] ?? null;
 
   const onDismiss = async () => {
-    if (!current) return;
+    if (!current || dismissMutation.isPending) return;
     const id = current.id;
+    setDismissError(null);
     setDismissedIds((prev) => new Set(prev).add(id));
     try {
       await dismissMutation.mutateAsync(id);
+    } catch (e) {
+      // Revert the optimistic hide on failure — otherwise `current` would
+      // already be null by the time this catch runs (the announcement
+      // filtered itself out of `queue` the instant `dismissedIds` above was
+      // set), and the error message below would have nothing left to attach
+      // to. Un-hiding it also lets the user see + retry the same dismiss.
+      setDismissedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setDismissError(e instanceof Error ? e.message : t('announcement.dismissErrorFallback'));
     } finally {
       await utils.announcements.active.invalidate();
     }
@@ -81,12 +113,27 @@ export function AnnouncementModal() {
               style={styles.linkButton}
               onPress={() => void Linking.openURL(current.linkUrl as string)}
             >
-              <Text style={styles.linkButtonText}>{current.linkLabel || 'Подробнее'}</Text>
+              <Text style={styles.linkButtonText}>{current.linkLabel || t('announcement.moreInfo')}</Text>
             </Pressable>
           ) : null}
 
-          <Pressable testID="announcement-dismiss" style={styles.dismissButton} onPress={() => void onDismiss()}>
-            <Text style={styles.dismissButtonText}>Закрыть</Text>
+          {dismissError ? (
+            <Text style={styles.dismissError} testID="announcement-dismiss-error">
+              {dismissError}
+            </Text>
+          ) : null}
+
+          <Pressable
+            testID="announcement-dismiss"
+            style={styles.dismissButton}
+            onPress={() => void onDismiss()}
+            disabled={dismissMutation.isPending}
+          >
+            {dismissMutation.isPending ? (
+              <ActivityIndicator size="small" color="#666" />
+            ) : (
+              <Text style={styles.dismissButtonText}>{t('announcement.dismiss')}</Text>
+            )}
           </Pressable>
         </View>
       </View>
@@ -138,6 +185,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 14,
+  },
+  dismissError: {
+    color: '#c0392b',
+    fontSize: 12,
+    textAlign: 'center',
   },
   dismissButton: {
     alignItems: 'center',

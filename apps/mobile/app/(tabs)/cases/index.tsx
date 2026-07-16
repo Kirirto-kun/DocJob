@@ -1,5 +1,6 @@
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { SUBGROUPS } from '../../../src/lib/taxonomy';
 
 /**
@@ -9,9 +10,10 @@ import { SUBGROUPS } from '../../../src/lib/taxonomy';
  * (`./[subgroup].tsx`), which does the actual `trpc.cases.listPaged` call.
  */
 export default function CasesIndexScreen() {
+  const { t } = useTranslation();
   return (
     <View style={styles.container} testID="cases-screen">
-      <Text style={styles.title}>Кейсы</Text>
+      <Text style={styles.title}>{t('cases.title')}</Text>
       <FlatList
         testID="subgroup-list"
         data={SUBGROUPS}

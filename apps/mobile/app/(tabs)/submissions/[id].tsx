@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { trpc } from '../../../src/lib/trpc';
 import { submissionStatusColors, submissionStatusLabel } from '../../../src/lib/submission-status';
 import { SubmissionThread } from '../../../src/components/submission-thread';
@@ -13,6 +14,7 @@ import { SubmissionThread } from '../../../src/components/submission-thread';
  * owns the thread rendering + composer + its own invalidation.
  */
 export default function SubmissionDetailScreen() {
+  const { t } = useTranslation();
   const { id: rawId } = useLocalSearchParams<{ id: string | string[] }>();
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
 
@@ -30,9 +32,9 @@ export default function SubmissionDetailScreen() {
     return (
       <View style={styles.centered} testID="submission-detail-error">
         <Pressable testID="submission-detail-back" onPress={() => router.back()} hitSlop={8}>
-          <Text style={styles.back}>{'‹ Мои заявки'}</Text>
+          <Text style={styles.back}>{t('submissions.back')}</Text>
         </Pressable>
-        <Text style={styles.hint}>Не удалось загрузить предложение.</Text>
+        <Text style={styles.hint}>{t('submissions.detailLoadError')}</Text>
       </View>
     );
   }
@@ -47,14 +49,14 @@ export default function SubmissionDetailScreen() {
       testID="submission-detail-screen"
     >
       <Pressable testID="submission-detail-back" onPress={() => router.back()} hitSlop={8}>
-        <Text style={styles.back}>{'‹ Мои заявки'}</Text>
+        <Text style={styles.back}>{t('submissions.back')}</Text>
       </Pressable>
 
       <View style={styles.header}>
         <Text style={styles.title}>{submission.title}</Text>
         <View style={[styles.badge, { backgroundColor: colors.bg }]}>
           <Text style={[styles.badgeText, { color: colors.text }]}>
-            {submissionStatusLabel(submission.status)}
+            {submissionStatusLabel(submission.status, t)}
           </Text>
         </View>
       </View>
