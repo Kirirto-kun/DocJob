@@ -64,9 +64,10 @@ services:
     volumes:
       - uploads:/app/storage/uploads
     healthcheck:
-      # NOTE: /api/health lands in SP-5 T3; until then this 404s (container
-      # still reports unhealthy but SP-5 merges as a unit). Uses Node's http
-      # module directly since the runner image has no curl/wget installed.
+      # /api/health (SP-5 T3, apps/web/src/app/api/health/route.ts) does a
+      # cheap `SELECT 1` DB-liveness check: 200 when up, 503 when the DB is
+      # unreachable. Uses Node's http module directly since the runner image
+      # has no curl/wget installed.
       test:
         [
           "CMD",

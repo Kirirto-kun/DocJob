@@ -22,6 +22,10 @@ function isPublic(pathname: string): boolean {
   if (pathname.startsWith('/api/auth')) return true;
   if (pathname.startsWith('/api/images/')) return true;
   if (pathname.startsWith('/api/i18n/')) return true;
+  // Polled unauthenticated by Docker's healthcheck, Nginx, and uptime
+  // monitors (SP-5 T3, see apps/web/src/app/api/health/route.ts) — must
+  // never redirect to /login or 401.
+  if (pathname === '/api/health') return true;
   if (pathname.startsWith('/_next')) return true;
   if (pathname === '/favicon.ico') return true;
   return false;

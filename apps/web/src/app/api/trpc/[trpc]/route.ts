@@ -5,6 +5,7 @@ import { verificationKeys } from '@/lib/auth-keys';
 import { assertSameOrigin } from '@/lib/csrf';
 import { sendEmail } from '@/lib/email';
 import { SITE_EMAIL } from '@/lib/site';
+import { logger, newRequestId } from '@/lib/logger';
 
 /**
  * `EmailSender` adapter (SP-4a Task 2) backing `ApiContext.email` for every
@@ -68,12 +69,29 @@ function handler(req: Request) {
     const csrfBlock = assertSameOrigin(req);
     if (csrfBlock) return csrfBlock;
   }
+  // Request-scoped id, logged only alongside genuinely unexpected failures
+  // (see `onError` below) — cheap correlation for grepping `docker compose
+  // logs web`, without threading it through `@docjob/api`'s context (that
+  // package stays transport-agnostic; a request id is web-transport plumbing).
+  const requestId = newRequestId();
   return fetchRequestHandler({
     endpoint: '/api/trpc',
     req,
     router: appRouter,
     createContext: ({ req }) =>
       createContext({ req, keys: verificationKeys(), email: webEmailSender, passwordResetBase, contactInboxEmail }),
+    onError: ({ error, path, type }) => {
+      // `errorMapping` in packages/api/src/trpc.ts already turns every
+      // recognized `DomainError` into a specific TRPCError code
+      // (UNAUTHORIZED/BAD_REQUEST/FORBIDDEN/NOT_FOUND/CONFLICT) — that's
+      // expected control flow, not a bug, and isn't logged here. Only the
+      // default `INTERNAL_SERVER_ERROR` wrap (an unrecognized thrown value —
+      // a real bug, a Prisma error, an OpenAI SDK error, ...) is worth an
+      // operator's attention.
+      if (error.code === 'INTERNAL_SERVER_ERROR') {
+        logger.error('unhandled tRPC error', { requestId, path, type, err: error });
+      }
+    },
   });
 }
 

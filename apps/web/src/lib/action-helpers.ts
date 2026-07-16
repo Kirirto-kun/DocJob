@@ -1,5 +1,6 @@
 import { DomainError, type Actor } from '@docjob/core';
 import { getCurrentUser } from '@/lib/session';
+import { logger } from '@/lib/logger';
 
 /**
  * Resolve the current `@docjob/auth` JWT session into the transport-agnostic
@@ -27,6 +28,6 @@ export function toActionResult(e: unknown): { success: false; error: string } {
   if (e instanceof DomainError) {
     return { success: false, error: e.message };
   }
-  console.error('[action-helpers] unexpected error', e);
+  logger.error('unexpected error in server action', { err: e });
   return { success: false, error: 'Что-то пошло не так. Попробуйте позже.' };
 }
