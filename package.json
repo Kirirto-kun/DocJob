@@ -12,7 +12,8 @@
     "test": "turbo test",
     "db:generate": "turbo db:generate",
     "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
   },
   "devDependencies": {
     "turbo": "^2.1.0"

@@ -16,10 +16,13 @@ services:
       timeout: 5s
       retries: 10
 
+  # Next.js standalone server. Runs `prisma migrate deploy` on boot, then
+  # `node apps/web/server.js` (see Dockerfile's `runner` stage / CMD).
   web:
     build:
       context: .
       dockerfile: Dockerfile
+      # default target ("runner") — the minimal standalone image.
     restart: unless-stopped
     depends_on:
       postgres:
@@ -32,22 +35,101 @@ services:
       # (~15m). Leave unset outside of an active rotation.
       AUTH_SECRET_PREVIOUS: ${AUTH_SECRET_PREVIOUS:-}
       AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      # tRPC users.requestPasswordReset builds reset links against this base
+      # (falls back to AUTH_URL, then http://localhost:3000, if unset).
+      PASSWORD_RESET_URL_BASE: ${PASSWORD_RESET_URL_BASE:-}
       UPLOAD_DIR: /app/storage/uploads
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1}
+      # Legacy Genkit flows (src/ai/flows/*, not used by the current UI/actions
+      # beyond a few back-compat wrappers). Optional.
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-      # SEO: search engine ownership verification (read at runtime in metadata)
+      # SEO: canonical links / sitemap.xml / Open Graph + search-engine
+      # ownership verification (read at runtime in metadata; server-side only).
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://docjob.kz}
       GOOGLE_SITE_VERIFICATION: ${GOOGLE_SITE_VERIFICATION:-}
       YANDEX_VERIFICATION: ${YANDEX_VERIFICATION:-}
       # Email (password reset) via Resend. Read at runtime by src/lib/email.ts.
       # Without RESEND_API_KEY the app logs emails to the console instead of sending.
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: "${EMAIL_FROM:-DocJob <noreply@docjob.kz>}"
+      # Opt-in Redis-backed rate-limiters / query-embedding cache (SP-5 T4).
+      # Unset (default) => in-memory implementations, correct for a single
+      # `web` instance. Only meaningful once the `redis` profile is enabled.
+      REDIS_URL: ${REDIS_URL:-}
     ports:
-      - "3000:3000"
+      # Loopback only — Nginx on the host terminates TLS and reverse-proxies
+      # to this port. Do NOT publish 3000 on all interfaces.
+      - "127.0.0.1:3000:3000"
     volumes:
       - uploads:/app/storage/uploads
+    healthcheck:
+      # NOTE: /api/health lands in SP-5 T3; until then this 404s (container
+      # still reports unhealthy but SP-5 merges as a unit). Uses Node's http
+      # module directly since the runner image has no curl/wget installed.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # Embed-durability sweep (SP-3): periodically re-embeds any Case with
+  # embeddingDirty=true. Runs from the Dockerfile's `build` stage (NOT the
+  # slim `runner` used by `web`) because reembed-worker.ts is a tsx script
+  # that imports `@docjob/core` from source — the standalone runner image
+  # only contains the Next.js server bundle + a traced node_modules (no tsx,
+  # no apps/web/src, no workspace package source), so it cannot run this
+  # script. The `build` stage has pnpm + tsx + full source + node_modules
+  # (this repo pins node-linker=hoisted so workspace deps resolve normally),
+  # which is everything reembed-worker.ts needs. Larger image, but correct.
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    working_dir: /app
+    # Bypass the `reembed:cases` npm script's `dotenv -e ../../.env.local -e
+    # ../../.env` wrapper (those files don't exist in the image — env is
+    # injected directly by compose) and invoke tsx directly. The script's own
+    # internal `dotenv.config()` calls (reembed-worker.ts) no-op gracefully
+    # when the files are absent and never override already-set process.env.
+    command: ["node_modules/.bin/tsx", "apps/web/scripts/reembed-worker.ts", "--loop"]
+    environment:
+      DATABASE_URL: postgresql://docjob:${POSTGRES_PASSWORD:-docjob_dev}@postgres:5432/docjob?schema=public
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1}
+      # Sweep interval in ms between reembed passes (default 60000 = 1min,
+      # matching the script's own fallback if this is left unset).
+      REEMBED_INTERVAL_MS: ${REEMBED_INTERVAL_MS:-60000}
+
+  # Optional Redis backend for the SP-5 T4 rate-limiter / query-cache
+  # adapters (multi-instance `web` scale-out). Off by default — start with
+  # `docker compose --profile redis up -d`. Nothing on the deploy-critical
+  # path (T1-T3) requires this.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    profiles: ["redis"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
   uploads:
+  redis_data:
