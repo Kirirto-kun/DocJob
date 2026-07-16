@@ -1,17 +1,36 @@
+# Dependencies / build output (reinstalled + rebuilt inside the image)
 node_modules
+**/node_modules
 .next
+**/.next
+.turbo
+**/.turbo
+dist
+build
+coverage
+
+# VCS / editor / OS cruft
 .git
 .gitignore
-.env
-.env.local
-.env.*.local
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 .vscode
 .idea
 .idx
 .modified
+.DS_Store
+
+# Env files (passed in at `docker run` / compose time, never baked into the image)
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Not needed to build/run the web image
+apps/mobile
 docs
 functions
 legacy_firebase_python
@@ -20,6 +39,15 @@ firebase.json
 firestore.rules
 firestore.indexes.json
 apphosting.yaml
-storage/uploads
+.superpowers
+.claude
 README.md
 CLAUDE.md
+
+# Local uploads (persisted via a volume at runtime, not part of the image)
+storage/uploads
+apps/web/storage/uploads
+
+# Tests
+**/*.test.*
+**/*.spec.*
