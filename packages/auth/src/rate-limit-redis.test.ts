@@ -11,15 +11,28 @@ vi.mock('@docjob/config', () => ({ getRedis: getRedisMock }));
 
 /**
  * Minimal in-memory stand-in for the subset of ioredis `createRedisLimiter`
- * calls. Genuinely implements the relevant Redis semantics (sorted-set score
- * pruning, string-key TTL expiry via `PTTL`) rather than returning canned
- * values, so these tests exercise the SAME window/lock logic a real Redis
- * server would enforce — this IS the "mocked ioredis" the SP-5 T4 brief asks
- * for, scoped to exactly the handful of commands this adapter issues.
+ * calls — `set`/`del`/`pttl` directly, plus a single `EVAL` running the
+ * adapter's `RECORD_FAILURE_SCRIPT` (atomic ZADD + prune-by-score + EXPIRE +
+ * ZCARD, all in one round trip). A JS engine obviously can't execute real
+ * Lua, so this fake hard-codes that ONE script's semantics — genuinely
+ * implementing the relevant Redis semantics (sorted-set score pruning,
+ * TTL expiry via `PTTL` for both string keys AND the fail-set) rather than
+ * returning canned values, so these tests exercise the SAME window/lock
+ * logic a real Redis server would enforce, including that the fail-set's
+ * add and its TTL land together atomically — this IS the "mocked ioredis"
+ * the SP-5 T4 brief asks for, scoped to exactly the handful of commands
+ * this adapter issues.
  */
 function makeFakeRedis(): RedisLike {
   const strings = new Map<string, { value: string; expiresAt: number }>();
-  const zsets = new Map<string, Map<string, number>>(); // key -> member -> score
+  const zsets = new Map<string, { members: Map<string, number>; expiresAt: number | null }>();
+
+  function pruneZset(key: string) {
+    const z = zsets.get(key);
+    if (z && z.expiresAt !== null && z.expiresAt <= Date.now()) {
+      zsets.delete(key);
+    }
+  }
 
   return {
     async set(key, value, _mode, seconds) {
@@ -36,46 +49,49 @@ function makeFakeRedis(): RedisLike {
     },
     async pttl(key) {
       const e = strings.get(key);
-      if (!e) return -2;
-      const remaining = e.expiresAt - Date.now();
-      if (remaining <= 0) {
-        strings.delete(key);
-        return -2;
+      if (e) {
+        const remaining = e.expiresAt - Date.now();
+        if (remaining <= 0) {
+          strings.delete(key);
+          return -2;
+        }
+        return remaining;
       }
-      return remaining;
+      pruneZset(key);
+      const z = zsets.get(key);
+      if (!z) return -2;
+      if (z.expiresAt === null) return -1;
+      return Math.max(0, z.expiresAt - Date.now());
     },
-    async zadd(key, score, member) {
+    async eval(_script, _numkeys, ...args) {
+      // Mirrors RECORD_FAILURE_SCRIPT exactly: KEYS[1]=args[0] (the
+      // fail-set key), ARGV[1..4]=args[1..4] (score, member, windowStart,
+      // ttlSeconds) — see rate-limit-redis.ts's call site.
+      const key = String(args[0]);
+      const score = Number(args[1]);
+      const member = String(args[2]);
+      const windowStart = Number(args[3]);
+      const ttlSeconds = Number(args[4]);
+
+      pruneZset(key);
       let z = zsets.get(key);
       if (!z) {
-        z = new Map();
+        z = { members: new Map(), expiresAt: null };
         zsets.set(key, z);
       }
-      const isNew = !z.has(member);
-      z.set(member, score);
-      return isNew ? 1 : 0;
-    },
-    async zremrangebyscore(key, min, max) {
-      const z = zsets.get(key);
-      if (!z) return 0;
-      const lo = min === '-inf' ? -Infinity : Number(min);
-      const hi = max === '+inf' ? Infinity : Number(max);
-      let n = 0;
-      for (const [member, score] of [...z]) {
-        if (score >= lo && score <= hi) {
-          z.delete(member);
-          n++;
-        }
+      // ZADD
+      z.members.set(member, score);
+      // ZREMRANGEBYSCORE '-inf' windowStart (inclusive)
+      for (const [m, s] of [...z.members]) {
+        if (s <= windowStart) z.members.delete(m);
       }
-      return n;
-    },
-    async zcard(key) {
-      return zsets.get(key)?.size ?? 0;
-    },
-    async expire() {
-      // Not exercised by these tests — the lock key's TTL (via `set ... EX`)
-      // is what `check()` actually reads; the fail-set's EXPIRE is pure
-      // Redis-side cleanup with no observable effect on check()/record().
-      return 1;
+      // EXPIRE — set in the SAME atomic step as the ZADD above. This is
+      // exactly the gap SP-5 T4 closes: a real two-round-trip ZADD-then-
+      // EXPIRE could have the connection drop in between, leaving a
+      // stranded fail-set with members but no TTL.
+      z.expiresAt = Date.now() + ttlSeconds * 1000;
+      // ZCARD
+      return z.members.size;
     },
   };
 }
@@ -148,14 +164,38 @@ describe('createRedisLimiter', () => {
       set: boom,
       del: boom,
       pttl: boom,
-      zadd: boom,
-      zremrangebyscore: boom,
-      zcard: boom,
-      expire: boom,
+      eval: boom,
     };
     const limiter = createRedisLimiter(redis);
     await expect(limiter.record('k', false)).resolves.toBeUndefined();
     expect(await limiter.check('k')).toEqual({ allowed: true, retryAfterSeconds: 0 });
+  });
+
+  // SP-5 T4 robustness fix: ZADD and EXPIRE used to be two separate Redis
+  // round trips (plus ZREMRANGEBYSCORE and ZCARD). If the connection
+  // dropped between the ZADD and the EXPIRE, the fail-set was left with a
+  // member in it and NO expiry, forever. Asserting on `eval` (rather than
+  // separate zadd/expire/zcard spies, which no longer exist on the
+  // adapter's `RedisLike` surface) proves the fix: exactly one Redis
+  // command per failed `record()`, and the fail-set's TTL is set in that
+  // SAME atomic step as its first member being added.
+  it('the fail-set count+ttl semantics match the old ZADD+EXPIRE version, but via one atomic script call', async () => {
+    const redis = makeFakeRedis();
+    const evalSpy = vi.spyOn(redis, 'eval');
+    const limiter = createRedisLimiter(redis, { maxAttempts: 5, windowSeconds: 60, lockSeconds: 30 });
+
+    await limiter.record('k', false);
+    expect(evalSpy).toHaveBeenCalledTimes(1);
+    // Exactly one round trip issued for this failure — the script itself,
+    // not zadd-then-zremrangebyscore-then-expire-then-zcard as four calls.
+    const [scriptArg, numkeysArg] = evalSpy.mock.calls[0]!;
+    expect(typeof scriptArg).toBe('string');
+    expect(numkeysArg).toBe(1);
+
+    // The fail-set gets a TTL in the SAME atomic step as its first ZADD —
+    // there is no observable "member added, no TTL" state (the bug this
+    // fix closes). `pttl` here reads the fake's zset-TTL path directly.
+    expect(await redis.pttl('docjob:login-limiter:fail:k')).toBeGreaterThan(0);
   });
 });
 
@@ -177,12 +217,12 @@ describe('getLoginLimiter selector', () => {
 
   it('uses the Redis-backed limiter when getRedis() returns a client', async () => {
     const fake = makeFakeRedis();
-    const zaddSpy = vi.spyOn(fake, 'zadd');
+    const evalSpy = vi.spyOn(fake, 'eval');
     getRedisMock.mockReturnValue(fake);
     const { getLoginLimiter } = await import('./rate-limit-redis');
     const limiter = getLoginLimiter({ maxAttempts: 1 });
 
     await limiter.record('k', false);
-    expect(zaddSpy).toHaveBeenCalled();
+    expect(evalSpy).toHaveBeenCalled();
   });
 });

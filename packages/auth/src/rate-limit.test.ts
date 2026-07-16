@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { createInMemoryLimiter } from './rate-limit';
+import { createInMemoryLimiter, __createInMemoryLimiterForTests } from './rate-limit';
 
 describe('createInMemoryLimiter', () => {
   afterEach(() => {
@@ -68,5 +68,44 @@ describe('createInMemoryLimiter', () => {
     await a.record('k', false);
     expect((await a.check('k')).allowed).toBe(false);
     expect((await b.check('k')).allowed).toBe(true);
+  });
+});
+
+describe('createInMemoryLimiter — unbounded-key-space eviction (SP-5 T4)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('prunes dead entries once the store crosses the size threshold, without disturbing a locked key', async () => {
+    vi.useFakeTimers();
+    // Test-only variant exposing `store.size` — mirrors an unauthenticated,
+    // attacker-keyed limiter (login's `ip:<addr>` / `email:<addr>` keys)
+    // under a stream of one-off keys tried once and never revisited.
+    const rl = __createInMemoryLimiterForTests({ maxAttempts: 3, windowSeconds: 1, lockSeconds: 30 });
+
+    for (let i = 0; i < 10_001; i++) {
+      // eslint-disable-next-line no-await-in-loop
+      await rl.record(`stale-${i}`, false);
+    }
+    expect(rl.storeSize()).toBe(10_001);
+
+    // Let every one of those failure windows fully elapse (no lock was ever
+    // triggered — a single failure each, below maxAttempts).
+    vi.advanceTimersByTime(1_500);
+
+    // The next `record()` — for a brand-new key — crosses PRUNE_THRESHOLD
+    // and triggers the sweep. The stale entries (no active lock, no
+    // in-window failures) are dropped.
+    await rl.record('locked', false);
+    await rl.record('locked', false);
+    await rl.record('locked', false); // 3rd failure crosses maxAttempts -> locks
+    expect(rl.storeSize()).toBe(1);
+
+    // The locked key's own lock semantics are unaffected by having just
+    // triggered a sweep of unrelated keys.
+    const result = await rl.check('locked');
+    expect(result.allowed).toBe(false);
+    expect(result.retryAfterSeconds).toBeGreaterThan(0);
+    expect(rl.storeSize()).toBe(1); // still just 'locked' — no unbounded growth
   });
 });

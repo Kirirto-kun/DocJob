@@ -22,13 +22,44 @@ interface Window {
   resetAt: number;
 }
 
-export function createFixedWindowLimiter(opts?: { max?: number; windowMs?: number }): FixedWindowLimiter {
-  const max = opts?.max ?? 30;
-  const windowMs = opts?.windowMs ?? 60_000;
-  const store = new Map<string, Window>();
+/**
+ * `store.size` threshold above which `take()` opportunistically sweeps out
+ * expired windows before doing its own work. Chosen high enough that a
+ * healthy, bounded set of active keys (e.g. per-actor search throttling)
+ * never triggers a sweep in normal operation, but low enough that an
+ * unauthenticated, unbounded-key-space caller (e.g. the reset-password
+ * limiter, keyed by attacker-supplied email) gets pruned back down instead
+ * of growing forever.
+ */
+const PRUNE_THRESHOLD = 10_000;
+
+/**
+ * Deletes every entry whose window has already fully elapsed. Only called
+ * once `store.size` crosses `PRUNE_THRESHOLD`, so the common case (few
+ * distinct keys) pays nothing extra per `take()` call.
+ */
+function pruneExpired(store: Map<string, Window>, now: number): void {
+  for (const [key, w] of store) {
+    if (w.resetAt <= now) store.delete(key);
+  }
+}
+
+function buildLimiter(store: Map<string, Window>, max: number, windowMs: number): FixedWindowLimiter {
   return {
     async take(key: string) {
       const now = Date.now();
+      // SP-5 T4 robustness fix: `store` previously only ever grew — an
+      // expired window was overwritten lazily on its NEXT access to that
+      // same key, never evicted outright. An unauthenticated caller with an
+      // attacker-controlled key space (e.g. `resetLimiter`'s `email:<addr>`
+      // keys — see `packages/api/src/routers/users.ts`) could grow this Map
+      // unboundedly by POSTing a stream of distinct emails, since a key that
+      // is never revisited is never cleaned up. Sweeping expired entries
+      // once the store gets large bounds memory by ACTIVE windows instead of
+      // all-time unique keys, without changing behavior for any live key.
+      if (store.size > PRUNE_THRESHOLD) {
+        pruneExpired(store, now);
+      }
       const w = store.get(key);
       if (!w || w.resetAt <= now) {
         store.set(key, { count: 1, resetAt: now + windowMs });
@@ -41,4 +72,29 @@ export function createFixedWindowLimiter(opts?: { max?: number; windowMs?: numbe
       return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil((w.resetAt - now) / 1000)) };
     },
   };
+}
+
+export function createFixedWindowLimiter(opts?: { max?: number; windowMs?: number }): FixedWindowLimiter {
+  const max = opts?.max ?? 30;
+  const windowMs = opts?.windowMs ?? 60_000;
+  const store = new Map<string, Window>();
+  return buildLimiter(store, max, windowMs);
+}
+
+/**
+ * Test-only variant of `createFixedWindowLimiter` that also exposes the
+ * live `Map`'s size, so tests can assert the `PRUNE_THRESHOLD` eviction
+ * behavior above without reaching into module internals. Mirrors the
+ * `__resetRedisForTests` test-escape-hatch naming convention used elsewhere
+ * in the monorepo (`packages/config/src/redis.ts`). Never called from
+ * production code.
+ */
+export function __createFixedWindowLimiterForTests(
+  opts?: { max?: number; windowMs?: number },
+): FixedWindowLimiter & { storeSize(): number } {
+  const max = opts?.max ?? 30;
+  const windowMs = opts?.windowMs ?? 60_000;
+  const store = new Map<string, Window>();
+  const limiter = buildLimiter(store, max, windowMs);
+  return { ...limiter, storeSize: () => store.size };
 }

@@ -12,18 +12,40 @@ export interface RedisLike {
   set(key: string, value: string, mode: 'EX', seconds: number): Promise<'OK' | null>;
   del(...keys: string[]): Promise<number>;
   pttl(key: string): Promise<number>;
-  zadd(key: string, score: number, member: string): Promise<number>;
-  zremrangebyscore(key: string, min: number | string, max: number | string): Promise<number>;
-  zcard(key: string): Promise<number>;
-  expire(key: string, seconds: number): Promise<number>;
+  eval(script: string, numkeys: number, ...args: Array<string | number>): Promise<unknown>;
 }
 
 const PREFIX = 'docjob:login-limiter';
 
 /**
+ * Records one failure into the per-key sorted set, prunes anything that has
+ * aged out of the sliding window, and (re-)sets the set's own TTL — all in
+ * one atomic Lua script — then returns the post-prune failure count.
+ *
+ * SP-5 T4 robustness fix: this used to be four separate round trips
+ * (`ZADD`, `ZREMRANGEBYSCORE`, `EXPIRE`, `ZCARD`). If the connection dropped
+ * between the `ZADD` and the `EXPIRE`, the fail-set was left with a member
+ * in it and NO expiry — same "stranded key" shape as the fixed-window
+ * limiter's INCR/PEXPIRE gap (see `packages/api/src/rate-limit-redis.ts`),
+ * just for the failure-tracking key instead of the lock key: it would sit
+ * in Redis forever once its owner (an IP/email that stops attempting)
+ * stopped touching it, since only a *future* write re-runs the prune step.
+ * A single script closes that gap — Redis executes the whole body as one
+ * atomic operation, so there is no window for a dropped connection to land
+ * in between the add and the expire.
+ */
+const RECORD_FAILURE_SCRIPT = `
+redis.call('ZADD', KEYS[1], ARGV[1], ARGV[2])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[3])
+redis.call('EXPIRE', KEYS[1], ARGV[4])
+return redis.call('ZCARD', KEYS[1])
+`;
+
+/**
  * Redis-backed `AttemptLimiter` — a sliding window via a per-key sorted set
- * (`ZADD`/`ZREMRANGEBYSCORE`/`ZCARD`) mirroring `createInMemoryLimiter`'s
- * semantics exactly: N failures inside `windowSeconds` triggers a lock for
+ * (`ZADD`/`ZREMRANGEBYSCORE`/`ZCARD`, atomically via `RECORD_FAILURE_SCRIPT`)
+ * mirroring `createInMemoryLimiter`'s semantics exactly: N failures inside
+ * `windowSeconds` triggers a lock for
  * `lockSeconds`, a success clears both the failure history and any lock,
  * and the lock auto-expires (`SET ... EX lockSeconds` + `PTTL` on `check`,
  * instead of storing/comparing a `lockedUntil` timestamp ourselves — Redis's
@@ -80,13 +102,13 @@ export function createRedisLimiter(
         // (ZADD replaces the score of an existing member, which would
         // silently undercount).
         const member = `${now}-${Math.random().toString(36).slice(2)}`;
-        await redis.zadd(failKey(key), now, member);
-        await redis.zremrangebyscore(failKey(key), '-inf', windowStart);
-        // Self-cleanup: a key nobody touches again should not live in Redis
-        // forever. windowSeconds is enough — once the window has fully
-        // elapsed the sorted set is empty anyway.
-        await redis.expire(failKey(key), windowSeconds);
-        const count = await redis.zcard(failKey(key));
+        // Add + prune + self-cleanup TTL + count, all as one atomic script
+        // (see RECORD_FAILURE_SCRIPT above) — a key nobody touches again
+        // should not live in Redis forever, and the add and the TTL must
+        // land together or not at all.
+        const count = Number(
+          await redis.eval(RECORD_FAILURE_SCRIPT, 1, failKey(key), now, member, windowStart, windowSeconds),
+        );
         if (count >= maxAttempts) {
           await redis.set(lockKey(key), '1', 'EX', lockSeconds);
         }
