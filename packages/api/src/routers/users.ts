@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import * as core from '@docjob/core';
 import { publicProcedure, protectedProcedure, adminProcedure, router } from '../trpc';
+import { getFixedWindowLimiter } from '../rate-limit-redis';
 
 /**
  * `users` tRPC router — thin wire wrappers over `@docjob/core`'s `users.*`
@@ -52,7 +53,13 @@ import { publicProcedure, protectedProcedure, adminProcedure, router } from '../
  *   response. The reset link is built via `buildResetLink(ctx.passwordResetBase, ...)`
  *   so web and mobile/tRPC-only clients emit an identical link; the email
  *   itself goes out through the injected `ctx.email` port (SP-4a Task 2),
- *   same pattern as `contact.send`.
+ *   same pattern as `contact.send`. SP-5 Task 4 (the deferred SP-4a
+ *   hardening): also gated by `resetLimiter` (below), a per-IP+per-email
+ *   fixed-window throttle — a THROTTLED request takes the exact same
+ *   `{ sent: true }` / no-send path as an unknown-email request, so being
+ *   rate-limited can never be distinguished from "that email isn't
+ *   registered" (the anti-enumeration property extends to the limiter, not
+ *   just to core's own branching).
  *
  * Input schemas: `updateProfile`/`register` reuse core's own input shapes via
  * `z.custom` (core's internal `safeParse` is the real validator, same
@@ -65,6 +72,18 @@ import { publicProcedure, protectedProcedure, adminProcedure, router } from '../
  */
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+/**
+ * Throttles `requestPasswordReset` (SP-5 Task 4, the deferred SP-4a
+ * hardening) — module singleton, same pattern as `search.ts`'s
+ * `searchLimiter`, built via the shared `getFixedWindowLimiter` selector
+ * (Redis-backed when `REDIS_URL` is set, else in-memory). Deliberately more
+ * lenient than login's lockout (5 attempts / 60s / 300s lock): this isn't a
+ * credential-guessing surface, just abuse/spam of the email-sending path, so
+ * a longer window with a slightly higher ceiling is enough — 5 requests per
+ * 15 minutes per key.
+ */
+const resetLimiter = getFixedWindowLimiter({ max: 5, windowMs: 15 * 60_000, namespace: 'reset-pw' });
 
 export const usersRouter = router({
   me: protectedProcedure.query(({ ctx }) => core.users.getUserById(ctx.actor.id)),
@@ -96,9 +115,35 @@ export const usersRouter = router({
   requestPasswordReset: publicProcedure
     .input(z.object({ email: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // SP-5 T4: per-IP+per-email fixed-window throttle, checked BEFORE
+      // core ever runs — two independent keys (same dual-key pattern as
+      // auth's login limiter), so neither "spam one inbox from many IPs"
+      // nor "probe many emails from one IP" escapes unthrottled. `ctx.ip`
+      // is best-effort (see context.ts's `clientIp`) — absent, e.g., in
+      // most router tests that build an `ApiContext` literal directly, or a
+      // deployment with no forwarded-header-setting proxy in front — falls
+      // back to the email-only check rather than pooling every IP-less
+      // caller into one shared bucket.
+      const email = input.email.trim().toLowerCase();
+      const checks = await Promise.all([
+        ctx.ip ? resetLimiter.take(`ip:${ctx.ip}`) : Promise.resolve({ allowed: true, retryAfterSeconds: 0 }),
+        resetLimiter.take(`email:${email}`),
+      ]);
+      if (checks.some((c) => !c.allowed)) {
+        // Anti-enumeration: a throttled request takes the EXACT same path
+        // as an unknown email below (no send, same response) — being
+        // rate-limited must never be a signal distinguishable from "that
+        // email isn't registered".
+        return { sent: true } as const;
+      }
+
       // Anti-enumeration: core returns null for malformed/unknown/unapproved/
-      // throttled — this branch only decides whether to send, never the
-      // response, so the client always sees the same neutral result.
+      // resend-cooldown-throttled (core's OWN per-user cooldown, distinct
+      // from the router-level per-IP+per-email limiter above — that one
+      // guards against burst abuse across many requests, this one prevents
+      // two simultaneously-valid tokens for the same known user) — this
+      // branch only decides whether to send, never the response, so the
+      // client always sees the same neutral result.
       const issued = await core.users.requestPasswordReset(input.email);
       if (issued) {
         const link = core.buildResetLink(ctx.passwordResetBase, issued.rawToken);

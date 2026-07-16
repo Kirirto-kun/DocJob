@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import * as core from '@docjob/core';
 import { protectedProcedure, router } from '../trpc';
-import { createFixedWindowLimiter } from '../rate-limit';
+import { getFixedWindowLimiter } from '../rate-limit-redis';
 
 /**
  * `search` tRPC router — thin wire wrapper over `@docjob/core`'s
@@ -17,17 +17,18 @@ import { createFixedWindowLimiter } from '../rate-limit';
  *
  * SP-3 T5: gated by a per-user fixed-window rate limit (`../rate-limit.ts`)
  * before it ever reaches core, since each call can trigger an OpenAI intent
- * + embedding round-trip. In-memory / module-level so it persists across
- * requests in a process; SP-5 can swap it for a Redis-backed limiter without
- * touching this router's shape.
+ * + embedding round-trip. Module-level singleton, built via SP-5 T4's
+ * `getFixedWindowLimiter` selector — Redis-backed (shared across every
+ * web/worker instance) when `REDIS_URL` is set, else the original
+ * in-process `Map`-backed limiter.
  */
-const searchLimiter = createFixedWindowLimiter({ max: 30, windowMs: 60_000 });
+const searchLimiter = getFixedWindowLimiter({ max: 30, windowMs: 60_000, namespace: 'search' });
 
 export const searchRouter = router({
   search: protectedProcedure
     .input(z.object({ query: z.string() }))
-    .query(({ ctx, input }) => {
-      const gate = searchLimiter.take(`search:${ctx.actor.id}`);
+    .query(async ({ ctx, input }) => {
+      const gate = await searchLimiter.take(`search:${ctx.actor.id}`);
       if (!gate.allowed) {
         throw new TRPCError({
           code: 'TOO_MANY_REQUESTS',

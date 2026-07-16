@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { login, createInMemoryLimiter } from '@docjob/auth';
+import { login, getLoginLimiter } from '@docjob/auth';
 import { assertSameOrigin } from '@/lib/csrf';
 import { setAuthCookies } from '@/lib/auth-cookies';
 import { signingKey } from '@/lib/auth-keys';
@@ -11,11 +11,13 @@ export const runtime = 'nodejs';
 /**
  * Module-singleton limiter, mirroring `@docjob/auth`'s own default — kept
  * explicit here (rather than relying on that internal default) so the
- * limiter instance is unambiguous and test-visible from the web side. Backed
- * by an in-process `Map`; see rate-limit.ts's doc comment re: SP-5's planned
- * Redis swap.
+ * limiter instance is unambiguous and test-visible from the web side. SP-5
+ * T4: `getLoginLimiter()` picks a Redis-backed limiter when `REDIS_URL` is
+ * set (so this route and every other web/worker instance share the same
+ * lockout state), else the original in-process `Map`-backed one — see
+ * `@docjob/auth`'s `rate-limit-redis.ts` / `rate-limit.ts`.
  */
-const limiter = createInMemoryLimiter();
+const limiter = getLoginLimiter();
 
 function clientIp(req: NextRequest): string {
   const forwardedFor = req.headers.get('x-forwarded-for');

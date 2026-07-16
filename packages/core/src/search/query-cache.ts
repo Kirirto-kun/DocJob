@@ -1,8 +1,18 @@
+import { getRedis } from '@docjob/config';
 import { embedText } from './embeddings';
+import { createRedisQueryCache } from './query-cache-redis';
 
+/**
+ * SP-5 T4 note: both methods are `Promise`-returning even though the
+ * in-memory implementation below never actually awaits anything internally
+ * — a Redis-backed cache (`query-cache-redis.ts`) cannot answer `get`/`set`
+ * without a network round trip, and there is no synchronous Redis client in
+ * Node, so the interface has to be async for any backend to satisfy it.
+ * `embedQueryCached`'s two call sites both already `await`.
+ */
 export interface QueryEmbeddingCache {
-  get(key: string): number[] | undefined;
-  set(key: string, vector: number[]): void;
+  get(key: string): Promise<number[] | undefined>;
+  set(key: string, vector: number[]): Promise<void>;
 }
 
 interface Entry { vector: number[]; expiresAt: number; }
@@ -18,13 +28,13 @@ export function createInMemoryQueryCache(opts?: { ttlMs?: number; max?: number }
   const max = opts?.max ?? 500;
   const store = new Map<string, Entry>();
   return {
-    get(key) {
+    async get(key) {
       const e = store.get(key);
       if (!e) return undefined;
       if (e.expiresAt <= Date.now()) { store.delete(key); return undefined; }
       return e.vector;
     },
-    set(key, vector) {
+    async set(key, vector) {
       if (store.size >= max) {
         const oldest = store.keys().next().value;
         if (oldest !== undefined) store.delete(oldest);
@@ -38,8 +48,18 @@ function normalizeQuery(q: string): string {
   return q.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-// Module-level default cache shared across searchCases calls in a process.
-const defaultCache = createInMemoryQueryCache();
+/**
+ * Module-level default cache shared across searchCases calls in a process.
+ * SP-5 T4: Redis-backed (`query-cache-redis.ts`) when `REDIS_URL` is set —
+ * every web/worker instance then shares one query-embedding cache instead
+ * of each process warming its own — else the original in-memory
+ * implementation, unchanged default for a single-VPS deploy. Evaluated once
+ * at import time, same as before.
+ */
+const defaultCache: QueryEmbeddingCache = (() => {
+  const redis = getRedis();
+  return redis ? createRedisQueryCache(redis) : createInMemoryQueryCache();
+})();
 
 /**
  * Embed a query string, memoized by its normalized form. `embed` is injectable
@@ -51,9 +71,9 @@ export async function embedQueryCached(
   embed: (text: string) => Promise<number[]> = embedText,
 ): Promise<number[]> {
   const key = normalizeQuery(query);
-  const hit = cache.get(key);
+  const hit = await cache.get(key);
   if (hit) return hit;
   const vector = await embed(query);
-  cache.set(key, vector);
+  await cache.set(key, vector);
   return vector;
 }

@@ -42,12 +42,26 @@ const ACCESS_COOKIE_NAMES = ['docjob-access', '__Host-docjob-access'];
  * context-construction site sets it from that same `SITE_EMAIL` constant —
  * so there's one source of truth again, consistent with the injected-
  * `EmailSender` pattern above.
+ *
+ * `ip` (SP-5 Task 4): the caller's best-effort client IP, derived below from
+ * `X-Forwarded-For`/`X-Real-IP` — deliberately OPTIONAL (`undefined` when
+ * neither header is present) rather than defaulting to a placeholder like
+ * the web login route's `clientIp()` does. This context is shared by every
+ * router test that builds an `ApiContext` literal directly (bypassing
+ * `createContext`), so making `ip` required would force every one of those
+ * literals to supply one; leaving it optional keeps this a purely additive
+ * change. It's consumed by `users.requestPasswordReset`'s throttle (see
+ * `routers/users.ts`), which falls back to an email-only rate-limit key when
+ * `ip` is absent rather than pooling every IP-less caller into one shared
+ * bucket (a real risk in local dev / any deployment without a
+ * forwarded-header-setting reverse proxy in front).
  */
 export type ApiContext = {
   actor: Actor | null;
   email: EmailSender;
   passwordResetBase: string;
   contactInboxEmail: string;
+  ip?: string;
 };
 
 function bearerToken(req: Request): string | undefined {
@@ -86,6 +100,29 @@ function extractToken(req: Request): string | undefined {
 }
 
 /**
+ * Best-effort client IP from standard reverse-proxy headers. Mirrors
+ * `apps/web/src/app/api/auth/login/route.ts`'s `clientIp()` (that file
+ * can't be imported here — it's web-only, `@docjob/api` stays
+ * transport-agnostic) EXCEPT this one returns `undefined` instead of a
+ * `'127.0.0.1'` fallback: unlike the login route (a single fixed limiter
+ * instance where "no header" realistically only ever means local dev), this
+ * context is shared by every tRPC procedure, and defaulting every header-less
+ * caller to the same literal string would pool them into one shared
+ * rate-limit bucket — see `routers/users.ts`'s `requestPasswordReset`, the
+ * one procedure that currently reads `ctx.ip`.
+ */
+function clientIp(req: Request): string | undefined {
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    const first = forwardedFor.split(',')[0]?.trim();
+    if (first) return first;
+  }
+  const realIp = req.headers.get('x-real-ip');
+  if (realIp) return realIp;
+  return undefined;
+}
+
+/**
  * Builds the tRPC context for one request: verifies the access token (if
  * any), then re-reads the `User` row from Postgres by `claims.sub` — the DB
  * read, not the JWT's own `role`/`approvedAt` claims, is the authority
@@ -105,7 +142,11 @@ export async function createContext(opts: {
   passwordResetBase: string;
   contactInboxEmail: string;
 }): Promise<ApiContext> {
-  const config = { passwordResetBase: opts.passwordResetBase, contactInboxEmail: opts.contactInboxEmail };
+  const config = {
+    passwordResetBase: opts.passwordResetBase,
+    contactInboxEmail: opts.contactInboxEmail,
+    ip: clientIp(opts.req),
+  };
   const token = extractToken(opts.req);
   if (!token) return { actor: null, email: opts.email, ...config };
 

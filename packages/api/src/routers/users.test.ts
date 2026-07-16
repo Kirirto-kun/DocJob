@@ -315,6 +315,67 @@ describe('users router (integration, real Postgres)', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it(
+    'requestPasswordReset throttles per-IP after 5 requests in the window: the 6th is still ' +
+      '{ sent: true } but does NOT call the sender (SP-5 T4, distinct from core\'s own ' +
+      'per-user resend cooldown — each user below is a first-ever, never-throttled-by-core request)',
+    async () => {
+      const send = vi.fn(async (_msg: EmailMessage) => {});
+      const ip = '203.0.113.77';
+      const caller = createCaller({
+        actor: null,
+        email: { send },
+        passwordResetBase: testPasswordResetBase,
+        contactInboxEmail: testContactInboxEmail,
+        ip,
+      });
+
+      // 5 distinct, never-before-requested users from the SAME IP — each is
+      // core's first-ever token for that user, so core's own resend cooldown
+      // never engages; only the router-level per-IP window is in play.
+      for (let i = 0; i < 5; i++) {
+        const email = uniqueEmail(`reset-ip-throttle-${i}`);
+        const user = await prisma.user.create({
+          data: {
+            email,
+            passwordHash: 'unused-in-tests',
+            name: 'Reset IP Throttle User',
+            role: 'DOCTOR',
+            approvedAt: new Date(),
+          },
+          select: { id: true },
+        });
+        createdUserIds.push(user.id);
+
+        const result = await caller.users.requestPasswordReset({ email });
+        expect(result).toEqual({ sent: true });
+      }
+      expect(send).toHaveBeenCalledTimes(5);
+
+      // A 6th, also never-before-requested user from the SAME IP within the
+      // window is throttled — still { sent: true }, and (unlike the first
+      // 5) no email is sent. Proves this is the router-level IP throttle,
+      // not core's cooldown: this user has no prior token at all, so core
+      // itself would have allowed it.
+      const sixthEmail = uniqueEmail('reset-ip-throttle-6th');
+      const sixthUser = await prisma.user.create({
+        data: {
+          email: sixthEmail,
+          passwordHash: 'unused-in-tests',
+          name: 'Reset IP Throttle 6th User',
+          role: 'DOCTOR',
+          approvedAt: new Date(),
+        },
+        select: { id: true },
+      });
+      createdUserIds.push(sixthUser.id);
+
+      const throttled = await caller.users.requestPasswordReset({ email: sixthEmail });
+      expect(throttled).toEqual({ sent: true });
+      expect(send).toHaveBeenCalledTimes(5); // unchanged — the 6th did not send
+    },
+  );
+
   it('checkResetToken returns { valid: false } for a garbage token', async () => {
     const caller = createCaller({
       email: noopEmailSender,

@@ -11,10 +11,12 @@
   },
   "dependencies": {
     "@docjob/auth": "workspace:*",
+    "@docjob/config": "workspace:*",
     "@docjob/core": "workspace:*",
     "@docjob/db": "workspace:*",
     "@docjob/types": "workspace:*",
     "@trpc/server": "^11.0.0",
+    "ioredis": "^5.4.1",
     "zod": "^3.24.2"
   },
   "devDependencies": {

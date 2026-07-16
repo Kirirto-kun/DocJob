@@ -13,10 +13,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@docjob/config": "workspace:*",
     "@docjob/db": "workspace:*",
     "@docjob/types": "workspace:*",
     "@node-rs/argon2": "^2.0.2",
     "bcryptjs": "^2.4.3",
+    "ioredis": "^5.4.1",
     "jose": "^6.2.3",
     "zod": "^3.24.2"
   },

@@ -3,7 +3,8 @@ import type { Role } from '@docjob/db';
 import { hashPassword, verifyPassword, needsRehash } from './passwords';
 import { signAccessToken, type SigningKey } from './tokens';
 import { issueRefreshFamily } from './refresh.service';
-import { createInMemoryLimiter, type AttemptLimiter } from './rate-limit';
+import type { AttemptLimiter } from './rate-limit';
+import { getLoginLimiter } from './rate-limit-redis';
 
 export type LoginResult =
   | {
@@ -18,12 +19,13 @@ export type LoginResult =
   | { status: 'locked'; retryAfterSeconds: number };
 
 /**
- * Default limiter shared across calls that don't inject their own. Backed by
- * a module-level `Map` (see rate-limit.ts) — fine for a single-process
- * deployment; SP-5 swaps this for a Redis-backed `AttemptLimiter` behind the
- * same interface.
+ * Default limiter shared across calls that don't inject their own. SP-5 T4:
+ * `getLoginLimiter()` selects a Redis-backed `AttemptLimiter`
+ * (`rate-limit-redis.ts`) when `REDIS_URL` is set, else the original
+ * module-level `Map`-backed one (`rate-limit.ts`) — correct for a single
+ * process, which remains the default when Redis isn't configured.
  */
-const defaultLimiter: AttemptLimiter = createInMemoryLimiter();
+const defaultLimiter: AttemptLimiter = getLoginLimiter();
 
 /**
  * Lazily-computed argon2id hash of a fixed dummy password. When the email
@@ -79,8 +81,7 @@ export async function login(
   const ipKey = `ip:${input.ip}`;
   const emailKey = `email:${email}`;
 
-  const ipCheck = limiter.check(ipKey);
-  const emailCheck = limiter.check(emailKey);
+  const [ipCheck, emailCheck] = await Promise.all([limiter.check(ipKey), limiter.check(emailKey)]);
   if (!ipCheck.allowed || !emailCheck.allowed) {
     return {
       status: 'locked',
@@ -91,20 +92,17 @@ export async function login(
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
     await verifyPassword(await dummyHash(), input.password);
-    limiter.record(ipKey, false);
-    limiter.record(emailKey, false);
+    await Promise.all([limiter.record(ipKey, false), limiter.record(emailKey, false)]);
     return { status: 'invalid' };
   }
 
   const valid = await verifyPassword(user.passwordHash, input.password);
   if (!valid) {
-    limiter.record(ipKey, false);
-    limiter.record(emailKey, false);
+    await Promise.all([limiter.record(ipKey, false), limiter.record(emailKey, false)]);
     return { status: 'invalid' };
   }
 
-  limiter.record(ipKey, true);
-  limiter.record(emailKey, true);
+  await Promise.all([limiter.record(ipKey, true), limiter.record(emailKey, true)]);
 
   if (needsRehash(user.passwordHash)) {
     const rehashed = await hashPassword(input.password);

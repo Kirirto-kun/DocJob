@@ -1,19 +1,28 @@
 /**
- * In-memory sliding-window attempt limiter, keyed by an arbitrary string
- * (login uses `ip:<ip>` and `email:<email>` keys, checked/recorded
- * independently so a single leaked/shared IP can't lock out every account
- * behind it, and vice versa).
+ * Sliding-window attempt limiter, keyed by an arbitrary string (login uses
+ * `ip:<ip>` and `email:<email>` keys, checked/recorded independently so a
+ * single leaked/shared IP can't lock out every account behind it, and vice
+ * versa).
  *
  * Behind the `AttemptLimiter` interface so SP-5 can swap this module-level
- * `Map`-backed implementation for a Redis-backed one without touching
- * `login.service.ts` — the limiter is passed in (or defaulted) as a plain
+ * `Map`-backed implementation for a Redis-backed one (`rate-limit-redis.ts`)
+ * without touching login.service.ts's call sites beyond `await`ing them —
+ * the limiter is passed in (or defaulted via `getLoginLimiter()`) as a plain
  * dependency, never imported directly by call sites that check/record.
+ *
+ * SP-5 T4 note: both methods are `Promise`-returning even though the
+ * in-memory implementation below never actually awaits anything internally.
+ * This is a deliberate interface change from the pre-SP-5 shape (which had
+ * `check` return its result synchronously) — a Redis-backed limiter cannot
+ * answer `check`/`record` without a network round trip, and there is no
+ * synchronous Redis client in Node, so the interface has to be async for
+ * ANY backend to satisfy it. Every call site now `await`s both methods.
  */
 export interface AttemptLimiter {
   /** Whether `key` may attempt right now, without recording anything. */
-  check(key: string): { allowed: boolean; retryAfterSeconds: number };
+  check(key: string): Promise<{ allowed: boolean; retryAfterSeconds: number }>;
   /** Records the outcome of an attempt for `key`. A success clears the window. */
-  record(key: string, success: boolean): void;
+  record(key: string, success: boolean): Promise<void>;
 }
 
 interface Entry {
@@ -52,7 +61,7 @@ export function createInMemoryLimiter(opts?: {
   }
 
   return {
-    check(key) {
+    async check(key) {
       const now = Date.now();
       const entry = pruneAndGet(key, now);
       if (entry.lockedUntil !== null) {
@@ -65,7 +74,7 @@ export function createInMemoryLimiter(opts?: {
       }
       return { allowed: true, retryAfterSeconds: 0 };
     },
-    record(key, success) {
+    async record(key, success) {
       const now = Date.now();
       const entry = pruneAndGet(key, now);
       if (success) {
