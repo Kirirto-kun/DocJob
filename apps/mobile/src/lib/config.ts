@@ -32,3 +32,21 @@ function resolveApiBaseUrl(): string {
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
+
+/**
+ * Every `Serialized*` media field the API hands back (`Case.images[].url`,
+ * `Case.attachments[].url`, `SerializedUser.profilePhotoUrl`,
+ * `SerializedAnnouncement.imageUrl`, `BannerInfo.url`, ...) is a
+ * server-relative path (`/api/images/<filename>`), matching how the web
+ * client resolves them — a same-origin `<img src="/api/images/...">` just
+ * works there because the browser is already on that origin. React Native
+ * has no implicit origin, so any of these paths handed to RN's `<Image>` (or
+ * `react-native-webview`) must be resolved against `API_BASE_URL` first, or
+ * the load silently fails (a relative `uri` has nothing to resolve against).
+ * Already-absolute URLs (`https://...`, e.g. a future S3-backed
+ * `MediaStorage` returning a CDN link) pass through unchanged.
+ */
+export function resolveMediaUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}

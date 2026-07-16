@@ -23,3 +23,13 @@ export type SerializedSubmission = RouterOutputs['submissions']['mine'][number];
 export type SerializedUser = NonNullable<RouterOutputs['users']['me']>;
 export type SerializedNewsItem = RouterOutputs['news']['list'][number];
 export type SerializedAnnouncement = RouterOutputs['announcements']['active'][number];
+
+// SP-4b Task 5 additions (Saved / Submissions / Profile / News / Announcements
+// / Banners) — same derivation discipline as above: every alias comes from
+// `inferRouterOutputs<AppRouter>`, never from `@docjob/core`'s mapper types.
+export type SavedCaseItem = RouterOutputs['saved']['list'][number];
+export type SerializedSubmissionDetail = RouterOutputs['submissions']['byId'];
+export type SerializedSubmissionMessage = SerializedSubmissionDetail['messages'][number];
+export type SerializedReviewWithCase = RouterOutputs['reviews']['mine'][number];
+export type BannerManifest = RouterOutputs['banners']['get'];
+export type BannerInfo = NonNullable<BannerManifest[keyof BannerManifest]>;

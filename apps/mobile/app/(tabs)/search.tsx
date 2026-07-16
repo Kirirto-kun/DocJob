@@ -11,6 +11,7 @@ import {
 import { router } from 'expo-router';
 import { trpc } from '../../src/lib/trpc';
 import { SearchResultCard } from '../../src/components/search-result-card';
+import { Banner } from '../../src/components/banner';
 
 /**
  * AI hybrid-search tab (SP-4b Task 4). `trpc.search.search` wraps
@@ -34,6 +35,12 @@ import { SearchResultCard } from '../../src/components/search-result-card';
  * (the server error shape tRPC attaches to every `TRPCClientError`) to
  * render that message in its own distinct banner rather than the generic
  * error state.
+ *
+ * `<Banner />` (SP-4b Task 5, `../../src/components/banner.tsx`) is mounted
+ * at the top — this is the tab a user lands on immediately after login
+ * (`app/index.tsx`'s `'authenticated'` redirect target), so it's the most
+ * visible "sensible" placement per that task's brief. Renders nothing when
+ * the admin-uploaded banner manifest has no active slots.
  */
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
@@ -56,6 +63,7 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container} testID="search-screen">
+      <Banner />
       <Text style={styles.title}>Поиск</Text>
 
       <View style={styles.searchRow}>

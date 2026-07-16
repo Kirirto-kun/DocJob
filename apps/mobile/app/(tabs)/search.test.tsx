@@ -18,12 +18,22 @@ type QueryResult = {
 
 const mockedUseQuery = jest.fn<(input: unknown, opts: unknown) => QueryResult>();
 
+// `banners.get.useQuery` is mocked here too (rather than mocking
+// `../../src/components/banner` away) because `<Banner />` is now mounted
+// at the top of this screen (SP-4b Task 5) — an always-empty manifest keeps
+// `<Banner />` a no-op render (see `banner.test.tsx` for its own dedicated
+// coverage of the non-empty case) without touching any assertion below.
 jest.mock('../../src/lib/trpc', () => ({
   __esModule: true,
   trpc: {
     search: {
       search: {
         useQuery: (input: unknown, opts: unknown) => mockedUseQuery(input, opts),
+      },
+    },
+    banners: {
+      get: {
+        useQuery: () => ({ data: undefined, isLoading: false, isError: false }),
       },
     },
   },
