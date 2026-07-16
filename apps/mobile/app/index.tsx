@@ -1,6 +1,6 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useSession } from '../src/providers/session';
+import { LoadingView } from '../src/components/LoadingView';
 
 /**
  * The initial "/" gateway route. Cold-launches the app here; once
@@ -17,11 +17,7 @@ export default function Index() {
   const { status } = useSession();
 
   if (status === 'loading') {
-    return (
-      <View style={styles.container} testID="root-loading">
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <LoadingView />;
   }
 
   if (status === 'authenticated') {
@@ -30,11 +26,3 @@ export default function Index() {
 
   return <Redirect href="/(auth)/login" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

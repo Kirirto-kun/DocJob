@@ -93,6 +93,31 @@ describe('SessionProvider / useSession', () => {
     expect(result.current.user).toBeNull();
   });
 
+  it('resolves to "unauthenticated" (not stuck at "loading") when fetchMe rejects with a network error on mount', async () => {
+    mockedAuthClient.fetchMe.mockRejectedValueOnce(new Error('network request failed'));
+
+    const { result } = await renderHook(() => useSession(), { wrapper: SessionProvider });
+
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+    expect(result.current.user).toBeNull();
+  });
+
+  it('refetch() resolves to "unauthenticated" instead of throwing when fetchMe rejects', async () => {
+    mockedAuthClient.fetchMe
+      .mockResolvedValueOnce(approvedUser) // initial mount
+      .mockRejectedValueOnce(new Error('offline')); // explicit refetch() call
+
+    const { result } = await renderHook(() => useSession(), { wrapper: SessionProvider });
+    await waitFor(() => expect(result.current.status).toBe('authenticated'));
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    expect(result.current.status).toBe('unauthenticated');
+    expect(result.current.user).toBeNull();
+  });
+
   it('treats a user with approvedAt: null as "pending"', async () => {
     mockedAuthClient.fetchMe.mockResolvedValue(pendingUser);
 
@@ -127,10 +152,8 @@ describe('SessionProvider / useSession', () => {
     expect(result.current.user).toBeNull();
   });
 
-  it('login() delegates to auth-client.login and, on success, re-fetches "me" to update status', async () => {
-    mockedAuthClient.fetchMe
-      .mockResolvedValueOnce(null) // initial mount
-      .mockResolvedValueOnce(approvedUser); // post-login refetch
+  it('login() delegates to auth-client.login and, on success, applies the user the login endpoint already returned', async () => {
+    mockedAuthClient.fetchMe.mockResolvedValueOnce(null); // initial mount only
     mockedAuthClient.login.mockResolvedValue({ status: 'ok', user: approvedUser });
 
     const { result } = await renderHook(() => useSession(), { wrapper: SessionProvider });
@@ -145,6 +168,29 @@ describe('SessionProvider / useSession', () => {
     expect(loginResult).toEqual({ status: 'ok', user: approvedUser });
     expect(result.current.status).toBe('authenticated');
     expect(result.current.user).toEqual(approvedUser);
+    // `login()` applies `result.user` directly rather than re-fetching "me"
+    // — only the initial mount call to `fetchMe` should have happened.
+    expect(mockedAuthClient.fetchMe).toHaveBeenCalledTimes(1);
+  });
+
+  it('login() success is immune to a "would-be" fetchMe network blip, since it never makes a second fetchMe call', async () => {
+    mockedAuthClient.fetchMe
+      .mockResolvedValueOnce(null) // initial mount
+      .mockRejectedValueOnce(new Error('network blip')); // consumed only if login() wrongly re-fetches
+    mockedAuthClient.login.mockResolvedValue({ status: 'ok', user: approvedUser });
+
+    const { result } = await renderHook(() => useSession(), { wrapper: SessionProvider });
+    await waitFor(() => expect(result.current.status).toBe('unauthenticated'));
+
+    let loginResult: unknown;
+    await act(async () => {
+      loginResult = await result.current.login('doc@example.com', 'secret');
+    });
+
+    expect(loginResult).toEqual({ status: 'ok', user: approvedUser });
+    expect(result.current.status).toBe('authenticated');
+    expect(result.current.user).toEqual(approvedUser);
+    expect(mockedAuthClient.fetchMe).toHaveBeenCalledTimes(1);
   });
 
   it('login() surfaces a "pending" result without touching session status', async () => {

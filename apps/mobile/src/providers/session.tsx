@@ -80,8 +80,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refetch = useCallback(async () => {
-    const me = await fetchMe();
-    applyMe(me);
+    try {
+      const me = await fetchMe();
+      applyMe(me);
+    } catch {
+      // `fetchMe` (via `authFetch` -> `fetch`) has no network-error handling
+      // of its own, so a plain connectivity failure — an offline cold
+      // start is the single most common mobile condition — rejects here.
+      // Left uncaught, `status` would stay `'loading'` forever (an infinite
+      // spinner with no recovery, since the mount effect below awaits this
+      // with no `.catch`). Resolve to a definite, retryable state instead:
+      // `'unauthenticated'` lands the user on the login screen, and
+      // `refetch()`/a fresh login attempt both work once connectivity is
+      // back.
+      applyMe(null);
+    }
   }, [applyMe]);
 
   useEffect(() => {
@@ -116,14 +129,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string, deviceLabel?: string): Promise<LoginResult> => {
       const result = await authLogin(email, password, deviceLabel);
       if (result.status === 'ok') {
-        // `authLogin` already persisted the token pair; re-fetch `/api/auth/me`
-        // for the authoritative full profile rather than trusting the
-        // login endpoint's own (identical, but separately-typed) `user`.
-        await refetch();
+        // `authLogin` already persisted the token pair AND already returned
+        // the full `SerializedUser` (same shape `fetchMe()` would resolve).
+        // Apply it directly instead of an extra `fetchMe()` round-trip: a
+        // post-login network blip on that follow-up call would otherwise
+        // (pre-Fix-1, an unhandled rejection; even with Fix-1's try/catch,
+        // a false "logged out") strand or misreport a login that already
+        // succeeded and already persisted tokens.
+        applyMe(result.user);
       }
       return result;
     },
-    [refetch],
+    [applyMe],
   );
 
   const logout = useCallback(async () => {
