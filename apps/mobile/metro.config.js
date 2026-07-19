@@ -1,6 +1,7 @@
 // Learn more https://docs.expo.dev/guides/monorepos/
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
+const { createRouteTestPattern } = require('./metro-route-blocklist');
 
 const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, '../..');
@@ -17,5 +18,14 @@ config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ];
+
+// Expo Router's route context accepts every .ts/.tsx file below app/, including
+// co-located Jest tests. Exclude those files from Metro's production file map
+// so test-only Node modules can never be pulled into an Android bundle.
+const routeTestPattern = createRouteTestPattern(projectRoot);
+const defaultBlockList = Array.isArray(config.resolver.blockList)
+  ? config.resolver.blockList
+  : [config.resolver.blockList].filter(Boolean);
+config.resolver.blockList = [...defaultBlockList, routeTestPattern];
 
 module.exports = config;

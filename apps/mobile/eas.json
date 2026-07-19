@@ -31,6 +31,18 @@
         "buildType": "apk"
       }
     },
+    "direct": {
+      "distribution": "internal",
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://docjob.kz"
+      },
+      "android": {
+        "resourceClass": "medium",
+        "buildType": "apk"
+      },
+      "autoIncrement": true
+    },
     "production": {
       "channel": "production",
       "env": {

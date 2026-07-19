@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
+  Download,
   ExternalLink,
   Mail,
   Rocket,
@@ -19,7 +20,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { DocJobLogo } from '@/components/icons';
 import { LanguageSwitcher } from '@/components/language-switcher';
-import { getMobileAppLinks } from '@/lib/mobile-app-links';
+import { getMobileAppLinks, type AndroidAppRelease } from '@/lib/mobile-app-links';
 import { SITE_EMAIL, SITE_NAME, SITE_URL } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
@@ -56,25 +57,27 @@ type Platform = {
   description: string;
   action: string;
   unavailable: string;
+  release?: AndroidAppRelease;
 };
 
 export default async function DownloadPage() {
-  const t = await getTranslations('download');
+  const [t, locale] = await Promise.all([getTranslations('download'), getLocale()]);
   const links = getMobileAppLinks();
   const platforms: Platform[] = [
     {
       key: 'android',
       icon: Smartphone,
-      href: links.android,
+      href: links.android?.url ?? null,
       title: t('platforms.android.title'),
       description: t('platforms.android.description'),
       action: t('platforms.android.action'),
       unavailable: t('platforms.android.unavailable'),
+      release: links.android ?? undefined,
     },
     {
       key: 'ios',
       icon: TabletSmartphone,
-      href: links.ios,
+      href: null,
       title: t('platforms.ios.title'),
       description: t('platforms.ios.description'),
       action: t('platforms.ios.action'),
@@ -123,7 +126,7 @@ export default async function DownloadPage() {
               {t('hero.title')}
             </h1>
             <p className="max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-              {t('hero.description')}
+              {t(links.android ? 'hero.descriptionAvailable' : 'hero.descriptionPreparing')}
             </p>
           </div>
         </section>
@@ -143,6 +146,12 @@ export default async function DownloadPage() {
               {platforms.map((platform) => {
                 const Icon = platform.icon;
                 const available = platform.href !== null;
+                const sizeMegabytes = platform.release
+                  ? new Intl.NumberFormat(locale, {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    }).format(platform.release.sizeBytes / 1024 / 1024)
+                  : null;
 
                 return (
                   <Card
@@ -175,8 +184,64 @@ export default async function DownloadPage() {
                       {platform.description}
                     </p>
 
+                    {platform.release && sizeMegabytes ? (
+                      <div className="mt-5 rounded-xl border border-border/60 bg-background/40 p-4">
+                        <h4 className="text-sm font-semibold">
+                          {t('platforms.android.release.title')}
+                        </h4>
+                        <dl className="mt-3 grid gap-2 text-xs sm:text-sm">
+                          <div className="flex items-baseline justify-between gap-4">
+                            <dt className="text-muted-foreground">
+                              {t('platforms.android.release.version')}
+                            </dt>
+                            <dd className="text-right font-medium">
+                              {platform.release.version}{' '}
+                              <span className="text-muted-foreground">
+                                {t('platforms.android.release.build', {
+                                  code: platform.release.versionCode,
+                                })}
+                              </span>
+                            </dd>
+                          </div>
+                          <div className="flex items-baseline justify-between gap-4">
+                            <dt className="text-muted-foreground">
+                              {t('platforms.android.release.size')}
+                            </dt>
+                            <dd className="font-medium">
+                              {t('platforms.android.release.sizeValue', {
+                                size: sizeMegabytes,
+                              })}
+                            </dd>
+                          </div>
+                          <div className="grid gap-1">
+                            <dt className="text-muted-foreground">
+                              {t('platforms.android.release.checksum')}
+                            </dt>
+                            <dd>
+                              <code className="block break-all rounded-md bg-muted/60 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-foreground">
+                                {platform.release.sha256}
+                              </code>
+                            </dd>
+                          </div>
+                        </dl>
+                        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                          {t('platforms.android.release.installHint')}
+                        </p>
+                      </div>
+                    ) : null}
+
                     <div className="mt-6">
-                      {platform.href ? (
+                      {platform.href && platform.release ? (
+                        <Button asChild size="lg" className="w-full">
+                          <a
+                            href={platform.href}
+                            download={`DocJob-${platform.release.version}.apk`}
+                          >
+                            {platform.action}
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      ) : platform.href ? (
                         <Button asChild size="lg" className="w-full">
                           <a href={platform.href} target="_blank" rel="noopener noreferrer">
                             {platform.action}

@@ -28,7 +28,7 @@ EXPO_PUBLIC_API_URL=http://<your-lan-ip-or-host>:3000 pnpm dev
 - **Expo Go** — scan the QR code with the Expo Go app (iOS/Android). Fastest
   loop for UI iteration, but Expo Go can't load native modules that aren't
   part of the Expo Go binary itself; everything this app currently uses
-  (`expo-secure-store`, `expo-localization`, `react-native-webview`,
+  (`expo-secure-store`, `expo-localization`, `expo-system-ui`, `react-native-webview`,
   `@react-native-async-storage/async-storage`) ships inside Expo Go's SDK, so
   this should work end-to-end today. If a future task adds a config plugin or
   a native module outside Expo Go's bundled set, switch to a dev build below.
@@ -39,19 +39,31 @@ EXPO_PUBLIC_API_URL=http://<your-lan-ip-or-host>:3000 pnpm dev
 
 ## EAS builds
 
-`eas.json` defines three build profiles:
+`eas.json` defines four build profiles:
 
 - `development` — a dev-client build (`developmentClient: true`,
   `distribution: internal`), points `EXPO_PUBLIC_API_URL` at
   `http://localhost:3000`.
 - `preview` — internal distribution (ad-hoc/TestFlight-internal on iOS, a
-  direct-install APK on Android), points at a staging API URL — **update
-  `eas.json`'s `preview.env.EXPO_PUBLIC_API_URL` to your actual staging host
-  before using this profile.**
+  direct-install APK on Android) against the production API at
+  `https://docjob.kz`.
+- `direct` — production API, internal distribution and a directly installable
+  Android APK. This is the profile for the website download release.
 - `production` — store-ready builds (an app bundle on Android, auto-increments
-  the build number), points at the production API URL — **update
-  `eas.json`'s `production.env.EXPO_PUBLIC_API_URL` to your actual production
-  host before using this profile.**
+  the build number) and points at `https://docjob.kz`.
+
+The first public direct APK is `1.0.0 (versionCode 1)`. Every Android update
+must increment `versionCode` and must be signed by the same release key. The
+key is intentionally stored outside this repository and must never be copied
+to the VPS. Before switching the `direct` profile to EAS cloud builds, upload
+that existing key through `eas credentials`; allowing EAS to create a new key
+would make the new APK impossible to install over the website build.
+
+The monorepo currently pins TypeScript `~5.9.3`, while Expo SDK 57 recommends
+`~6.0.3`; therefore `expo install --check` reports that single compatibility
+warning. This release keeps the shared pin because lint, TypeScript, all Jest
+tests and the signed native build pass. Upgrade the monorepo to TypeScript 6
+as a separate compatibility change instead of changing only the mobile app.
 
 ```bash
 # from apps/mobile
@@ -113,6 +125,11 @@ npx eas-cli submit --platform android --profile production
   predicate is correct).
 - `pnpm --filter mobile lint` — ESLint incl. the `no-restricted-imports`
   boundary rule.
+- A local Android release APK was assembled with JDK 17 / SDK 36, the
+  production API URL, and the long-lived release key. `apksigner` verified its
+  v2 signature, `zipalign` passed, and `apkanalyzer` reported
+  `com.docjob.app`, version `1.0.0 (1)`, min SDK 24 and target SDK 36. The
+  artifact is kept outside Git.
 - Root `pnpm typecheck && pnpm test && pnpm build` — confirms `apps/mobile`
   didn't break the rest of the monorepo (other packages still typecheck/
   test/build; `apps/mobile` itself has no `build` script — Expo apps ship via
@@ -145,9 +162,9 @@ npx eas-cli submit --platform android --profile production
 - **Universal/deep-link resolution** (`scheme: "docjob"`, added for an
   eventual password-reset deep link) — no link-handling route exists yet in
   this app; the scheme is registered but unexercised.
-- **EAS build/submit itself** — no build has actually been run; the
-  `eas.json` profiles above are configuration only, unverified against a
-  real EAS build.
+- **EAS cloud build/submit itself** — the signed APK was built locally with
+  Gradle; the `eas.json` profiles have not yet been exercised against an EAS
+  project or store account.
 - **Push notifications, biometric auth, or any other native capability** not
   currently wired into this app.
 

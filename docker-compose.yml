@@ -33,9 +33,9 @@ services:
         # (`docker compose up -d --build web`), a restart alone won't pick
         # it up.
         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://docjob.kz}
-        # Official Google Play / App Store / TestFlight links. Empty values
-        # keep the corresponding /download button disabled with a "soon"
-        # status; changing either value requires rebuilding the web image.
+        # Public download/store URLs are inlined by Next.js. Empty or invalid
+        # release metadata keeps the corresponding /download button disabled.
+        # Changing either URL requires rebuilding the web image.
         NEXT_PUBLIC_ANDROID_APP_URL: ${NEXT_PUBLIC_ANDROID_APP_URL:-}
         NEXT_PUBLIC_IOS_APP_URL: ${NEXT_PUBLIC_IOS_APP_URL:-}
     restart: unless-stopped
@@ -59,6 +59,12 @@ services:
       # /download is server-rendered and reads these at runtime. They are
       # also passed as build args above for any client-rendered CTA copies.
       NEXT_PUBLIC_ANDROID_APP_URL: ${NEXT_PUBLIC_ANDROID_APP_URL:-}
+      # Direct APK verification metadata. The server-rendered /download page
+      # fails closed unless every value is present and valid.
+      ANDROID_APP_VERSION: ${ANDROID_APP_VERSION:-}
+      ANDROID_APP_VERSION_CODE: ${ANDROID_APP_VERSION_CODE:-}
+      ANDROID_APP_SHA256: ${ANDROID_APP_SHA256:-}
+      ANDROID_APP_SIZE_BYTES: ${ANDROID_APP_SIZE_BYTES:-}
       NEXT_PUBLIC_IOS_APP_URL: ${NEXT_PUBLIC_IOS_APP_URL:-}
       # SEO: canonical links / sitemap.xml / Open Graph + search-engine
       # ownership verification, read at runtime in metadata (server-side

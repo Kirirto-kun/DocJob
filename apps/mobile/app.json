@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.docjob.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#050a18",
         "foregroundImage": "./assets/android-icon-foreground.png",
