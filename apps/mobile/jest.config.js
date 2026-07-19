@@ -2,6 +2,12 @@
 module.exports = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['<rootDir>/jest-setup.ts'],
+  // GitHub Actions runs every workspace test task concurrently through
+  // Turbo. Keep mobile on one Jest worker there so React Native renders do
+  // not lose their entire 5s default timeout to CPU contention. Local runs
+  // can still use half of the available cores.
+  maxWorkers: process.env.CI ? 1 : '50%',
+  testTimeout: 15_000,
   transformIgnorePatterns: [
     // `standard-navigation` added on top of jest-expo's default list: it's a
     // transitive dependency `expo-router` itself needs once code actually
