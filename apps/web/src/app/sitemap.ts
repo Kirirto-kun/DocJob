@@ -2,6 +2,10 @@ import type { MetadataRoute } from 'next';
 import { SITE_URL } from '@/lib/site';
 import { getPublicNewsItems } from '@/lib/news';
 
+// The production database is available only when the container is running,
+// not while the Docker image is being built.
+export const dynamic = 'force-dynamic';
+
 /**
  * Serves /sitemap.xml. Lists only public, indexable URLs. Auth-gated routes and
  * individual cases are deliberately excluded. /news carries the date of the most
