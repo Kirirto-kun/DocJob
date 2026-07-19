@@ -1,5 +1,22 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "AUTH_SECRET",
+    "AUTH_SECRET_PREVIOUS",
+    "AUTH_URL",
+    "PASSWORD_RESET_URL_BASE",
+    "OPENAI_API_KEY",
+    "OPENAI_MODEL",
+    "REDIS_URL",
+    "RESEND_API_KEY",
+    "EMAIL_FROM",
+    "NEXT_PUBLIC_SITE_URL",
+    "NEXT_PUBLIC_ANDROID_APP_URL",
+    "NEXT_PUBLIC_IOS_APP_URL",
+    "GOOGLE_SITE_VERIFICATION",
+    "YANDEX_VERIFICATION"
+  ],
   "tasks": {
     "db:generate": { "cache": false },
     "build": {
