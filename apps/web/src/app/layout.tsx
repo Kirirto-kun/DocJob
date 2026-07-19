@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import './globals.css';
+import NextTopLoader from 'nextjs-toploader';
 import { Toaster } from '@/components/ui/toaster';
 import { AppProviders } from '@/components/app-providers';
 import { NoCopyRoot } from '@/components/no-copy-root';
@@ -67,6 +68,16 @@ export default async function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
+        {/* Global navigation progress bar — immediate "page is opening" feedback
+            on every route change (Link AND router.push, which the sidebar uses),
+            app-wide, in dev and prod. Cyan matches the theme's --primary. */}
+        <NextTopLoader
+          color="#22d3ee"
+          height={3}
+          shadow="0 0 10px #22d3ee, 0 0 5px #22d3ee"
+          showSpinner={true}
+          zIndex={2000}
+        />
         <NoCopyRoot>
           <NextIntlClientProvider locale={locale} messages={messages}>
             <AppProviders>

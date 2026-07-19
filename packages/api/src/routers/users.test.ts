@@ -95,6 +95,39 @@ describe('users router (integration, real Postgres)', () => {
     expect(row?.approvedAt).toBeNull();
   });
 
+  it.each(['DOCTOR', 'REVIEWER'] as const)(
+    'register (public caller) permits role=%s and keeps the account unapproved',
+    async (role) => {
+      const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
+      const result = await caller.users.register({
+        email: uniqueEmail(`register-${role.toLowerCase()}`),
+        password: 'password123',
+        name: `New ${role}`,
+        role,
+      });
+      createdUserIds.push(result.id);
+
+      const row = await prisma.user.findUnique({ where: { id: result.id } });
+      expect(row?.role).toBe(role);
+      expect(row?.approvedAt).toBeNull();
+    },
+  );
+
+  it('register rejects role=ADMIN through the public tRPC procedure and creates no user', async () => {
+    const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
+    const email = uniqueEmail('register-admin');
+    const maliciousInput = {
+      email,
+      password: 'password123',
+      name: 'Self-proclaimed Admin',
+      role: 'ADMIN',
+    } as unknown as Parameters<typeof caller.users.register>[0];
+
+    const err = await captureTRPCError(() => caller.users.register(maliciousInput));
+    expect(err.code).toBe('BAD_REQUEST');
+    expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
+  });
+
   it('register rejects a malformed payload with TRPCError BAD_REQUEST (core ValidationError)', async () => {
     const caller = createCaller({ email: noopEmailSender, passwordResetBase: testPasswordResetBase, contactInboxEmail: testContactInboxEmail, actor: null });
     const err = await captureTRPCError(() =>

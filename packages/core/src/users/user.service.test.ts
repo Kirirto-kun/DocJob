@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { verifyPassword } from '@docjob/auth';
 import { prisma } from '@docjob/db';
-import { ForbiddenError, UnauthorizedError } from '../shared/errors';
+import { ForbiddenError, UnauthorizedError, ValidationError } from '../shared/errors';
 import type { Actor } from '../shared/actor';
 import * as userService from './user.service';
 
@@ -61,6 +61,37 @@ describe('user.service (integration, real Postgres)', () => {
     expect(row!.passwordHash).not.toBe('secret123');
     expect(row!.passwordHash.startsWith('$argon2id$')).toBe(true);
     expect(await verifyPassword(row!.passwordHash, 'secret123')).toBe(true);
+  });
+
+  it.each(['DOCTOR', 'REVIEWER'] as const)(
+    'registerUser permits public self-registration with role=%s',
+    async (role) => {
+      const email = `core-register-${role.toLowerCase()}-${Date.now()}@test.local`;
+      const { id } = await userService.registerUser({
+        email,
+        password: 'secret123',
+        name: `New ${role}`,
+        role,
+      });
+      createdUserIds.push(id);
+
+      const row = await prisma.user.findUnique({ where: { id } });
+      expect(row?.role).toBe(role);
+      expect(row?.approvedAt).toBeNull();
+    },
+  );
+
+  it('registerUser rejects role=ADMIN and does not create an account', async () => {
+    const email = `core-register-admin-${Date.now()}@test.local`;
+    const maliciousInput = {
+      email,
+      password: 'secret123',
+      name: 'Self-proclaimed Admin',
+      role: 'ADMIN',
+    } as unknown as userService.RegisterUserInput;
+
+    await expect(userService.registerUser(maliciousInput)).rejects.toThrow(ValidationError);
+    expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
   });
 
   it('registerUser rejects a duplicate email (ConflictError → Russian message)', async () => {

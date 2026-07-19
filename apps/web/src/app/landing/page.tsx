@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getLocale, getTranslations } from 'next-intl/server';
 import {
   Activity,
+  ArrowRight,
   Brain,
   CalendarDays,
   Clock,
@@ -13,6 +14,7 @@ import {
   Newspaper,
   Search,
   ShieldAlert,
+  Smartphone,
   Sparkles,
   Stethoscope,
   TrendingUp,
@@ -147,6 +149,9 @@ export default async function LandingPage() {
             <a href="#news" className="transition-colors hover:text-foreground">
               {t('nav.news')}
             </a>
+            <Link href="/download" className="transition-colors hover:text-foreground">
+              {t('nav.download')}
+            </Link>
             <a href="#contacts" className="transition-colors hover:text-foreground">
               {t('nav.contacts')}
             </a>
@@ -273,6 +278,35 @@ export default async function LandingPage() {
 
       <Separator className="opacity-30" />
 
+      <section className="px-6 py-16 md:py-20">
+        <Card className="mx-auto max-w-5xl overflow-hidden border-primary/40 bg-primary/5 p-6 md:p-9">
+          <div className="flex flex-col items-start gap-6 md:flex-row md:items-center">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-primary/30 bg-primary/10">
+              <Smartphone className="h-7 w-7 text-primary" />
+            </div>
+            <div className="flex-1">
+              <Badge variant="outline" className="mb-3 border-primary/40 bg-primary/10 text-primary">
+                {t('downloadCta.badge')}
+              </Badge>
+              <h2 className="font-headline text-2xl font-semibold tracking-tight md:text-3xl">
+                {t('downloadCta.title')}
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                {t('downloadCta.description')}
+              </p>
+            </div>
+            <Button asChild size="lg" className="w-full shrink-0 md:w-auto">
+              <Link href="/download">
+                {t('downloadCta.action')}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </Card>
+      </section>
+
+      <Separator className="opacity-30" />
+
       <section className="px-6 py-20">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
           <h2 className="font-headline text-3xl font-semibold md:text-4xl">{t('cta.title')}</h2>
@@ -353,6 +387,9 @@ export default async function LandingPage() {
             <a href="#news" className="transition-colors hover:text-foreground">
               {t('footer.news')}
             </a>
+            <Link href="/download" className="transition-colors hover:text-foreground">
+              {t('footer.download')}
+            </Link>
             <a href="#contacts" className="transition-colors hover:text-foreground">
               {t('footer.contacts')}
             </a>
@@ -453,12 +490,18 @@ async function HeroSection({ directions }: { directions: Direction[] }) {
           {t('subtitle')}
         </p>
 
-        <div className="flex justify-center">
+        <div className="flex flex-col justify-center gap-3 sm:flex-row">
           <Link href="/register">
             <Button size="lg" className="h-12 px-10 text-base shadow-lg shadow-primary/20">
               {t('ctaPrimary')}
             </Button>
           </Link>
+          <Button asChild size="lg" variant="outline" className="h-12 px-8 text-base">
+            <Link href="/download">
+              <Smartphone className="h-4 w-4" />
+              {t('ctaDownload')}
+            </Link>
+          </Button>
         </div>
 
         <div className="relative mt-6 w-full">

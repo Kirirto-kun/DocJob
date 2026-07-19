@@ -37,7 +37,8 @@ import { getFixedWindowLimiter } from '../rate-limit-redis';
  *   its own inline "admin can't delete themselves" check, left in core).
  * - `register`      = publicProcedure. Core's `registerUser` takes no actor
  *   at all — it's the public self-registration entry point, creating an
- *   unapproved user (`approvedAt: null`) pending admin approval. Login stays
+ *   unapproved DOCTOR or REVIEWER (`approvedAt: null`) pending admin
+ *   approval. Core rejects ADMIN even if an untyped client submits it. Login stays
  *   the dedicated `POST /api/auth/login` cookie-setting route from SP-1c,
  *   not tRPC — this router deliberately has no login/refresh/logout
  *   procedure, and `checkLoginIssue` (folded into `@docjob/auth`'s `login()`

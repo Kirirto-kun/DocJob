@@ -51,12 +51,15 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 COPY . .
 RUN pnpm --filter @docjob/db db:generate
 
-# NEXT_PUBLIC_SITE_URL is inlined into the client bundle by `next build` —
-# Next.js reads NEXT_PUBLIC_* vars at build time only, never at runtime. It
-# must therefore be a build ARG (passed via docker-compose's `build.args`),
-# NOT a runtime `environment:` var — see docker-compose.yml's `web` service.
+# NEXT_PUBLIC_* values used by client bundles are inlined by `next build`, so
+# they are build ARGs here. Server-rendered routes may also read them at
+# runtime; docker-compose provides the mobile download URLs in both places.
 ARG NEXT_PUBLIC_SITE_URL=https://docjob.kz
+ARG NEXT_PUBLIC_ANDROID_APP_URL=
+ARG NEXT_PUBLIC_IOS_APP_URL=
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_ANDROID_APP_URL=$NEXT_PUBLIC_ANDROID_APP_URL
+ENV NEXT_PUBLIC_IOS_APP_URL=$NEXT_PUBLIC_IOS_APP_URL
 RUN pnpm --filter web build
 
 # ---------------------------------------------------------------------------

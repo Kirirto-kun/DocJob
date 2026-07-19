@@ -15,7 +15,6 @@ This is a **pnpm + Turborepo workspace** (`pnpm-workspace.yaml`: `apps/*`, `pack
 - `pnpm typecheck` — `turbo typecheck` (`tsc --noEmit` per package). **Run this explicitly.** `apps/web/next.config.ts` sets `typescript.ignoreBuildErrors: true` and `eslint.ignoreDuringBuilds: true`, so `pnpm build` will not surface type or lint errors on its own.
 - `pnpm test` — `turbo test` → runs the `apps/web` vitest suite (plus each package's own `test` script, e.g. `@docjob/auth`/`@docjob/core`'s boundary tests)
 - `pnpm docker:up` / `pnpm docker:down` — thin aliases for `docker compose up -d` / `docker compose down` (root `package.json` scripts).
-- Genkit dev UI against `src/ai/dev.ts` (**legacy** — only the old Gemini flows live there; the current AI-search and markdown-import logic runs on OpenAI through `@docjob/core` and has no Genkit UI). **Note:** the `genkit:dev`/`genkit:watch` npm-script aliases from the pre-monorepo root `package.json` were not carried over to `apps/web/package.json` in SP-0; the `genkit`/`genkit-cli`/`@genkit-ai/*` deps are still present, so run it directly if needed: `pnpm --filter web exec -- genkit start -- tsx src/ai/dev.ts`.
 - `pnpm db:generate` — `turbo db:generate` → `prisma generate` inside `@docjob/db`
 - `pnpm --filter @docjob/db db:migrate` (or `pnpm --filter web db:migrate`, a thin passthrough) — `prisma migrate dev` (wrapped in `dotenv-cli` so it reads `../../.env.local` then `../../.env` relative to `packages/db`)
 - `pnpm --filter @docjob/db db:deploy` — `prisma migrate deploy` for prod. The Docker entrypoint runs this on container start.
@@ -28,7 +27,6 @@ This is a **pnpm + Turborepo workspace** (`pnpm-workspace.yaml`: `apps/*`, `pack
 Required env vars in `.env` / `.env.local` **at the repo root** (see `.env.example`):
 - `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL` (custom JWT auth, `@docjob/auth` — see Architecture below). Optional `AUTH_SECRET_PREVIOUS` enables zero-downtime `AUTH_SECRET` rotation: access tokens signed with the old secret keep verifying (`kid: 'previous'`) until they expire (~15m) instead of instantly logging everyone out.
 - `OPENAI_API_KEY` (**primary** — used by `@docjob/core`'s hybrid case search (`core.search.searchCases`, embeddings) and its markdown-import flow (`core.cases.structureCaseFromMarkdown`)), `OPENAI_MODEL` (defaults to `gpt-4.1`)
-- `GOOGLE_API_KEY` (legacy, only if you still call the old Genkit flows)
 - `UPLOAD_DIR` (filesystem path for images + attachments; defaults to `./storage/uploads`)
 
 **Local-dev env-loading caveat (post-monorepo-move):** `packages/db`'s `db:*` scripts and `apps/web`'s `import:cases`/`embed:cases` explicitly load env vars via `dotenv-cli -e ../../.env.local -e ../../.env` (relative to their own package). Next.js itself (`next dev` / `next build` / `next start`, run from `apps/web`) only auto-loads `.env*` files relative to its **own** project root and does **not** pick up the repo-root `.env.local`/`.env` on its own. Running `pnpm --filter web dev` (or `pnpm dev`) directly from a shell that hasn't otherwise exported these vars will boot and compile fine but 500 on env-dependent routes (missing `AUTH_SECRET`, missing `OPENAI_API_KEY`, etc.). Work around it locally with `pnpm --filter web exec -- dotenv -e ../../.env.local -e ../../.env -- next dev --turbopack`, or export the vars into your shell before running `pnpm dev`. Production (Docker) is unaffected — `docker-compose.yml` injects env vars directly, not via dotenv autoloading.
@@ -97,7 +95,7 @@ There is no solution/answer-key schema and no chat/evaluation schema — those e
 - **Embeddings**: `packages/core/src/search/embeddings.ts` — `EMBEDDING_MODEL = 'text-embedding-3-small'`, `EMBEDDING_DIMS = 1536`. `embedText(text)` calls the OpenAI embeddings API; `buildCaseEmbeddingText(case)` flattens a case's searchable fields (name, teaser, primaryCondition, specialty, subgroup, tags, BlockNote body) into one string; `upsertCaseEmbedding(caseId)` builds + embeds + persists a case's `embedding` column (fully guarded — a missing key or any error is logged and swallowed so `createCase`/`updateCase` are never broken by it).
 - **Hybrid search**: `packages/core/src/search/search.service.ts` exports `searchCases(actor, query)` — the AI-search hero feature. Requires an approved actor (any logged-in, approved user, not admin-only). Pipeline: (1) an LLM call extracts structured intent (refined query, tags, specialty, subgroup) from the natural-language query; (2) the refined query is embedded and run as a pgvector cosine-distance KNN over `Case.embedding` (raw SQL via `prisma.$queryRaw`); (3) results are re-ranked by combining similarity with tag/specialty/subgroup overlap boosts. Falls back to a plain substring search (`fallbackSearchCases`) whenever `OPENAI_API_KEY` is unset, no cases are embedded yet, or any step throws.
 - **Markdown import**: `packages/core/src/cases/case-import.service.ts` — `structureCaseFromMarkdown(actor, input)`. Admin-only (`assertAdmin`). Takes raw markdown (a reference case file), the target `mode`, and optional subgroup/specialty hints; returns a `structuredCaseDraftSchema` draft (no solution/task-question fields — those were dropped from the schema entirely). Re-exported through `core.cases.structureCaseFromMarkdown` (same barrel as the rest of the cases domain). Note: the old web-layer `src/ai/runChat.ts` generic structured-output helper was deleted once this flow moved into core (it had exactly one caller).
-- **Legacy Genkit flows** in `src/ai/flows/analyze-student-question.ts`, `generate-personalized-scenario.ts`, `simulate-comorbidities.ts`, `patient-diagnosis-flow.ts` and `src/ai/genkit.ts` (`googleai/gemini-2.5-flash`) still compile and are wired up via `src/ai/dev.ts`, but are **not** used by the current UI/actions beyond a few legacy wrapper actions kept for backward compat. Don't extend them.
+- The retired Genkit/Gemini prototype and its unused Server Action wrappers were removed; production AI features use OpenAI through `@docjob/core`.
 
 ### Server Actions (`src/app/actions.ts`)
 
@@ -112,7 +110,6 @@ Representative actions by domain:
 - **Case submissions**: `createCaseSubmission`, `sendCaseSubmissionMessage`, `getMyCaseSubmissions`, `getAllCaseSubmissions` (admin), `getCaseSubmissionById`, `updateCaseSubmissionStatus` (admin).
 - **Tags / news / announcements**: `getTags`, `addTag`; `getNews`, `getNewsItem`, `createNews`, `updateNews`, `deleteNews` (admin); `getActiveAnnouncements`, `dismissAnnouncement`, `getAnnouncements`, `getAnnouncement`, `createAnnouncement`, `updateAnnouncement`, `deleteAnnouncement` (admin).
 - **Contact**: `sendContactMessage`.
-- **Legacy Genkit wrappers** (kept for the old UI, unrelated to the current product): `handleAnalyzeQuestion`, `handleGenerateScenario`, `handleSimulateComorbidities`, `handleFileUpload`.
 
 Serialisation types/functions (`SerializedUser`, `SerializedCase`, `SerializedCaseAttachment`, `SerializedReview`, `SerializedSubmission`, `SerializedNewsItem`, `SerializedAnnouncement`, ...) live in `@docjob/core`'s per-domain `*.mapper.ts` files, re-exported flat from the `@docjob/core` barrel and used directly by `actions.ts`.
 
@@ -175,7 +172,3 @@ API routes:
 ### Deployment
 
 `docker-compose.yml` has `postgres` (with `postgres_data` volume) and `web` (built from `Dockerfile` multi-stage; runs `prisma migrate deploy && npm run start` on boot; `uploads` volume mounted). Set `POSTGRES_PASSWORD` / `AUTH_SECRET` / `AUTH_URL` / `OPENAI_API_KEY` via `.env` before `docker compose up -d` (optional `AUTH_SECRET_PREVIOUS` for zero-downtime secret rotation — see Commands above).
-
-### Server-side file handling (legacy)
-
-`src/services/patient-record.ts` receives uploaded `File` objects from the legacy `handleFileUpload` Server Action and just reads `.text()` — there's no persistent store. New attachment work should go through `saveAttachment` + `CaseAttachment`, not this path.

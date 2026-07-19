@@ -54,7 +54,7 @@ type UserStore = {
   login: (email: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
   allUsers: User[];
-  addUser: (user: User & { password?: string }) => Promise<void>;
+  addUser: (user: Omit<User, 'role'> & { role: Exclude<UserRole, 'admin'>; password?: string }) => Promise<void>;
   refreshUsers: () => Promise<void>;
   isInitialized: boolean;
 };
@@ -125,7 +125,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const registerMutation = trpc.users.register.useMutation();
   const addUser = useCallback(
-    async (user: User & { password?: string }) => {
+    async (user: Omit<User, 'role'> & { role: Exclude<UserRole, 'admin'>; password?: string }) => {
       await registerMutation.mutateAsync({
         email: user.email,
         password: user.password ?? 'changeme123',
@@ -135,7 +135,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         age: user.age ?? undefined,
         specialty: user.specialty || undefined,
         phoneNumber: user.phoneNumber ?? undefined,
-        role: user.role.toUpperCase() as 'ADMIN' | 'DOCTOR' | 'REVIEWER',
+        role: user.role === 'reviewer' ? 'REVIEWER' : 'DOCTOR',
       });
       await utils.users.list.invalidate();
     },

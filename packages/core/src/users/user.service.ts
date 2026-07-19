@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { hashPassword } from '@docjob/auth';
-import { prisma, Prisma, Role } from '@docjob/db';
+import { prisma, Prisma } from '@docjob/db';
 import { assertAdmin, assertApproved, type Actor } from '../shared/actor';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../shared/errors';
 import { serializeUser, type SerializedUser } from './user.mapper';
@@ -26,7 +26,11 @@ const registerSchema = z.object({
   workplace: z.string().optional(),
   academicDegree: z.string().optional(),
   consentAccepted: z.boolean().optional(),
-  role: z.enum(['ADMIN', 'DOCTOR', 'REVIEWER']).optional(),
+  // This schema is the security boundary for public self-registration.
+  // ADMIN accounts must be provisioned out-of-band, never selected by an
+  // anonymous caller. Doctors and reviewers are both intentional public
+  // registration paths and remain available here.
+  role: z.enum(['DOCTOR', 'REVIEWER']).optional(),
 });
 export type RegisterUserInput = z.infer<typeof registerSchema>;
 
@@ -52,14 +56,10 @@ const resetPasswordSchema = z.object({
 // ───────────────────────── Registration / profile
 
 /**
- * Public self-registration. NOTE: preserves a pre-existing quirk carried
- * over verbatim from the original `registerUser` server action — there is
- * no server-side check that the caller is an admin before honoring an
- * explicit `role: 'ADMIN' | 'REVIEWER'` in the input. In practice only the
- * admin-only `add-doctor` UI ever sends a non-default role, but nothing
- * *here* enforces that; a caller of this action could self-register as
- * ADMIN. Not fixed in this behavior-preserving refactor — flagged in the
- * task report, same spirit as Task 2's `updateCase` auth-gap note.
+ * Public self-registration. Accounts are always unapproved and may only be
+ * created as DOCTOR (the default) or REVIEWER. ADMIN is deliberately absent
+ * from the input schema so every caller of this core function, including the
+ * public tRPC procedure, shares the same privilege-escalation guard.
  */
 export async function registerUser(input: RegisterUserInput): Promise<{ id: string }> {
   const parsed = registerSchema.safeParse(input);
@@ -83,7 +83,7 @@ export async function registerUser(input: RegisterUserInput): Promise<{ id: stri
       phoneNumber: data.phoneNumber,
       workplace: data.workplace,
       academicDegree: data.academicDegree,
-      role: (data.role as Role) ?? 'DOCTOR',
+      role: data.role ?? 'DOCTOR',
       consentAcceptedAt: data.consentAccepted ? new Date() : null,
     },
     select: { id: true },

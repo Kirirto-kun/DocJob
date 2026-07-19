@@ -1,10 +1,6 @@
 'use server';
 
 import { z } from 'zod';
-import { analyzeStudentQuestion, AnalyzeStudentQuestionInput } from '@/ai/flows/analyze-student-question';
-import { generatePersonalizedScenario, GeneratePersonalizedScenarioInput } from '@/ai/flows/generate-personalized-scenario';
-import { simulateComorbidities, SimulateComorbiditiesInput } from '@/ai/flows/simulate-comorbidities';
-import { savePatientRecord } from '@/services/patient-record';
 import { deleteAttachmentFile } from '@/lib/storage';
 import { sendEmail, buildPasswordResetEmail, buildContactEmail } from '@/lib/email';
 import { SITE_EMAIL } from '@/lib/site';
@@ -19,50 +15,6 @@ function fail(error: string): { success: false; error: string } {
 
 function ok<T>(data: T): { success: true; data: T } {
   return { success: true, data };
-}
-
-// ───────────────────────── Genkit flow wrappers (existing)
-
-export async function handleAnalyzeQuestion(input: AnalyzeStudentQuestionInput) {
-  try {
-    const result = await analyzeStudentQuestion(input);
-    return ok(result);
-  } catch (error) {
-    console.error('Error analyzing question:', error);
-    return fail('Не удалось получить ответ от ИИ. Попробуйте ещё раз.');
-  }
-}
-
-export async function handleGenerateScenario(input: GeneratePersonalizedScenarioInput) {
-  try {
-    const result = await generatePersonalizedScenario(input);
-    return ok(result);
-  } catch (error) {
-    console.error('Error generating scenario:', error);
-    return fail('Не удалось сгенерировать сценарий.');
-  }
-}
-
-export async function handleSimulateComorbidities(input: SimulateComorbiditiesInput) {
-  try {
-    const result = await simulateComorbidities(input);
-    return ok(result);
-  } catch (error) {
-    console.error('Error simulating comorbidities:', error);
-    return fail('Не удалось смоделировать сопутствующие состояния.');
-  }
-}
-
-export async function handleFileUpload(formData: FormData) {
-  try {
-    const file = formData.get('file') as File;
-    if (!file) return fail('Файл не выбран.');
-    const content = await savePatientRecord(file);
-    return ok({ recordContent: content });
-  } catch (error) {
-    console.error('Error handling file upload:', error);
-    return fail('Не удалось обработать файл.');
-  }
 }
 
 // ───────────────────────── Auth / users

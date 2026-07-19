@@ -21,7 +21,7 @@
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.docjob.example"
+        "EXPO_PUBLIC_API_URL": "https://docjob.kz"
       },
       "ios": {
         "resourceClass": "m-medium"
@@ -34,7 +34,7 @@
     "production": {
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://docjob.example"
+        "EXPO_PUBLIC_API_URL": "https://docjob.kz"
       },
       "ios": {
         "resourceClass": "m-medium"

@@ -7,7 +7,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docjob_dev}
       POSTGRES_DB: docjob
     ports:
-      - "${POSTGRES_HOST_PORT:-5433}:5432"
+      # Loopback-only so local tools can connect without exposing Postgres on
+      # a public interface. A production override may remove this mapping.
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -31,6 +33,11 @@ services:
         # (`docker compose up -d --build web`), a restart alone won't pick
         # it up.
         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://docjob.kz}
+        # Official Google Play / App Store / TestFlight links. Empty values
+        # keep the corresponding /download button disabled with a "soon"
+        # status; changing either value requires rebuilding the web image.
+        NEXT_PUBLIC_ANDROID_APP_URL: ${NEXT_PUBLIC_ANDROID_APP_URL:-}
+        NEXT_PUBLIC_IOS_APP_URL: ${NEXT_PUBLIC_IOS_APP_URL:-}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -49,9 +56,10 @@ services:
       UPLOAD_DIR: /app/storage/uploads
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1}
-      # Legacy Genkit flows (src/ai/flows/*, not used by the current UI/actions
-      # beyond a few back-compat wrappers). Optional.
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      # /download is server-rendered and reads these at runtime. They are
+      # also passed as build args above for any client-rendered CTA copies.
+      NEXT_PUBLIC_ANDROID_APP_URL: ${NEXT_PUBLIC_ANDROID_APP_URL:-}
+      NEXT_PUBLIC_IOS_APP_URL: ${NEXT_PUBLIC_IOS_APP_URL:-}
       # SEO: canonical links / sitemap.xml / Open Graph + search-engine
       # ownership verification, read at runtime in metadata (server-side
       # only). NEXT_PUBLIC_SITE_URL is NOT here — it's a NEXT_PUBLIC_* var,

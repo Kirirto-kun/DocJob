@@ -8,7 +8,6 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 - `npm run build` / `npm run start` — production build (runs `prisma generate` first) and serve
 - `npm run lint` — Next.js ESLint
 - `npm run typecheck` — `tsc --noEmit`. **Run this explicitly.** `next.config.ts` sets `typescript.ignoreBuildErrors: true` and `eslint.ignoreDuringBuilds: true`, so `npm run build` will not surface type or lint errors on its own.
-- `npm run genkit:dev` — starts the Genkit dev UI against `src/ai/dev.ts`. **Legacy** — only the old Gemini flows live there. The new chat/import flows run on OpenAI and have no Genkit UI.
 - `npm run db:migrate` — `prisma migrate dev` (wrapped in `dotenv-cli` so it reads `.env.local` then `.env`)
 - `npm run db:deploy` — `prisma migrate deploy` for prod. The Docker entrypoint runs this on container start.
 - `npm run db:seed` — seeds admin (`admin@docjob.local` / `password123`), demo doctor, 2 cases, tags, news
@@ -17,9 +16,8 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 - `npm run docker:up` / `docker:down` — spin up Postgres + web via docker-compose
 
 Required env vars in `.env` / `.env.local` (see `.env.example`):
-- `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `AUTH_TRUST_HOST`
+- `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`
 - `OPENAI_API_KEY` (**primary** — used by `case-chat-flow` and `structure-case-from-markdown`), `OPENAI_MODEL` (defaults to `gpt-4.1`)
-- `GOOGLE_API_KEY` (legacy, only if you still call old Genkit flows)
 - `UPLOAD_DIR` (filesystem path for images + attachments; defaults to `./storage/uploads`)
 
 **docker-compose tip**: docker-compose only reads `.env` (not `.env.local`) for its own variable substitution. For local dev, either duplicate `.env.local` → `.env`, or pass `--env-file .env.local` explicitly: `docker compose --env-file .env.local up -d postgres`. The `POSTGRES_HOST_PORT` var defaults to `5433` to avoid the common clash with a host-installed Postgres on 5432. If 5433 is also busy (some dev machines in this project have hit that — used `5434`), bump it and update `DATABASE_URL` to match.
@@ -74,7 +72,7 @@ Single source of truth for runtime/IO validation:
 - **Generic structured-output helper**: `src/ai/runChat.ts` — `runChat(schema, messages, options?)` wraps `openai.chat.completions.parse` with `zodResponseFormat(schema, name)` and throws if no `parsed` payload (with refusal text when present). All new flows use this.
 - **`src/ai/flows/case-chat-flow.ts`** — main chat flow. Holds 4 system prompts keyed by `CaseMode` and a single Zod `chatResponseSchema`. Exports `runCaseChat(input)` (regular turn, with optional `submittingFinalAnswer` flag that triggers the evaluation+done branch) and `runIntroMessage(input)` (kicks off a session). Input includes `caseBodyText` (BlockNote → flat markdown via `caseBodyToText` in `actions.ts`), `taskQuestions`, full `solution` (used as hidden ground truth — never echoed verbatim in `discussing` phase).
 - **`src/ai/flows/structure-case-from-markdown.ts`** — admin import flow. Takes raw markdown (a reference case file), the target `mode`, and optional subgroup/specialty hints; returns a `structuredCaseDraftSchema` JSON blob with `bodyMarkdown`, `taskQuestions`, and a `solution` whose `kind` matches `expectedSolutionKind(mode)`.
-- **Legacy Genkit flows** in `src/ai/flows/analyze-student-question.ts`, `generate-personalized-scenario.ts`, `simulate-comorbidities.ts`, `patient-diagnosis-flow.ts` and `src/ai/genkit.ts` (`googleai/gemini-2.5-flash`) still compile and are wired up via `src/ai/dev.ts`, but are **not** used by the redesigned UI/actions. Don't extend them.
+- The retired Genkit/Gemini prototype was removed; production AI features use OpenAI.
 
 ### Server Actions (`src/app/actions.ts`)
 
@@ -93,7 +91,6 @@ Case + chat:
 Other:
 - Auth/users: `registerUser`, `updateUser`, `getUsers`, `updateUserStatistics`, `getSessionUser`.
 - Tags / news: `getTags`, `addTag`, `getNews`.
-- Legacy Genkit wrappers (kept for the old UI): `handleAnalyzeQuestion`, `handleGenerateScenario`, `handleSimulateComorbidities`, `handleFileUpload`.
 
 Serialisation helpers convert Prisma rows → JSON-safe `SerializedUser` / `SerializedCase` / `SerializedCaseImage` / `SerializedCaseAttachment`. `serializeCase` deliberately drops `solution` and exposes `hasSolution`.
 
@@ -156,8 +153,4 @@ Don't add new code paths that leak `solution` to the client.
 
 ### Deployment
 
-`docker-compose.yml` has `postgres` (with `postgres_data` volume) and `web` (built from `Dockerfile` multi-stage; runs `prisma migrate deploy && npm start` on boot; `uploads` volume mounted). Set `POSTGRES_PASSWORD` / `NEXTAUTH_SECRET` / `NEXTAUTH_URL` / `OPENAI_API_KEY` via `.env` before `docker compose up -d`.
-
-### Server-side file handling (legacy)
-
-`src/services/patient-record.ts` receives uploaded `File` objects from the legacy `handleFileUpload` Server Action and just reads `.text()` — there's no persistent store. New attachment work should go through `saveAttachment` + `CaseAttachment`, not this path.
+`docker-compose.yml` has `postgres` (with `postgres_data` volume) and `web` (built from `Dockerfile` multi-stage; runs `prisma migrate deploy && npm start` on boot; `uploads` volume mounted). Set `POSTGRES_PASSWORD` / `AUTH_SECRET` / `AUTH_URL` / `OPENAI_API_KEY` via `.env` before `docker compose up -d`.

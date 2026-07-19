@@ -1,7 +1,8 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { useEffect, useState, useTransition, type ComponentType } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   UserPlus,
@@ -20,6 +21,7 @@ import {
   Inbox,
   Bell,
   Users,
+  Loader2,
 } from 'lucide-react';
 import UserSwitcher from './user-switcher';
 import { useUserStore } from '@/hooks/use-user-store';
@@ -32,6 +34,8 @@ type ScenarioControlsProps = {
   onScenarioGenerated?: (scenario: unknown) => void;
 };
 
+type IconType = ComponentType<{ className?: string }>;
+
 const navButtonClass =
   'w-full justify-start border-primary/40 text-primary/80 hover:bg-primary/10 hover:text-primary';
 const navButtonPrimaryClass =
@@ -42,9 +46,49 @@ const navWrapperClass =
 export default function ScenarioControls(_props: ScenarioControlsProps) {
   const { currentUser } = useUserStore();
   const router = useRouter();
+  const pathname = usePathname();
   const t = useTranslations('nav');
 
+  // Immediate click feedback: `useTransition`'s `isPending` stays true from the
+  // moment a sidebar item is clicked until the destination route actually
+  // commits (App Router navigations are React transitions — this also covers
+  // the dev-only Turbopack "compiling…" wait). We track which href is pending
+  // so the clicked button shows a spinner right where the user is looking, and
+  // disable it so a "did it work?" second click can't fire a duplicate nav.
+  const [isPending, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  // Clear the pending marker once the navigation settles (transition ends).
+  useEffect(() => {
+    if (!isPending) setPendingHref(null);
+  }, [isPending]);
+
   if (!currentUser) return null;
+
+  const navigate = (href: string) => {
+    if (href === pathname) return; // already here — no-op, no spinner
+    setPendingHref(href);
+    startTransition(() => router.push(href));
+  };
+
+  const navItem = (href: string, Icon: IconType, label: string, primary = false) => {
+    const pending = pendingHref === href && isPending;
+    return (
+      <div className={navWrapperClass}>
+        <Button
+          variant="outline"
+          className={cn(primary ? navButtonPrimaryClass : navButtonClass)}
+          onClick={() => navigate(href)}
+          disabled={pending}
+          aria-busy={pending}
+          data-pending={pending || undefined}
+        >
+          {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Icon className="mr-2" />}
+          <span className="group-data-[collapsible=icon]:hidden">{label}</span>
+        </Button>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -55,246 +99,46 @@ export default function ScenarioControls(_props: ScenarioControlsProps) {
 
       {currentUser.role === 'doctor' && (
         <>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={cn(navButtonPrimaryClass)}
-              onClick={() => router.push('/select-subgroup')}
-            >
-              <LayoutGrid className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('subgroupCatalog')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/saved-cases')}
-            >
-              <Star className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('savedCases')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/ai-search')}
-            >
-              <Search className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('aiSearch')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/suggest-case')}
-            >
-              <FilePlus2 className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('suggestCase')}</span>
-            </Button>
-          </div>
+          {navItem('/select-subgroup', LayoutGrid, t('subgroupCatalog'), true)}
+          {navItem('/saved-cases', Star, t('savedCases'))}
+          {navItem('/ai-search', Search, t('aiSearch'))}
+          {navItem('/suggest-case', FilePlus2, t('suggestCase'))}
           <Separator className="my-2 bg-sidebar-border/50" />
         </>
       )}
 
       {currentUser.role === 'reviewer' && (
         <>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={cn(navButtonPrimaryClass)}
-              onClick={() => router.push('/select-subgroup')}
-            >
-              <LayoutGrid className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('subgroupCatalog')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/saved-cases')}
-            >
-              <Star className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('savedCases')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/reviewer/my-reviews')}
-            >
-              <PenSquare className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('myReviews')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/ai-search')}
-            >
-              <Search className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('aiSearch')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/suggest-case')}
-            >
-              <FilePlus2 className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('suggestCase')}</span>
-            </Button>
-          </div>
+          {navItem('/select-subgroup', LayoutGrid, t('subgroupCatalog'), true)}
+          {navItem('/saved-cases', Star, t('savedCases'))}
+          {navItem('/reviewer/my-reviews', PenSquare, t('myReviews'))}
+          {navItem('/ai-search', Search, t('aiSearch'))}
+          {navItem('/suggest-case', FilePlus2, t('suggestCase'))}
           <Separator className="my-2 bg-sidebar-border/50" />
         </>
       )}
 
       {currentUser.role === 'admin' && (
         <>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={cn(navButtonPrimaryClass)}
-              onClick={() => router.push('/new-case')}
-            >
-              <FilePlus2 className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('createCase')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/admin/cases')}
-            >
-              <Files className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('allCases')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/admin/pending')}
-            >
-              <UserCheck className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('pendingApprovals')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/select-subgroup')}
-            >
-              <LayoutGrid className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('subgroupCatalog')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/ai-search')}
-            >
-              <Search className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('aiSearch')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/admin/case-submissions')}
-            >
-              <Inbox className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('caseSubmissions')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/admin/banners')}
-            >
-              <Megaphone className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('bannerAds')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/admin/news')}
-            >
-              <Newspaper className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('manageNews')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/admin/announcements')}
-            >
-              <Bell className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('manageAnnouncements')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/admin/users')}
-            >
-              <Users className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('manageUsers')}</span>
-            </Button>
-          </div>
-          <div className={navWrapperClass}>
-            <Button
-              variant="outline"
-              className={navButtonClass}
-              onClick={() => router.push('/add-doctor')}
-            >
-              <UserPlus className="mr-2" />
-              <span className="group-data-[collapsible=icon]:hidden">{t('addDoctor')}</span>
-            </Button>
-          </div>
+          {navItem('/new-case', FilePlus2, t('createCase'), true)}
+          {navItem('/admin/cases', Files, t('allCases'))}
+          {navItem('/admin/pending', UserCheck, t('pendingApprovals'))}
+          {navItem('/select-subgroup', LayoutGrid, t('subgroupCatalog'))}
+          {navItem('/ai-search', Search, t('aiSearch'))}
+          {navItem('/admin/case-submissions', Inbox, t('caseSubmissions'))}
+          {navItem('/admin/banners', Megaphone, t('bannerAds'))}
+          {navItem('/admin/news', Newspaper, t('manageNews'))}
+          {navItem('/admin/announcements', Bell, t('manageAnnouncements'))}
+          {navItem('/admin/users', Users, t('manageUsers'))}
+          {navItem('/add-doctor', UserPlus, t('addDoctor'))}
           <Separator className="my-2 bg-sidebar-border/50" />
         </>
       )}
 
-      <div className={navWrapperClass}>
-        <Button variant="outline" className={navButtonClass} onClick={() => router.push('/profile')}>
-          <UserRound className="mr-2" />
-          <span className="group-data-[collapsible=icon]:hidden">{t('profile')}</span>
-        </Button>
-      </div>
-      <div className={navWrapperClass}>
-        <Button variant="outline" className={navButtonClass} onClick={() => router.push('/news')}>
-          <Newspaper className="mr-2" />
-          <span className="group-data-[collapsible=icon]:hidden">{t('news')}</span>
-        </Button>
-      </div>
-      <div className={navWrapperClass}>
-        <Button variant="outline" className={navButtonClass} onClick={() => router.push('/contacts')}>
-          <Phone className="mr-2" />
-          <span className="group-data-[collapsible=icon]:hidden">{t('contacts')}</span>
-        </Button>
-      </div>
-      <div className={navWrapperClass}>
-        <Button variant="outline" className={navButtonClass} onClick={() => router.push('/support')}>
-          <LifeBuoy className="mr-2" />
-          <span className="group-data-[collapsible=icon]:hidden">{t('support')}</span>
-        </Button>
-      </div>
+      {navItem('/profile', UserRound, t('profile'))}
+      {navItem('/news', Newspaper, t('news'))}
+      {navItem('/contacts', Phone, t('contacts'))}
+      {navItem('/support', LifeBuoy, t('support'))}
 
       <div className="mt-auto p-3 group-data-[collapsible=icon]:hidden">
         <BannerAd slot={1} />

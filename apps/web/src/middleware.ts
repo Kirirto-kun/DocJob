@@ -11,7 +11,15 @@ import { getAccessToken } from '@/lib/auth-cookies';
 import { verificationKeys } from '@/lib/auth-keys';
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale } from '@/i18n/config';
 
-const PUBLIC_PATHS = ['/login', '/register', '/landing', '/news', '/forgot-password', '/reset-password'];
+const PUBLIC_PATHS = [
+  '/login',
+  '/register',
+  '/landing',
+  '/download',
+  '/news',
+  '/forgot-password',
+  '/reset-password',
+];
 const PUBLIC_ASSET_FILE = /\.(?:avif|gif|jpg|jpeg|png|svg|webp)$/i;
 
 function isPublic(pathname: string): boolean {
