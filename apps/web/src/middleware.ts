@@ -17,6 +17,8 @@ const PUBLIC_PATHS = [
   '/landing',
   '/download',
   '/news',
+  '/robots.txt',
+  '/sitemap.xml',
   '/forgot-password',
   '/reset-password',
 ];

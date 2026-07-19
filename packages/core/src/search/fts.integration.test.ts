@@ -4,14 +4,30 @@
  * Seeds a throwaway case, asserts the generated `searchDoc` populated itself
  * and the GIN/trgm indexes exist and match.
  */
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { prisma } from '@docjob/db';
 
 describe('SP-3 FTS migration (integration, real Postgres)', () => {
   const ids: string[] = [];
+  let authorId = '';
+
+  beforeAll(async () => {
+    const author = await prisma.user.create({
+      data: {
+        email: `core-search-fts-${process.pid}-${Date.now()}@test.local`,
+        passwordHash: 'unused-in-tests',
+        name: 'FTS Integration Test Author',
+        role: 'DOCTOR',
+        approvedAt: new Date(),
+      },
+      select: { id: true },
+    });
+    authorId = author.id;
+  });
 
   afterAll(async () => {
     if (ids.length) await prisma.case.deleteMany({ where: { id: { in: ids } } });
+    if (authorId) await prisma.user.deleteMany({ where: { id: authorId } });
   });
 
   it('created the searchDoc + trigram indexes', async () => {
@@ -25,11 +41,9 @@ describe('SP-3 FTS migration (integration, real Postgres)', () => {
   });
 
   it('auto-populates searchDoc from flat fields + body and matches an FTS query', async () => {
-    // Reuse the seeded admin (dev DB is seeded — `pnpm --filter @docjob/db db:seed`).
-    const author = await prisma.user.findFirstOrThrow({ select: { id: true } });
     const c = await prisma.case.create({
       data: {
-        authorId: author.id,
+        authorId,
         name: 'Пневмония у пожилого пациента',
         teaser: 'Кашель и лихорадка',
         specialty: 'Пульмонология',

@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { reindex } from '@docjob/core';
+import { sleepUnlessAborted } from '../src/lib/reembed-worker-loop';
 
 // Load env like the app (.env.local then .env).
 config({ path: '.env.local' });
@@ -15,10 +16,12 @@ config({ path: '.env' });
 // check between passes and exit after the current sweep finishes, then
 // disconnects Prisma before the process exits.
 let shuttingDown = false;
+const shutdownController = new AbortController();
 
 function requestShutdown(signal: NodeJS.Signals): void {
   if (shuttingDown) return; // repeat signal ignored; Docker will SIGKILL after the grace period
   shuttingDown = true;
+  shutdownController.abort();
   console.log(`[reembed] received ${signal}, finishing current sweep then exiting…`);
 }
 
@@ -30,22 +33,6 @@ async function runOnce(): Promise<void> {
   console.log(
     `[reembed] processed=${res.processed} embedded=${res.embedded} skipped=${res.skipped} failed=${res.failed}`,
   );
-}
-
-/** Sleep that wakes early if a shutdown was requested mid-wait, so SIGTERM during the idle gap doesn't cost up to `intervalMs`. */
-function sleepUnlessShuttingDown(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    const check = setInterval(() => {
-      if (shuttingDown) {
-        clearTimeout(timer);
-        clearInterval(check);
-        resolve();
-      }
-    }, 250);
-    timer.unref?.();
-    check.unref?.();
-  });
 }
 
 async function main(): Promise<void> {
@@ -64,7 +51,7 @@ async function main(): Promise<void> {
   while (!shuttingDown) {
     await runOnce();
     if (shuttingDown) break;
-    await sleepUnlessShuttingDown(intervalMs);
+    await sleepUnlessAborted(intervalMs, shutdownController.signal);
   }
   console.log('[reembed] shut down cleanly.');
 }
